@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: smack-chicken
+    runtime: node
+    repo: https://github.com/LucasGabrielOM/smack-chicken
+    plan: free
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    autoDeployTrigger: commit
