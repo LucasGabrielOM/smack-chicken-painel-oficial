@@ -2,6 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoney } from "../lib/catalog";
+import {
+  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
+import { SiCocacola, SiMonster } from "react-icons/si";
 
 type View = "dashboard" | "pos" | "kitchen" | "orders" | "finance" | "planning";
 type User = { id: string; name: string; email: string; role: string };
@@ -75,7 +80,11 @@ export default function StorePanel() {
       api<{ plans: Plan[] }>("/api/plans"),
       api<DashboardData>("/api/dashboard"),
     ]);
-    setProducts(productData.products);
+    setProducts(productData.products.map((product) => ({
+      ...product,
+      id: Number(product.id),
+      priceCents: Number(product.priceCents),
+    })));
     setOrders(orderData.orders);
     setEntries(financeData.entries);
     setPlans(planData.plans);
@@ -92,7 +101,13 @@ export default function StorePanel() {
   useEffect(() => {
     if (!user) return;
     const timer = window.setInterval(() => {
-      api<{ orders: Order[] }>("/api/orders").then((data) => setOrders(data.orders)).catch(() => undefined);
+      Promise.all([
+        api<{ orders: Order[] }>("/api/orders"),
+        api<DashboardData>("/api/dashboard"),
+      ]).then(([orderData, dashboardData]) => {
+        setOrders(orderData.orders);
+        setDashboard(dashboardData);
+      }).catch(() => undefined);
     }, 10000);
     return () => window.clearInterval(timer);
   }, [user]);
@@ -152,7 +167,7 @@ export default function StorePanel() {
         {view === "pos" && <PointOfSale products={products} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} />}
         {view === "orders" && <Orders orders={orders} onPrint={printOrder} />}
-        {view === "finance" && <Finance entries={entries} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} />}
+        {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} />}
         {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} />}
       </section>
     </main>
@@ -194,11 +209,17 @@ function Login({ onLogin }: { onLogin: (user: User) => Promise<void> }) {
 
 function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order[] }) {
   if (!data) return <div className="panel-empty">Carregando indicadores…</div>;
-  const maxHour = Math.max(1, ...data.hourly.map((item) => item.value));
-  const maxDay = Math.max(1, ...data.days.map((item) => item.value));
   const balance = Number(data.finance.income) - Number(data.finance.expense);
+  const hourly = Array.from({ length: 13 }, (_, index) => {
+    const hour = index + 11;
+    return { label: `${hour}h`, value: Number(data.hourly.find((item) => Number(item.hour) === hour)?.value || 0) };
+  });
+  const days = data.days.map((item) => ({
+    label: new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    value: Number(item.value),
+  }));
   return <div className="panel-page dashboard-page">
-    <PageTitle eyebrow="VISÃO GERAL" title="Operação de hoje" subtitle="Indicadores atualizados com as vendas registradas no caixa." />
+    <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle="Vendas, cozinha e caixa atualizados automaticamente a cada 10 segundos." action={<span className="live-pill"><i /> AO VIVO</span>} />
     <div className="panel-metrics">
       <Metric label="Faturamento hoje" value={formatMoney(Number(data.summary.revenue))} note={`${data.summary.orders} pedidos confirmados`} tone="green" />
       <Metric label="Ticket médio" value={formatMoney(Number(data.summary.ticket))} note="Valor médio por pedido" />
@@ -206,21 +227,27 @@ function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order
       <Metric label="Saldo financeiro do mês" value={formatMoney(balance)} note={`${formatMoney(Number(data.finance.expense))} em despesas`} tone={balance >= 0 ? "green" : "red"} />
     </div>
     <div className="panel-dashboard-grid">
-      <article className="panel-card sales-chart">
-        <header><div><span>VENDAS POR HORÁRIO</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>Hoje</small></header>
-        <div className="hour-bars">{Array.from({ length: 13 }, (_, index) => index + 11).map((hour) => {
-          const value = Number(data.hourly.find((item) => Number(item.hour) === hour)?.value || 0);
-          return <div key={hour}><i style={{ height: `${Math.max(4, value / maxHour * 150)}px` }} /><span>{hour}h</span></div>;
-        })}</div>
+      <article className="panel-card sales-chart chart-card">
+        <header><div><span>VENDAS POR HORÁRIO</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>Hoje · tempo real</small></header>
+        <ResponsiveContainer width="100%" height={250}>
+          <AreaChart data={hourly} margin={{ top: 20, right: 4, left: -22, bottom: 0 }}>
+            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c8102e" stopOpacity=".35" /><stop offset="100%" stopColor="#c8102e" stopOpacity=".02" /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#857c75" }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
+            <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: 0, borderRadius: 10, boxShadow: "0 12px 35px #190b0e18", fontSize: 11 }} />
+            <Area type="monotone" dataKey="value" stroke="#c8102e" strokeWidth={3} fill="url(#salesFill)" animationDuration={900} />
+          </AreaChart>
+        </ResponsiveContainer>
       </article>
       <article className="panel-card payment-card">
         <header><span>PAGAMENTOS HOJE</span></header>
-        <div className="payment-total"><b>{data.summary.orders}</b><span>pedidos</span></div>
+        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#16835b", "#1f1a18"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
         <ul>{data.payments.length ? data.payments.map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(Number(item.value))}</b></li>) : <li><span>Sem vendas registradas</span></li>}</ul>
       </article>
-      <article className="panel-card day-chart">
+      <article className="panel-card day-chart chart-card">
         <header><div><span>FATURAMENTO · 14 DIAS</span><h3>Histórico recente</h3></div></header>
-        <div className="day-bars">{data.days.map((item) => <div key={item.day}><i style={{ height: `${Math.max(5, Number(item.value) / maxDay * 110)}px` }} /><span>{new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span></div>)}</div>
+        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Bar dataKey="value" fill="#c8102e" radius={[5, 5, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
       </article>
       <article className="panel-card product-ranking">
         <header><span>MAIS VENDIDOS HOJE</span></header>
@@ -236,6 +263,14 @@ function PageTitle({ eyebrow, title, subtitle, action }: { eyebrow: string; titl
 
 function Metric({ label, value, note, tone = "" }: { label: string; value: string; note: string; tone?: string }) {
   return <article><span>{label}</span><strong>{value}</strong><small className={tone}>{note}</small></article>;
+}
+
+function ProductVisual({ product }: { product: Product }) {
+  const name = product.name.toLowerCase();
+  if (name.includes("coca-cola")) return <div className="brand-visual coca"><SiCocacola aria-label="Coca-Cola" /></div>;
+  if (name.includes("monster")) return <div className="brand-visual monster"><SiMonster aria-label="Monster Energy" /><small>ENERGY</small></div>;
+  if (name.includes("heineken")) return <div className="brand-visual heineken"><strong><b>★</b> HEINEKEN</strong><small>18+</small></div>;
+  return <img src={product.image} alt={product.name} />;
 }
 
 function PointOfSale({ products, onCreated, notify }: { products: Product[]; onCreated: () => Promise<void>; notify: (message: string) => void }) {
@@ -276,7 +311,7 @@ function PointOfSale({ products, onCreated, notify }: { products: Product[]; onC
       <PageTitle eyebrow="CAIXA" title="Novo pedido" subtitle="Selecione os itens e envie a comanda para a cozinha." />
       <div className="pos-categories">{categories.map((item) => <button className={category === item ? "active" : ""} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div>
       <div className="real-product-grid">{products.filter((product) => product.active && (category === "Todos" || product.category === category)).map((product) => (
-        <button key={product.id} onClick={() => add(product)}><img src={product.image} alt="" /><span><b>{product.name}</b><small>{product.description}</small><strong>{formatMoney(product.priceCents)}</strong></span><i>+</i></button>
+        <button key={product.id} onClick={() => add(product)}><ProductVisual product={product} /><span><b>{product.name}</b><small>{product.description}</small><strong>{formatMoney(product.priceCents)}</strong></span><i>+</i></button>
       ))}</div>
     </section>
     <aside className="real-checkout">
@@ -324,7 +359,7 @@ function Orders({ orders, onPrint }: { orders: Order[]; onPrint: (order: Order) 
   </div>;
 }
 
-function Finance({ entries, onCreated }: { entries: FinanceEntry[]; onCreated: () => Promise<void> }) {
+function Finance({ entries, dashboard, onCreated }: { entries: FinanceEntry[]; dashboard: DashboardData | null; onCreated: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [category, setCategory] = useState("Fornecedores");
@@ -333,18 +368,37 @@ function Finance({ entries, onCreated }: { entries: FinanceEntry[]; onCreated: (
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const income = entries.filter((entry) => entry.entryType === "income").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
   const expense = entries.filter((entry) => entry.entryType === "expense").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
+  const sales = Number(dashboard?.days.reduce((sum, item) => sum + Number(item.value), 0) || 0);
+  const net = sales + income - expense;
+  const cashflow = (dashboard?.days || []).map((item) => ({
+    day: new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+    vendas: Number(item.value),
+  }));
+  const expenseCategories = Object.entries(entries.filter((entry) => entry.entryType === "expense").reduce<Record<string, number>>((groups, entry) => {
+    groups[entry.category] = (groups[entry.category] || 0) + Number(entry.amountCents);
+    return groups;
+  }, {})).map(([name, value]) => ({ name, value }));
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     await api("/api/finance", { method: "POST", body: JSON.stringify({ entryType: type, category, description, amountCents: Math.round(Number(amount.replace(",", ".")) * 100), entryDate: date }) });
     setDescription(""); setAmount(""); setOpen(false); await onCreated();
   };
   return <div className="panel-page finance-page">
-    <PageTitle eyebrow="CONTROLE FINANCEIRO" title="Financeiro" subtitle="Registre entradas e saídas, acompanhe o caixa e organize as contas." action={<button className="panel-primary" onClick={() => setOpen(true)}>+ Novo lançamento</button>} />
+    <PageTitle eyebrow="GESTÃO FINANCEIRA" title="Saúde financeira da loja" subtitle="Vendas do caixa, entradas, despesas e saldo em uma visão executiva." action={<div className="finance-actions"><span className="live-pill"><i /> AO VIVO</span><button className="panel-primary" onClick={() => setOpen(true)}>+ Novo lançamento</button></div>} />
     <div className="finance-summary">
-      <Metric label="Entradas registradas" value={formatMoney(income)} note="Receitas e ajustes manuais" tone="green" />
-      <Metric label="Saídas registradas" value={formatMoney(expense)} note="Custos e despesas" tone="red" />
-      <Metric label="Saldo dos lançamentos" value={formatMoney(income - expense)} note="Entradas menos saídas" tone={income - expense >= 0 ? "green" : "red"} />
+      <Metric label="Vendas · 14 dias" value={formatMoney(sales)} note={`${dashboard?.days.reduce((sum, item) => sum + Number(item.orders), 0) || 0} pedidos no período`} tone="green" />
+      <Metric label="Outras entradas" value={formatMoney(income)} note="Aportes e ajustes manuais" tone="green" />
+      <Metric label="Despesas registradas" value={formatMoney(expense)} note="Custos operacionais" tone="red" />
+      <Metric label="Resultado estimado" value={formatMoney(net)} note="Vendas + entradas − despesas" tone={net >= 0 ? "green" : "red"} />
     </div>
+    <section className="finance-charts">
+      <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>Últimos 14 dias</small></header>
+        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#16835b" stopOpacity=".38" /><stop offset="100%" stopColor="#16835b" stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke="#16835b" strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} /></AreaChart></ResponsiveContainer>
+      </article>
+      <article className="panel-card finance-categories"><header><div><span>DESPESAS</span><h3>Por categoria</h3></div></header>
+        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#1f1a18", "#ef7b45", "#7a2942"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
+      </article>
+    </section>
     <section className="finance-layout">
       <article className="panel-card finance-list"><header><div><span>LANÇAMENTOS</span><h3>Histórico financeiro</h3></div></header>
         <div className="finance-table"><header><span>Data</span><span>Descrição</span><span>Categoria</span><span>Tipo</span><span>Valor</span></header>

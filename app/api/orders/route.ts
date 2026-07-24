@@ -11,7 +11,7 @@ type NewOrder = {
   cashReceivedCents?: number | null;
   channel?: string;
   notes?: string;
-  items?: Array<{ productId: number; quantity: number }>;
+  items?: Array<{ productId: number | string; quantity: number | string }>;
 };
 
 export async function GET(request: NextRequest) {
@@ -44,14 +44,21 @@ export async function POST(request: NextRequest) {
   }
   try {
     const order = await transaction(async (client) => {
-      const productIds = body.items!.map((item) => item.productId);
+      const items = body.items!.map((item) => ({
+        productId: Number(item.productId),
+        quantity: Number(item.quantity),
+      }));
+      if (items.some((item) => !Number.isSafeInteger(item.productId) || !Number.isSafeInteger(item.quantity) || item.quantity < 1)) {
+        throw new Error("Item inválido no pedido");
+      }
+      const productIds = items.map((item) => item.productId);
       const products = await client.query<{ id: string; name: string; price_cents: number }>(
         "SELECT id,name,price_cents FROM products WHERE id=ANY($1::bigint[]) AND active=true",
         [productIds],
       );
       const byId = new Map(products.rows.map((product) => [Number(product.id), product]));
       let totalCents = 0;
-      for (const item of body.items!) {
+      for (const item of items) {
         const product = byId.get(item.productId);
         if (!product || item.quantity < 1) throw new Error("Item inválido no pedido");
         totalCents += product.price_cents * item.quantity;
@@ -71,7 +78,7 @@ export async function POST(request: NextRequest) {
       const id = inserted.rows[0].id;
       const code = `#${String(1000 + Number(id)).padStart(4, "0")}`;
       await client.query("UPDATE orders SET code=$1 WHERE id=$2", [code, id]);
-      for (const item of body.items!) {
+      for (const item of items) {
         const product = byId.get(item.productId)!;
         await client.query(
           `INSERT INTO order_items (order_id,product_id,product_name,quantity,unit_price_cents)

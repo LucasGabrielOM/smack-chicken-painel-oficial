@@ -17,6 +17,8 @@ export const catalog: CatalogProduct[] = [
   { id: 6, name: "Molho da Casa", description: "Alho, barbecue ou picante", priceCents: 350, category: "Extras", image: "/molho.jpeg" },
   { id: 7, name: "Coca-Cola 350 ml", description: "Lata gelada", priceCents: 700, category: "Bebidas", image: "/combo.jpeg" },
   { id: 8, name: "Coca-Cola 600 ml", description: "Garrafa gelada", priceCents: 1000, category: "Bebidas", image: "/combo-zero.jpeg" },
+  { id: 9, name: "Monster Energy 473 ml", description: "Energético gelado", priceCents: 1400, category: "Bebidas", image: "/combo-zero.jpeg" },
+  { id: 10, name: "Heineken Long Neck", description: "330 ml · venda somente para maiores de 18", priceCents: 1200, category: "Bebidas", image: "/combo.jpeg" },
 ];
 
 export const formatMoney = (cents: number) =>
