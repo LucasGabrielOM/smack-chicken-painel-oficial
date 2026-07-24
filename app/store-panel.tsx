@@ -40,7 +40,7 @@ const api = async <T,>(url: string, options?: RequestInit): Promise<T> => {
 };
 
 function PanelLogo() {
-  return <div className="panel-logo"><span>S</span><strong>SMACK<small>OPERAÇÃO</small></strong></div>;
+  return <div className="panel-logo"><span><img src="/smack-chicken-mark.png" alt="" /></span><strong>SMACK<small>OPERAÇÃO</small></strong></div>;
 }
 
 function useClock(iso: string) {
@@ -66,6 +66,7 @@ export default function StorePanel() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [toast, setToast] = useState("");
   const [printer, setPrinter] = useState("Impressora não pareada");
+  const [refreshing, setRefreshing] = useState(false);
 
   const notify = (message: string) => {
     setToast(message);
@@ -126,8 +127,16 @@ export default function StorePanel() {
   ];
 
   const refresh = async () => {
-    await loadAll();
-    notify("Dados atualizados.");
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadAll();
+      notify("Dados atualizados com sucesso.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Não foi possível atualizar os dados.");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const connectPrinter = async () => {
@@ -161,12 +170,12 @@ export default function StorePanel() {
       <section className="panel-main">
         <header className="panel-top">
           <div><b>SMACK CHICKEN</b><span>Rua Fúlvio Aducci, 1074 · Estreito</span></div>
-          <div><button onClick={refresh}>↻ Atualizar</button><span className="panel-user">{user.name.charAt(0)}<i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i></span></div>
+          <div className="panel-top-actions"><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
         </header>
         {view === "dashboard" && <Dashboard data={dashboard} orders={orders} />}
         {view === "pos" && <PointOfSale products={products} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} />}
-        {view === "orders" && <Orders orders={orders} onPrint={printOrder} />}
+        {view === "orders" && <Orders orders={orders} onPrint={printOrder} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} />}
         {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} />}
         {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} />}
       </section>
@@ -333,28 +342,36 @@ function Kitchen({ orders, onStatus }: { orders: Order[]; onStatus: (id: string,
   return <div className="panel-page kitchen-real">
     <PageTitle eyebrow="FLUXO AO VIVO" title="Cozinha" subtitle={`${preparing.length + ready.length} pedidos em andamento · atualização automática`} />
     <div className="kitchen-lanes">
-      <section><header><h2>Em preparo</h2><b>{preparing.length}</b></header>{preparing.map((order) => <KitchenCard key={order.id} order={order} label="Marcar como pronto" onClick={() => onStatus(order.id, "ready")} />)}</section>
-      <section className="ready"><header><h2>Prontos para chamar</h2><b>{ready.length}</b></header>{ready.map((order) => <KitchenCard key={order.id} order={order} label={`Entregar para ${order.customerName}`} onClick={() => onStatus(order.id, "completed")} />)}</section>
+      <section><header><h2>Em preparo</h2><b>{preparing.length}</b></header>{preparing.length ? preparing.map((order) => <KitchenCard key={order.id} order={order} label="Marcar como pronto" onClick={() => onStatus(order.id, "ready")} onCancel={() => window.confirm(`Cancelar ${order.code} de ${order.customerName}?`) ? onStatus(order.id, "cancelled") : Promise.resolve()} />) : <KitchenEmpty title="Cozinha em ordem" text="Os novos pedidos aparecerão aqui com o tempo de preparo." />}</section>
+      <section className="ready"><header><h2>Prontos para chamar</h2><b>{ready.length}</b></header>{ready.length ? ready.map((order) => <KitchenCard key={order.id} order={order} label={`Entregar para ${order.customerName}`} onClick={() => onStatus(order.id, "completed")} onCancel={() => window.confirm(`Cancelar ${order.code} de ${order.customerName}?`) ? onStatus(order.id, "cancelled") : Promise.resolve()} />) : <KitchenEmpty title="Nenhum pedido esperando" text="Quando a cozinha finalizar, o nome do cliente aparece aqui." />}</section>
     </div>
   </div>;
 }
 
-function KitchenCard({ order, label, onClick }: { order: Order; label: string; onClick: () => Promise<void> }) {
+function KitchenEmpty({ title, text }: { title: string; text: string }) {
+  return <div className="kitchen-empty"><span><img src="/smack-chicken-mark.png" alt="" /></span><h3>{title}</h3><p>{text}</p></div>;
+}
+
+function KitchenCard({ order, label, onClick, onCancel }: { order: Order; label: string; onClick: () => Promise<void>; onCancel: () => Promise<void> }) {
   return <article className="kitchen-order">
     <header><b>{order.code}</b><OrderTimer iso={order.createdAt} /></header>
     <h3>{order.customerName}</h3>
     <ul>{order.items.map((item) => <li key={item.id}><b>{item.quantity}×</b> {item.name}</li>)}</ul>
     {order.notes && <p>Obs.: {order.notes}</p>}
-    <footer><span>{order.paymentMethod}</span><button onClick={onClick}>{label} →</button></footer>
+    <footer><span>{order.paymentMethod}</span><button className="kitchen-cancel" onClick={onCancel}>Cancelar</button><button onClick={onClick}>{label} →</button></footer>
   </article>;
 }
 
-function Orders({ orders, onPrint }: { orders: Order[]; onPrint: (order: Order) => void }) {
+function Orders({ orders, onPrint, onCancel }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void> }) {
   const labels: Record<Order["status"], string> = { preparing: "Em preparo", ready: "Pronto", completed: "Finalizado", cancelled: "Cancelado" };
+  const cancel = async (order: Order) => {
+    if (!window.confirm(`Cancelar o pedido ${order.code} de ${order.customerName}? O valor será retirado do faturamento.`)) return;
+    await onCancel(order.id);
+  };
   return <div className="panel-page">
-    <PageTitle eyebrow="HISTÓRICO" title="Todos os pedidos" subtitle="Consulte comandas, pagamentos e andamento da operação." />
+    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima novamente ou cancele pedidos ainda em andamento." />
     <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><button onClick={() => onPrint(order)}>Imprimir</button></div>)}
+      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}</span></div>)}
     </div>
   </div>;
 }

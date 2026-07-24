@@ -5,7 +5,7 @@ import { catalog, formatMoney } from "../lib/catalog";
 function Logo({ light = false }: { light?: boolean }) {
   return (
     <div className={`public-logo ${light ? "is-light" : ""}`}>
-      <span>S</span>
+      <span><img src="/smack-chicken-mark.png" alt="" /></span>
       <strong>SMACK<small>CHICKEN</small></strong>
     </div>
   );
@@ -27,9 +27,10 @@ export default function Storefront() {
 
       <section className="public-hero">
         <div className="public-hero-copy">
+          <div className="hero-brand-mark"><img src="/smack-chicken-mark.png" alt="" /><span>FRANGO CROCANTE<br />SEM CONVERSA.</span></div>
           <span className="public-kicker">NOVA LOJA NO ESTREITO · FLORIANÓPOLIS</span>
-          <h1>Frango que<br /><em>faz crunch.</em></h1>
-          <p>Crocante por fora, suculento por dentro e preparado na hora. Para comer no local ou receber pelo iFood.</p>
+          <h1>O crunch que<br /><em>Florianópolis</em><br />merecia.</h1>
+          <p>Frango empanado de verdade: dourado, absurdamente crocante e preparado na hora. Chegue com fome. Saia pensando no próximo balde.</p>
           <div className="public-actions">
             <a href="#cardapio">Ver cardápio</a>
             <a className="ghost" href="https://www.google.com/maps/search/?api=1&query=Rua+Fulvio+Aducci+1074+Florianopolis" target="_blank" rel="noreferrer">Como chegar</a>
@@ -48,6 +49,12 @@ export default function Storefront() {
 
       <div className="public-marquee">CROCANTE DE VERDADE ✦ MOLHOS DA CASA ✦ FEITO NA HORA ✦ FRANGO SEM CONVERSA</div>
 
+      <section className="public-reasons">
+        <article><b>01</b><span><strong>Crunch inesquecível</strong><small>Empanado dourado, crocante até a última mordida.</small></span></article>
+        <article><b>02</b><span><strong>Feito no pedido</strong><small>Nada parado: sai quente direto da nossa cozinha.</small></span></article>
+        <article><b>03</b><span><strong>Molhos da casa</strong><small>Combinações feitas para mergulhar sem moderação.</small></span></article>
+      </section>
+
       <section className="public-menu" id="cardapio">
         <div className="public-section-title">
           <span>O NOSSO CARDÁPIO</span>
@@ -65,6 +72,15 @@ export default function Storefront() {
               </section>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="public-experience">
+        <div className="experience-copy"><span>ISSO É SMACK</span><h2>Veja. Ouça.<br /><em>Sinta o crunch.</em></h2><p>Um balde no meio da mesa, molho aberto e aquela primeira mordida que faz todo mundo olhar. A experiência SMACK começa antes do primeiro pedaço.</p><a href="https://www.ifood.com.br/" target="_blank" rel="noreferrer">Quero meu SMACK →</a></div>
+        <div className="experience-gallery">
+          <figure className="wide"><img src="/balde-mesa.jpeg" alt="Balde de frango crocante SMACK na mesa" /><figcaption>PARA DIVIDIR. OU NÃO.</figcaption></figure>
+          <figure><img src="/molho.jpeg" alt="Frango crocante mergulhado no molho" /><figcaption>MERGULHE.</figcaption></figure>
+          <figure><img src="/balde.jpeg" alt="Balde cheio de frango crocante" /><figcaption>FAZ CRUNCH.</figcaption></figure>
         </div>
       </section>
 
