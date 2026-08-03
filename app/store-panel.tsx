@@ -189,7 +189,7 @@ export default function StorePanel() {
       {toast && <div className="panel-toast">{toast}</div>}
       <aside className="panel-sidebar">
         <PanelLogo />
-        <div className="store-chip"><i /> <span><b>Loja Estreito</b><small>Aberta · até 23h</small></span></div>
+        <div className="store-chip"><i /> <span><b>Loja Estreito</b><small>Seg a sáb · 18h–00h</small></span></div>
         <nav>{nav.map(([id, icon, label]) => (
           <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}>
             <span>{icon}</span>{label}{id === "kitchen" && activeCount > 0 && <b>{activeCount}</b>}
