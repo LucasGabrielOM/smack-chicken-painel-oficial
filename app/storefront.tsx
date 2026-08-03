@@ -1,4 +1,4 @@
-import { catalog, formatMoney } from "../lib/catalog";
+import { catalog } from "../lib/catalog";
 
 const MAPS_URL = "https://maps.app.goo.gl/f6Rk7JtTgcCMzCSr9";
 
@@ -94,19 +94,20 @@ export default function Storefront() {
           <p>Baldes, combos e porções para matar a fome — sozinho ou com a galera.</p>
         </div>
         <div className="sc-product-grid">
-          {catalog.map((product) => (
-            <article key={product.id}>
-              <div className="sc-product-img">
-                <img src={product.image} alt={product.name} />
-                <span>{product.category}</span>
-              </div>
-              <section>
-                <h3>{product.name}</h3>
-                <p>{product.description}</p>
-                <strong className="sc-price">{formatMoney(product.priceCents)}</strong>
-              </section>
-            </article>
-          ))}
+          {catalog
+            .filter((product) => product.category !== "Bebidas")
+            .map((product) => (
+              <article key={product.id}>
+                <div className="sc-product-img">
+                  <img src={product.image} alt={product.name} />
+                  <span>{product.category}</span>
+                </div>
+                <section>
+                  <h3>{product.name}</h3>
+                  <p>{product.description}</p>
+                </section>
+              </article>
+            ))}
         </div>
       </section>
 
