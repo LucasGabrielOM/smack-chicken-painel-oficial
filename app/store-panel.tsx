@@ -179,9 +179,9 @@ export default function StorePanel() {
           <div className="panel-top-actions"><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
         </header>
         {view === "dashboard" && <Dashboard data={dashboard} orders={orders} />}
-        {view === "pos" && <PointOfSale products={products} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha."); }} notify={notify} />}
+        {view === "pos" && <PointOfSale products={products} paperWidth={paperWidth} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha e impressão preparada."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} />}
-        {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} />}
+        {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} onDelete={async (id) => { await api(`/api/orders/${id}`, { method: "DELETE" }); await loadAll(); notify("Pedido excluído permanentemente."); }} />}
         {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} onDeleted={async (id) => { await api(`/api/finance?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Lançamento removido do histórico."); }} />}
         {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} onDeleted={async (id) => { await api(`/api/plans?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Meta removida do planejamento."); }} />}
       </section>
@@ -288,7 +288,7 @@ function ProductVisual({ product }: { product: Product }) {
   return <img src={product.image} alt={product.name} />;
 }
 
-function PointOfSale({ products, onCreated, notify }: { products: Product[]; onCreated: () => Promise<void>; notify: (message: string) => void }) {
+function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Product[]; paperWidth: 58 | 80; onCreated: () => Promise<void>; notify: (message: string) => void }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState("");
   const [payment, setPayment] = useState("Pix");
@@ -304,9 +304,10 @@ function PointOfSale({ products, onCreated, notify }: { products: Product[]; onC
   const changeQty = (id: number, amount: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: item.quantity + amount } : item).filter((item) => item.quantity > 0));
   const submit = async () => {
     if (!customer.trim() || !cart.length) return notify("Informe o cliente e adicione itens.");
+    const printPopup = window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
     setSaving(true);
     try {
-      await api("/api/orders", {
+      const result = await api<{ order: { id: string; code: string; totalCents: number } }>("/api/orders", {
         method: "POST",
         body: JSON.stringify({
           customerName: customer,
@@ -316,9 +317,24 @@ function PointOfSale({ products, onCreated, notify }: { products: Product[]; onC
           items: cart.map((item) => ({ productId: item.id, quantity: item.quantity })),
         }),
       });
+      const createdOrder: Order = {
+        id: result.order.id,
+        code: result.order.code,
+        customerName: customer.trim(),
+        status: "preparing",
+        paymentMethod: payment,
+        cashReceivedCents: payment === "Dinheiro" ? Math.round(Number(cash.replace(",", ".")) * 100) : undefined,
+        totalCents: result.order.totalCents,
+        channel: "Balcão",
+        notes: notes.trim() || undefined,
+        createdAt: new Date().toISOString(),
+        items: cart.map((item) => ({ id: `new-${result.order.id}-${item.id}`, productId: String(item.id), name: item.name, quantity: item.quantity, unitPriceCents: item.priceCents })),
+      };
+      if (printPopup) printOrder(createdOrder, paperWidth, printPopup);
+      else notify("Pedido salvo. Permita pop-ups para imprimir automaticamente.");
       setCart([]); setCustomer(""); setCash(""); setNotes("");
       await onCreated();
-    } catch (error) { notify(error instanceof Error ? error.message : "Falha ao salvar pedido"); }
+    } catch (error) { printPopup?.close(); notify(error instanceof Error ? error.message : "Falha ao salvar pedido"); }
     finally { setSaving(false); }
   };
   return <div className="panel-page pos-page">
@@ -368,16 +384,20 @@ function KitchenCard({ order, label, onClick, onCancel }: { order: Order; label:
   </article>;
 }
 
-function Orders({ orders, onPrint, onCancel }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void> }) {
+function Orders({ orders, onPrint, onCancel, onDelete }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const labels: Record<Order["status"], string> = { preparing: "Em preparo", ready: "Pronto", completed: "Finalizado", cancelled: "Cancelado" };
   const cancel = async (order: Order) => {
     if (!window.confirm(`Cancelar o pedido ${order.code} de ${order.customerName}? O valor será retirado do faturamento.`)) return;
     await onCancel(order.id);
   };
+  const remove = async (order: Order) => {
+    if (!window.confirm(`Excluir permanentemente o pedido ${order.code} de ${order.customerName}?`)) return;
+    await onDelete(order.id);
+  };
   return <div className="panel-page">
-    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima novamente ou cancele pedidos ainda em andamento." />
+    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima, cancele ou exclua pedidos." />
     <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}</span></div>)}
+      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
     </div>
   </div>;
 }
@@ -478,8 +498,8 @@ function escapeReceipt(value: unknown) {
   })[character] || character);
 }
 
-function printOrder(order: Order, paperWidth: 58 | 80) {
-  const popup = window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
+function printOrder(order: Order, paperWidth: 58 | 80, existingPopup?: Window | null) {
+  const popup = existingPopup ?? window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
   if (!popup) return;
   const fontSize = paperWidth === 58 ? 14 : 17;
   const horizontalPadding = paperWidth === 58 ? 3 : 4;
