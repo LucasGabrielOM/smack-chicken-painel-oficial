@@ -30,6 +30,10 @@ export const catalog: CatalogProduct[] = [
   { id: 14, name: "Coca-Cola 600 ml", description: "Garrafa gelada de 600 ml", priceCents: 900, category: "Bebidas", image: "/combo.jpeg" },
   { id: 15, name: "Stella Artois Long Neck", description: "330 ml · venda somente para maiores de 18", priceCents: 1100, category: "Bebidas", image: "/combo.jpeg" },
   { id: 16, name: "Heineken Long Neck", description: "330 ml · venda somente para maiores de 18", priceCents: 1400, category: "Bebidas", image: "/combo.jpeg" },
+  { id: 22, name: "Guaraná Lata 350 ml", description: "Lata gelada", priceCents: 600, category: "Bebidas", image: "/combo.jpeg" },
+  { id: 23, name: "Guaraná Zero Lata 350 ml", description: "Lata zero açúcar gelada", priceCents: 600, category: "Bebidas", image: "/combo-zero.jpeg" },
+  { id: 24, name: "Sprite Lata 350 ml", description: "Lata gelada", priceCents: 600, category: "Bebidas", image: "/combo.jpeg" },
+  { id: 25, name: "Sprite Zero Lata 350 ml", description: "Lata zero açúcar gelada", priceCents: 600, category: "Bebidas", image: "/combo-zero.jpeg" },
 ];
 
 export const formatMoney = (cents: number) =>
