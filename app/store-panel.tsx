@@ -501,24 +501,25 @@ function escapeReceipt(value: unknown) {
 function printOrder(order: Order, paperWidth: 58 | 80, existingPopup?: Window | null) {
   const popup = existingPopup ?? window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
   if (!popup) return;
-  const fontSize = paperWidth === 58 ? 14 : 17;
-  const horizontalPadding = paperWidth === 58 ? 3 : 4;
+  const fontSize = paperWidth === 58 ? 17 : 22;
+  const horizontalPadding = paperWidth === 58 ? 3.5 : 5;
+  const paperLength = paperWidth === 58 ? 200 : 297;
   popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeReceipt(order.code)}</title><style>
-    @page{size:${paperWidth}mm auto;margin:0}
+    @page{size:${paperWidth}mm ${paperLength}mm;margin:0}
     *{box-sizing:border-box}
-    html,body{width:${paperWidth}mm;margin:0;padding:0;background:#fff;color:#000}
-    body{font:${fontSize}px/1.38 "Courier New",monospace;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .receipt{width:${paperWidth}mm;padding:5mm ${horizontalPadding}mm 16mm;margin:0 auto}
-    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 23 : 29}px;line-height:1;font-weight:900;letter-spacing:.4px}
-    .address{margin:2.5mm 0 4mm;font-size:${paperWidth === 58 ? 11 : 13}px;font-weight:600}
-    .divider{border:0;border-top:1.5px dashed #000;margin:3.5mm 0}
-    .order{margin:0;padding:3.5mm 0;font-size:${paperWidth === 58 ? 18 : 23}px;line-height:1.15;text-align:center;border-block:1.5px dashed #000}
-    .customer{display:block;margin-top:2mm;font-size:${paperWidth === 58 ? 16 : 20}px}
-    ul{margin:4mm 0;padding:0;list-style:none}li{display:grid;grid-template-columns:auto 1fr;gap:3mm;padding:2.4mm 0;border-bottom:1px dotted #777;font-size:${paperWidth === 58 ? 15 : 18}px}
-    li b{font-size:${paperWidth === 58 ? 17 : 21}px}.notes{margin:4mm 0;padding:3mm;border:2px solid #000;font-size:${paperWidth === 58 ? 14 : 17}px}
-    .meta{margin-top:4mm;padding-top:3.5mm;border-top:1.5px dashed #000}.meta p{margin:2mm 0}.total{display:block;margin:3mm 0;font-size:${paperWidth === 58 ? 20 : 25}px}
-    .footer{margin-top:5mm;padding-top:3mm;border-top:1.5px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 11 : 13}px}.cut-space{height:8mm}
-    @media print{html,body,.receipt{width:${paperWidth}mm}.receipt{break-inside:avoid}}
+    html,body{width:${paperWidth}mm;min-height:${paperLength}mm;margin:0;padding:0;background:#fff;color:#000}
+    body{font:${fontSize}px/1.55 "Courier New",monospace;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .receipt{width:${paperWidth}mm;min-height:${paperLength}mm;padding:7mm ${horizontalPadding}mm 22mm;margin:0 auto}
+    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 30 : 40}px;line-height:1.05;font-weight:900;letter-spacing:.6px}
+    .address{margin:4mm 0 6mm;font-size:${paperWidth === 58 ? 14 : 17}px;font-weight:700;line-height:1.4}
+    .divider{border:0;border-top:2px dashed #000;margin:5mm 0}
+    .order{margin:0;padding:5mm 0;font-size:${paperWidth === 58 ? 23 : 31}px;line-height:1.2;text-align:center;border-block:2px dashed #000}
+    .customer{display:block;margin-top:3mm;font-size:${paperWidth === 58 ? 20 : 26}px}
+    ul{margin:6mm 0;padding:0;list-style:none}li{display:grid;grid-template-columns:auto 1fr;gap:4mm;padding:4mm 0;border-bottom:2px dotted #777;font-size:${paperWidth === 58 ? 19 : 25}px;line-height:1.45}
+    li b{font-size:${paperWidth === 58 ? 22 : 28}px}.notes{margin:6mm 0;padding:4mm;border:2px solid #000;font-size:${paperWidth === 58 ? 18 : 22}px;line-height:1.5}
+    .meta{margin-top:6mm;padding-top:5mm;border-top:2px dashed #000}.meta p{margin:3mm 0}.total{display:block;margin:5mm 0;font-size:${paperWidth === 58 ? 26 : 34}px;line-height:1.2}
+    .footer{margin-top:7mm;padding-top:4mm;border-top:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 14 : 17}px}.cut-space{height:14mm}
+    @media print{html,body,.receipt{width:${paperWidth}mm;min-height:${paperLength}mm}.receipt{break-inside:avoid}}
   </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><h2 class="order">${escapeReceipt(order.code)}<span class="customer">${escapeReceipt(order.customerName)}</span></h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><span>${escapeReceipt(item.name)}</span></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main><script>window.onload=()=>setTimeout(()=>window.print(),180);window.onafterprint=()=>window.close()</script></body></html>`);
   popup.document.close();
 }
