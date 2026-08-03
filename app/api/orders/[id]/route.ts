@@ -57,13 +57,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   if (auth.response) return auth.response;
   const { id } = await context.params;
 
-  const existing = await query<{ status: string }>("SELECT status FROM orders WHERE id=$1", [id]);
-  if (!existing.rowCount) return NextResponse.json({ error: "Pedido não encontrado" }, { status: 404 });
-  const status = existing.rows[0].status;
-  if (status !== "completed" && status !== "cancelled") {
-    return NextResponse.json({ error: "Só é possível excluir pedidos finalizados ou cancelados." }, { status: 400 });
-  }
-
-  await query("DELETE FROM orders WHERE id=$1", [id]);
+  const result = await query("DELETE FROM orders WHERE id=$1 RETURNING id", [id]);
+  if (!result.rowCount) return NextResponse.json({ error: "Pedido não encontrado" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
