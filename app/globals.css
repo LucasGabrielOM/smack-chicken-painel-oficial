@@ -201,7 +201,7 @@ button { cursor: pointer; }
 .real-cart button { width: 25px; height: 25px; border: 1px solid var(--line); background: white; }
 .real-cart > p { padding: 35px; text-align: center; color: var(--muted); font-size: 10px; }
 .cash-change { display: flex; justify-content: space-between; padding-top: 8px; color: var(--red); }
-.checkout-total { margin-top: auto; padding: 17px 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); }
+.checkout-total { margin-top: 18px; padding: 17px 0; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--line); }
 .checkout-total span { font-size: 12px; font-weight: 800; }
 .checkout-total strong { color: var(--red); font-size: 25px; }
 .send-kitchen { border: 0; padding: 14px; background: var(--yellow); color: #321700; font-size: 11px; font-weight: 950; }
@@ -317,7 +317,7 @@ button { cursor: pointer; }
   .panel-login form { padding: 55px 0; }
   .panel-dashboard-grid, .finance-layout, .planning-grid { grid-template-columns: 1fr; }
   .pos-page { grid-template-columns: 1fr; }
-  .real-checkout { min-height: 670px; }
+  .real-checkout { min-height: auto; }
 }
 
 @media (max-width: 560px) {
