@@ -9,7 +9,6 @@ import {
 import { SiCocacola, SiMonster } from "react-icons/si";
 
 type View = "dashboard" | "pos" | "kitchen" | "orders" | "finance" | "planning";
-type Theme = "dark" | "light";
 type User = { id: string; name: string; email: string; role: string };
 type Product = { id: number; name: string; description: string; priceCents: number; category: string; image: string; active: boolean };
 type CartItem = Product & { quantity: number };
@@ -56,26 +55,6 @@ function OrderTimer({ iso }: { iso: string }) {
   return <span className={Number(value.split(":")[0]) >= 15 ? "timer late" : "timer"}>{value}</span>;
 }
 
-const chartPalette = (theme: Theme) =>
-  theme === "dark"
-    ? { grid: "#ffffff1a", tick: "#cbb0b5", tipBg: "#241118", tipText: "#f6ece9", tipBorder: "#4a2530", red: "#ff3b5c", green: "#2bd08c", gold: "#ffc514", track: "#ffffff12" }
-    : { grid: "#eee8e0", tick: "#857c75", tipBg: "#ffffff", tipText: "#201a18", tipBorder: "#eadfd6", red: "#c8102e", green: "#16835b", gold: "#e0a800", track: "#efe8df" };
-
-const tooltipProps = (c: ReturnType<typeof chartPalette>) => ({
-  contentStyle: { background: c.tipBg, border: `1px solid ${c.tipBorder}`, borderRadius: 10, boxShadow: "0 12px 35px #00000030", fontSize: 11, color: c.tipText },
-  itemStyle: { color: c.tipText },
-  labelStyle: { color: c.tick, fontWeight: 700 },
-});
-
-function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
-  return (
-    <button className="theme-toggle" onClick={onToggle} type="button" title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"} aria-label="Alternar tema">
-      <i>{theme === "dark" ? "☀" : "☾"}</i>
-      <span>{theme === "dark" ? "Claro" : "Escuro"}</span>
-    </button>
-  );
-}
-
 export default function StorePanel() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
@@ -86,20 +65,8 @@ export default function StorePanel() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [toast, setToast] = useState("");
-  const [printer, setPrinter] = useState("Impressora não pareada");
+  const [paperWidth, setPaperWidth] = useState<58 | 80>(80);
   const [refreshing, setRefreshing] = useState(false);
-  const [theme, setTheme] = useState<Theme>("dark");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("smack-theme");
-    if (saved === "light" || saved === "dark") setTheme(saved);
-  }, []);
-  const toggleTheme = () =>
-    setTheme((current) => {
-      const next = current === "dark" ? "light" : "dark";
-      localStorage.setItem("smack-theme", next);
-      return next;
-    });
 
   const notify = (message: string) => {
     setToast(message);
@@ -133,6 +100,11 @@ export default function StorePanel() {
   }, [loadAll]);
 
   useEffect(() => {
+    const savedWidth = Number(window.localStorage.getItem("smack-thermal-paper"));
+    if (savedWidth === 58 || savedWidth === 80) setPaperWidth(savedWidth);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     const timer = window.setInterval(() => {
       Promise.all([
@@ -146,8 +118,8 @@ export default function StorePanel() {
     return () => window.clearInterval(timer);
   }, [user]);
 
-  if (checking) return <div className="panel-loading" data-theme={theme}><PanelLogo /><span>Preparando operação…</span></div>;
-  if (!user) return <Login theme={theme} onToggleTheme={toggleTheme} onLogin={async (loggedUser) => { setUser(loggedUser); await loadAll(); }} />;
+  if (checking) return <div className="panel-loading"><PanelLogo /><span>Preparando operação…</span></div>;
+  if (!user) return <Login onLogin={async (loggedUser) => { setUser(loggedUser); await loadAll(); }} />;
 
   const activeCount = orders.filter((order) => order.status === "preparing" || order.status === "ready").length;
   const nav: Array<[View, string, string]> = [
@@ -172,54 +144,52 @@ export default function StorePanel() {
     }
   };
 
-  const connectPrinter = async () => {
-    try {
-      const bluetooth = (navigator as Navigator & { bluetooth?: { requestDevice: (options: object) => Promise<{ name?: string }> } }).bluetooth;
-      if (!bluetooth) throw new Error("Bluetooth não disponível neste navegador");
-      const device = await bluetooth.requestDevice({ acceptAllDevices: true });
-      setPrinter(device.name || "Impressora Bluetooth pareada");
-      notify("Dispositivo pareado. Use “Imprimir comanda” nos pedidos.");
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Não foi possível parear");
+  const configurePrinter = () => {
+    const answer = window.prompt("Qual é a largura da bobina térmica? Digite 80 ou 58 (mm).", String(paperWidth));
+    if (answer === null) return;
+    const width = Number(answer);
+    if (width !== 58 && width !== 80) {
+      notify("Informe 80 ou 58 para o tamanho da bobina.");
+      return;
     }
+    setPaperWidth(width);
+    window.localStorage.setItem("smack-thermal-paper", String(width));
+    notify(`Impressão USB configurada para bobina de ${width} mm.`);
   };
 
   return (
-    <main className="panel-app" data-theme={theme}>
+    <main className="panel-app">
       {toast && <div className="panel-toast">{toast}</div>}
       <aside className="panel-sidebar">
         <PanelLogo />
-        <div className="store-chip"><i /> <span><b>Loja Estreito</b><small>Seg a sáb · 18h–00h</small></span></div>
+        <div className="store-chip"><i /> <span><b>Loja Estreito</b><small>Aberta · até 23h</small></span></div>
         <nav>{nav.map(([id, icon, label]) => (
           <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}>
             <span>{icon}</span>{label}{id === "kitchen" && activeCount > 0 && <b>{activeCount}</b>}
           </button>
         ))}</nav>
         <div className="panel-side-bottom">
-          <button onClick={connectPrinter}>⌁ <span><b>{printer}</b><small>Configurar impressão</small></span></button>
+          <button onClick={configurePrinter}>⌁ <span><b>Impressora USB · {paperWidth} mm</b><small>Alterar tamanho da bobina</small></span></button>
           <button onClick={async () => { await api("/api/auth", { method: "DELETE" }); location.reload(); }}>↪ Sair do painel</button>
         </div>
       </aside>
       <section className="panel-main">
         <header className="panel-top">
           <div><b>SMACK CHICKEN</b><span>Rua Fúlvio Aducci, 1074 · Estreito</span></div>
-          <div className="panel-top-actions"><ThemeToggle theme={theme} onToggle={toggleTheme} /><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
+          <div className="panel-top-actions"><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
         </header>
-        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} theme={theme} />}
+        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} />}
         {view === "pos" && <PointOfSale products={products} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} />}
-        {view === "orders" && <Orders orders={orders} onPrint={printOrder}
-          onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }}
-          onEdit={async (id, data) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify(data) }); await loadAll(); notify("Pedido atualizado com sucesso."); }}
-          onDelete={async (id) => { await api(`/api/orders/${id}`, { method: "DELETE" }); await loadAll(); notify("Pedido excluído definitivamente."); }} />}
-        {view === "finance" && <Finance entries={entries} dashboard={dashboard} theme={theme} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} />}
-        {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} />}
+        {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} />}
+        {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} onDeleted={async (id) => { await api(`/api/finance?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Lançamento removido do histórico."); }} />}
+        {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} onDeleted={async (id) => { await api(`/api/plans?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Meta removida do planejamento."); }} />}
       </section>
     </main>
   );
 }
 
-function Login({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => Promise<void>; theme: Theme; onToggleTheme: () => void }) {
+function Login({ onLogin }: { onLogin: (user: User) => Promise<void> }) {
   const [email, setEmail] = useState("gestao@smackchicken.com.br");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -233,8 +203,7 @@ function Login({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => Pro
       setError(error instanceof Error ? error.message : "Falha ao entrar");
     } finally { setLoading(false); }
   };
-  return <main className="panel-login" data-theme={theme}>
-    <div className="login-theme-toggle"><ThemeToggle theme={theme} onToggle={onToggleTheme} /></div>
+  return <main className="panel-login">
     <section>
       <PanelLogo />
       <span className="login-badge">PAINEL PRIVADO DA LOJA</span>
@@ -253,11 +222,9 @@ function Login({ onLogin, theme, onToggleTheme }: { onLogin: (user: User) => Pro
   </main>;
 }
 
-function Dashboard({ data, orders, theme }: { data: DashboardData | null; orders: Order[]; theme: Theme }) {
+function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order[] }) {
   if (!data) return <div className="panel-empty">Carregando indicadores…</div>;
-  const c = chartPalette(theme);
   const balance = Number(data.finance.income) - Number(data.finance.expense);
-  const maxDay = Math.max(0, ...data.days.map((item) => Number(item.value)));
   const hourly = Array.from({ length: 13 }, (_, index) => {
     const hour = index + 11;
     return { label: `${hour}h`, value: Number(data.hourly.find((item) => Number(item.hour) === hour)?.value || 0) };
@@ -279,23 +246,23 @@ function Dashboard({ data, orders, theme }: { data: DashboardData | null; orders
         <header><div><span>VENDAS POR HORÁRIO</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>Hoje · tempo real</small></header>
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart data={hourly} margin={{ top: 20, right: 4, left: -22, bottom: 0 }}>
-            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={c.red} stopOpacity=".38" /><stop offset="100%" stopColor={c.red} stopOpacity=".02" /></linearGradient></defs>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke={c.grid} />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: c.tick }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: c.tick }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
-            <Tooltip formatter={(value) => [formatMoney(Number(value)), "Vendas"]} {...tooltipProps(c)} />
-            <Area type="monotone" dataKey="value" stroke={c.red} strokeWidth={3} fill="url(#salesFill)" dot={{ r: 2, fill: c.red, strokeWidth: 0 }} activeDot={{ r: 5 }} animationDuration={900} />
+            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c8102e" stopOpacity=".35" /><stop offset="100%" stopColor="#c8102e" stopOpacity=".02" /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#857c75" }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
+            <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: 0, borderRadius: 10, boxShadow: "0 12px 35px #190b0e18", fontSize: 11 }} />
+            <Area type="monotone" dataKey="value" stroke="#c8102e" strokeWidth={3} fill="url(#salesFill)" animationDuration={900} />
           </AreaChart>
         </ResponsiveContainer>
       </article>
       <article className="panel-card payment-card">
         <header><span>PAGAMENTOS HOJE</span></header>
-        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3} stroke="none">{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={data.payments.length ? [c.red, c.gold, c.green, "#9a6b78"][index % 4] : c.track} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} {...tooltipProps(c)} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
+        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#16835b", "#1f1a18"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
         <ul>{data.payments.length ? data.payments.map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(Number(item.value))}</b></li>) : <li><span>Sem vendas registradas</span></li>}</ul>
       </article>
       <article className="panel-card day-chart chart-card">
         <header><div><span>FATURAMENTO · 14 DIAS</span><h3>Histórico recente</h3></div></header>
-        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke={c.grid} /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: c.tick }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: c.tick }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip cursor={{ fill: c.track }} formatter={(value) => [formatMoney(Number(value)), "Faturamento"]} {...tooltipProps(c)} /><Bar dataKey="value" radius={[5, 5, 0, 0]} animationDuration={1000}>{days.map((item) => <Cell key={item.label} fill={item.value >= maxDay && maxDay > 0 ? c.gold : c.red} />)}</Bar></BarChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Bar dataKey="value" fill="#c8102e" radius={[5, 5, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
       </article>
       <article className="panel-card product-ranking">
         <header><span>MAIS VENDIDOS HOJE</span></header>
@@ -364,17 +331,13 @@ function PointOfSale({ products, onCreated, notify }: { products: Product[]; onC
     </section>
     <aside className="real-checkout">
       <header><div><span>COMANDA</span><h2>Pedido local</h2></div><b>{cart.reduce((sum, item) => sum + item.quantity, 0)} itens</b></header>
-      <div className="checkout-scroll">
-        <label>Nome do cliente<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Nome para chamar quando estiver pronto" /></label>
-        <div className="real-cart">{cart.length ? cart.map((item) => <div key={item.id}><span><b>{item.name}</b><small>{formatMoney(item.priceCents)}</small></span><div><button onClick={() => changeQty(item.id, -1)}>−</button><b>{item.quantity}</b><button onClick={() => changeQty(item.id, 1)}>+</button></div></div>) : <p>Adicione produtos do cardápio.</p>}</div>
-        <label>Observações<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Sem molho, bem passado, alergias…" /></label>
-        <label>Forma de pagamento<select value={payment} onChange={(event) => setPayment(event.target.value)}><option>Pix</option><option>Dinheiro</option><option>Crédito</option><option>Débito</option></select></label>
-        {payment === "Dinheiro" && <label>Valor recebido<input inputMode="decimal" value={cash} onChange={(event) => setCash(event.target.value)} placeholder="0,00" /><span className="cash-change">Troco <b>{formatMoney(Math.max(0, Math.round(Number(cash.replace(",", ".")) * 100) - total))}</b></span></label>}
-      </div>
-      <footer className="checkout-footer">
-        <div className="checkout-total"><span>Total</span><strong>{formatMoney(total)}</strong></div>
-        <button className="send-kitchen" onClick={submit} disabled={saving}>{saving ? "Salvando…" : "Confirmar e enviar à cozinha →"}</button>
-      </footer>
+      <label>Nome do cliente<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Nome para chamar quando estiver pronto" /></label>
+      <div className="real-cart">{cart.length ? cart.map((item) => <div key={item.id}><span><b>{item.name}</b><small>{formatMoney(item.priceCents)}</small></span><div><button onClick={() => changeQty(item.id, -1)}>−</button><b>{item.quantity}</b><button onClick={() => changeQty(item.id, 1)}>+</button></div></div>) : <p>Adicione produtos do cardápio.</p>}</div>
+      <label>Observações<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Sem molho, bem passado, alergias…" /></label>
+      <label>Forma de pagamento<select value={payment} onChange={(event) => setPayment(event.target.value)}><option>Pix</option><option>Dinheiro</option><option>Crédito</option><option>Débito</option></select></label>
+      {payment === "Dinheiro" && <label>Valor recebido<input inputMode="decimal" value={cash} onChange={(event) => setCash(event.target.value)} placeholder="0,00" /><span className="cash-change">Troco <b>{formatMoney(Math.max(0, Math.round(Number(cash.replace(",", ".")) * 100) - total))}</b></span></label>}
+      <div className="checkout-total"><span>Total</span><strong>{formatMoney(total)}</strong></div>
+      <button className="send-kitchen" onClick={submit} disabled={saving}>{saving ? "Salvando…" : "Confirmar e enviar à cozinha →"}</button>
     </aside>
   </div>;
 }
@@ -405,61 +368,21 @@ function KitchenCard({ order, label, onClick, onCancel }: { order: Order; label:
   </article>;
 }
 
-function Orders({ orders, onPrint, onCancel, onEdit, onDelete }: {
-  orders: Order[];
-  onPrint: (order: Order) => void;
-  onCancel: (id: string) => Promise<void>;
-  onEdit: (id: string, data: { customerName: string; paymentMethod: string; notes: string }) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-}) {
+function Orders({ orders, onPrint, onCancel }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void> }) {
   const labels: Record<Order["status"], string> = { preparing: "Em preparo", ready: "Pronto", completed: "Finalizado", cancelled: "Cancelado" };
-  const [editing, setEditing] = useState<Order | null>(null);
   const cancel = async (order: Order) => {
     if (!window.confirm(`Cancelar o pedido ${order.code} de ${order.customerName}? O valor será retirado do faturamento.`)) return;
     await onCancel(order.id);
   };
-  const remove = async (order: Order) => {
-    if (!window.confirm(`Excluir definitivamente o pedido ${order.code} de ${order.customerName}? Essa ação não pode ser desfeita.`)) return;
-    await onDelete(order.id);
-  };
   return <div className="panel-page">
-    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, corrija dados, imprima novamente, cancele ou exclua pedidos." />
+    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima novamente ou cancele pedidos ainda em andamento." />
     <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button>{order.status !== "cancelled" && <button className="edit-order" onClick={() => setEditing(order)}>Editar</button>}{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}{(order.status === "completed" || order.status === "cancelled") && <button className="delete-order" onClick={() => remove(order)}>Excluir</button>}</span></div>)}
+      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}</span></div>)}
     </div>
-    {editing && <EditOrderModal order={editing} onClose={() => setEditing(null)} onSave={onEdit} />}
   </div>;
 }
 
-function EditOrderModal({ order, onClose, onSave }: { order: Order; onClose: () => void; onSave: (id: string, data: { customerName: string; paymentMethod: string; notes: string }) => Promise<void> }) {
-  const [customerName, setCustomerName] = useState(order.customerName);
-  const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod);
-  const [notes, setNotes] = useState(order.notes || "");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!customerName.trim()) return setError("Informe o nome do cliente.");
-    setSaving(true); setError("");
-    try {
-      await onSave(order.id, { customerName: customerName.trim(), paymentMethod, notes });
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar.");
-    } finally { setSaving(false); }
-  };
-  return <div className="panel-modal"><form onSubmit={submit}>
-    <header><div><span>EDITAR PEDIDO {order.code}</span><h2>Corrigir dados</h2></div><button type="button" onClick={onClose}>×</button></header>
-    <label>Nome do cliente<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required autoFocus /></label>
-    <label>Forma de pagamento<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)}><option>Pix</option><option>Dinheiro</option><option>Crédito</option><option>Débito</option></select></label>
-    <label>Observações<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Sem molho, bem passado, alergias…" /></label>
-    {error && <p className="form-error">{error}</p>}
-    <button className="panel-primary" disabled={saving}>{saving ? "Salvando…" : "Salvar alterações"}</button>
-  </form></div>;
-}
-
-function Finance({ entries, dashboard, theme, onCreated }: { entries: FinanceEntry[]; dashboard: DashboardData | null; theme: Theme; onCreated: () => Promise<void> }) {
-  const c = chartPalette(theme);
+function Finance({ entries, dashboard, onCreated, onDeleted }: { entries: FinanceEntry[]; dashboard: DashboardData | null; onCreated: () => Promise<void>; onDeleted: (id: string) => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [category, setCategory] = useState("Fornecedores");
@@ -483,6 +406,10 @@ function Finance({ entries, dashboard, theme, onCreated }: { entries: FinanceEnt
     await api("/api/finance", { method: "POST", body: JSON.stringify({ entryType: type, category, description, amountCents: Math.round(Number(amount.replace(",", ".")) * 100), entryDate: date }) });
     setDescription(""); setAmount(""); setOpen(false); await onCreated();
   };
+  const remove = async (entry: FinanceEntry) => {
+    if (!window.confirm(`Excluir o lançamento “${entry.description}” de ${formatMoney(entry.amountCents)}?`)) return;
+    await onDeleted(entry.id);
+  };
   return <div className="panel-page finance-page">
     <PageTitle eyebrow="GESTÃO FINANCEIRA" title="Saúde financeira da loja" subtitle="Vendas do caixa, entradas, despesas e saldo em uma visão executiva." action={<div className="finance-actions"><span className="live-pill"><i /> AO VIVO</span><button className="panel-primary" onClick={() => setOpen(true)}>+ Novo lançamento</button></div>} />
     <div className="finance-summary">
@@ -493,16 +420,16 @@ function Finance({ entries, dashboard, theme, onCreated }: { entries: FinanceEnt
     </div>
     <section className="finance-charts">
       <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>Últimos 14 dias</small></header>
-        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={c.green} stopOpacity=".38" /><stop offset="100%" stopColor={c.green} stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke={c.grid} /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: c.tick }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: c.tick }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => [formatMoney(Number(value)), "Vendas"]} {...tooltipProps(c)} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke={c.green} strokeWidth={3} fill="url(#financeFill)" dot={{ r: 2, fill: c.green, strokeWidth: 0 }} activeDot={{ r: 5 }} animationDuration={1100} /></AreaChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#16835b" stopOpacity=".38" /><stop offset="100%" stopColor="#16835b" stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke="#16835b" strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} /></AreaChart></ResponsiveContainer>
       </article>
       <article className="panel-card finance-categories"><header><div><span>DESPESAS</span><h3>Por categoria</h3></div></header>
-        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3} stroke="none">{expenseCategories.map((item, index) => <Cell key={item.name} fill={[c.red, c.gold, c.green, "#ef7b45", "#b85c86"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} {...tooltipProps(c)} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
+        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#1f1a18", "#ef7b45", "#7a2942"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
       </article>
     </section>
     <section className="finance-layout">
       <article className="panel-card finance-list"><header><div><span>LANÇAMENTOS</span><h3>Histórico financeiro</h3></div></header>
-        <div className="finance-table"><header><span>Data</span><span>Descrição</span><span>Categoria</span><span>Tipo</span><span>Valor</span></header>
-          {entries.length ? entries.map((entry) => <div key={entry.id}><span>{new Date(entry.entryDate).toLocaleDateString("pt-BR")}</span><strong>{entry.description}</strong><span>{entry.category}</span><i className={entry.entryType}>{entry.entryType === "income" ? "Entrada" : "Saída"}</i><b className={entry.entryType}>{entry.entryType === "expense" ? "−" : "+"}{formatMoney(entry.amountCents)}</b></div>) : <p>Nenhum lançamento manual ainda.</p>}
+        <div className="finance-table"><header><span>Data</span><span>Descrição</span><span>Categoria</span><span>Tipo</span><span>Valor</span><span /></header>
+          {entries.length ? entries.map((entry) => <div key={entry.id}><span>{new Date(entry.entryDate).toLocaleDateString("pt-BR")}</span><strong>{entry.description}</strong><span>{entry.category}</span><i className={entry.entryType}>{entry.entryType === "income" ? "Entrada" : "Saída"}</i><b className={entry.entryType}>{entry.entryType === "expense" ? "−" : "+"}{formatMoney(entry.amountCents)}</b><button type="button" className="row-delete" onClick={() => remove(entry)}>Excluir</button></div>) : <p>Nenhum lançamento manual ainda.</p>}
         </div>
       </article>
       <article className="panel-card finance-help"><span>ORGANIZAÇÃO DO MÊS</span><h3>O que registrar aqui?</h3><ul><li>Compras de frango e insumos</li><li>Embalagens e descartáveis</li><li>Aluguel, energia e equipe</li><li>Aportes e outras receitas</li></ul><p>As vendas do caixa aparecem no dashboard. Aqui ficam as anotações financeiras da gestão.</p></article>
@@ -517,7 +444,7 @@ function Finance({ entries, dashboard, theme, onCreated }: { entries: FinanceEnt
   </div>;
 }
 
-function Planning({ plans, dashboard, onCreated }: { plans: Plan[]; dashboard: DashboardData | null; onCreated: () => Promise<void> }) {
+function Planning({ plans, dashboard, onCreated, onDeleted }: { plans: Plan[]; dashboard: DashboardData | null; onCreated: () => Promise<void>; onDeleted: (id: string) => Promise<void> }) {
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
   const [date, setDate] = useState("");
@@ -526,12 +453,16 @@ function Planning({ plans, dashboard, onCreated }: { plans: Plan[]; dashboard: D
     await api("/api/plans", { method: "POST", body: JSON.stringify({ title, targetCents: Math.round(Number(target.replace(",", ".")) * 100), dueDate: date || null }) });
     setTitle(""); setTarget(""); setDate(""); await onCreated();
   };
+  const remove = async (plan: Plan) => {
+    if (!window.confirm(`Excluir a meta “${plan.title}”?`)) return;
+    await onDeleted(plan.id);
+  };
   return <div className="panel-page planning-page">
     <PageTitle eyebrow="GESTÃO E METAS" title="Planejamento financeiro" subtitle="Defina objetivos e acompanhe o avanço financeiro da loja." />
     <div className="planning-grid">
       <section><h2>Metas ativas</h2>{plans.length ? plans.map((plan) => {
         const percent = Math.min(100, Math.round(Number(plan.currentCents) / Number(plan.targetCents) * 100));
-        return <article className="plan-card" key={plan.id}><header><div><span>META</span><h3>{plan.title}</h3></div><b>{percent}%</b></header><div className="progress"><i style={{ width: `${percent}%` }} /></div><footer><span>{formatMoney(Number(plan.currentCents))} alcançados</span><strong>{formatMoney(Number(plan.targetCents))}</strong></footer>{plan.dueDate && <small>Prazo: {new Date(plan.dueDate).toLocaleDateString("pt-BR")}</small>}</article>;
+        return <article className="plan-card" key={plan.id}><header><div><span>META</span><h3>{plan.title}</h3></div><div className="plan-card-actions"><b>{percent}%</b><button type="button" onClick={() => remove(plan)}>Excluir meta</button></div></header><div className="progress"><i style={{ width: `${percent}%` }} /></div><footer><span>{formatMoney(Number(plan.currentCents))} alcançados</span><strong>{formatMoney(Number(plan.targetCents))}</strong></footer>{plan.dueDate && <small>Prazo: {new Date(plan.dueDate).toLocaleDateString("pt-BR")}</small>}</article>;
       }) : <div className="panel-empty">Crie a primeira meta da loja.</div>}</section>
       <aside>
         <form className="plan-form" onSubmit={submit}><span>NOVA META</span><h2>Planejar objetivo</h2><label>Nome da meta<input value={title} onChange={(event) => setTitle(event.target.value)} required placeholder="Ex.: Reserva para nova fritadeira" /></label><label>Valor alvo<input value={target} onChange={(event) => setTarget(event.target.value)} inputMode="decimal" required placeholder="0,00" /></label><label>Prazo<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><button className="panel-primary">Criar meta</button></form>
@@ -541,9 +472,33 @@ function Planning({ plans, dashboard, onCreated }: { plans: Plan[]; dashboard: D
   </div>;
 }
 
-function printOrder(order: Order) {
-  const popup = window.open("", "_blank", "width=420,height=700");
+function escapeReceipt(value: unknown) {
+  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[character] || character);
+}
+
+function printOrder(order: Order, paperWidth: 58 | 80) {
+  const popup = window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
   if (!popup) return;
-  popup.document.write(`<!doctype html><html><head><title>${order.code}</title><style>body{font:14px monospace;padding:18px}h1{text-align:center;font-size:22px}h2{font-size:18px;border-block:1px dashed #000;padding:12px 0}li{margin:8px 0}.meta{border-top:1px dashed #000;margin-top:18px;padding-top:12px}strong{font-size:18px}</style></head><body><h1>SMACK CHICKEN</h1><p style="text-align:center">Rua Fúlvio Aducci, 1074</p><h2>${order.code} · ${order.customerName}</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b> ${item.name}</li>`).join("")}</ul>${order.notes ? `<p><b>OBS:</b> ${order.notes}</p>` : ""}<div class="meta"><p>${order.paymentMethod}</p><strong>Total: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><script>window.onload=()=>window.print()</script></body></html>`);
+  const fontSize = paperWidth === 58 ? 14 : 17;
+  const horizontalPadding = paperWidth === 58 ? 3 : 4;
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeReceipt(order.code)}</title><style>
+    @page{size:${paperWidth}mm auto;margin:0}
+    *{box-sizing:border-box}
+    html,body{width:${paperWidth}mm;margin:0;padding:0;background:#fff;color:#000}
+    body{font:${fontSize}px/1.38 "Courier New",monospace;font-weight:600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .receipt{width:${paperWidth}mm;padding:5mm ${horizontalPadding}mm 16mm;margin:0 auto}
+    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 23 : 29}px;line-height:1;font-weight:900;letter-spacing:.4px}
+    .address{margin:2.5mm 0 4mm;font-size:${paperWidth === 58 ? 11 : 13}px;font-weight:600}
+    .divider{border:0;border-top:1.5px dashed #000;margin:3.5mm 0}
+    .order{margin:0;padding:3.5mm 0;font-size:${paperWidth === 58 ? 18 : 23}px;line-height:1.15;text-align:center;border-block:1.5px dashed #000}
+    .customer{display:block;margin-top:2mm;font-size:${paperWidth === 58 ? 16 : 20}px}
+    ul{margin:4mm 0;padding:0;list-style:none}li{display:grid;grid-template-columns:auto 1fr;gap:3mm;padding:2.4mm 0;border-bottom:1px dotted #777;font-size:${paperWidth === 58 ? 15 : 18}px}
+    li b{font-size:${paperWidth === 58 ? 17 : 21}px}.notes{margin:4mm 0;padding:3mm;border:2px solid #000;font-size:${paperWidth === 58 ? 14 : 17}px}
+    .meta{margin-top:4mm;padding-top:3.5mm;border-top:1.5px dashed #000}.meta p{margin:2mm 0}.total{display:block;margin:3mm 0;font-size:${paperWidth === 58 ? 20 : 25}px}
+    .footer{margin-top:5mm;padding-top:3mm;border-top:1.5px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 11 : 13}px}.cut-space{height:8mm}
+    @media print{html,body,.receipt{width:${paperWidth}mm}.receipt{break-inside:avoid}}
+  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><h2 class="order">${escapeReceipt(order.code)}<span class="customer">${escapeReceipt(order.customerName)}</span></h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><span>${escapeReceipt(item.name)}</span></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main><script>window.onload=()=>setTimeout(()=>window.print(),180);window.onafterprint=()=>window.close()</script></body></html>`);
   popup.document.close();
 }
