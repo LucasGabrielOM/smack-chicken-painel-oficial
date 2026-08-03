@@ -35,3 +35,14 @@ export async function POST(request: NextRequest) {
   );
   return NextResponse.json({ id: result.rows[0].id }, { status: 201 });
 }
+
+export async function DELETE(request: NextRequest) {
+  if (process.env.SMACK_MODE !== "panel") return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const auth = await requireUser(request);
+  if (auth.response) return auth.response;
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Informe o lançamento" }, { status: 400 });
+  const result = await query<{ id: string }>("DELETE FROM finance_entries WHERE id=$1 RETURNING id", [id]);
+  if (!result.rowCount) return NextResponse.json({ error: "Lançamento não encontrado" }, { status: 404 });
+  return NextResponse.json({ deleted: true });
+}
