@@ -9,9 +9,12 @@ export type CatalogProduct = {
 };
 
 export const catalog: CatalogProduct[] = [
-  { id: 1, name: "Baldinho P", description: "Porção pequena de frango crocante", priceCents: 2699, category: "Baldes", image: "/balde.jpeg", featured: true },
-  { id: 2, name: "Balde M", description: "Porção média de frango crocante", priceCents: 5999, category: "Baldes", image: "/balde-mesa.jpeg", featured: true },
-  { id: 3, name: "Balde G", description: "Porção grande de frango crocante", priceCents: 7999, category: "Baldes", image: "/combo-zero.jpeg", featured: true },
+  { id: 1, name: "Baldinho P 250 g — Tiras Crocantes", description: "250 g de tiras de frango crocantes", priceCents: 2699, category: "Baldes", image: "/balde.jpeg", featured: true },
+  { id: 17, name: "Baldinho P 250 g — Coxinha da Asa", description: "250 g de coxinhas da asa crocantes", priceCents: 3599, category: "Baldes", image: "/balde.jpeg", featured: true },
+  { id: 2, name: "Balde M 500 g — Tiras Crocantes", description: "500 g de tiras de frango crocantes", priceCents: 5999, category: "Baldes", image: "/balde-mesa.jpeg", featured: true },
+  { id: 18, name: "Balde M 500 g — Coxinha da Asa", description: "500 g de coxinhas da asa crocantes", priceCents: 5999, category: "Baldes", image: "/balde-mesa.jpeg", featured: true },
+  { id: 3, name: "Balde G 800 g — Tiras Crocantes", description: "800 g de tiras de frango crocantes", priceCents: 8499, category: "Baldes", image: "/combo-zero.jpeg", featured: true },
+  { id: 19, name: "Balde G 800 g — Coxinha da Asa", description: "800 g de coxinhas da asa crocantes", priceCents: 7999, category: "Baldes", image: "/combo-zero.jpeg", featured: true },
   { id: 4, name: "Combo Pra Dois", description: "Combo completo para duas pessoas", priceCents: 7990, category: "Combos", image: "/combo.jpeg", featured: true },
   { id: 5, name: "Combo Pra Galera", description: "Combo completo para compartilhar com a galera", priceCents: 9899, category: "Combos", image: "/balde-mesa.jpeg", featured: true },
   { id: 6, name: "Mega Combo Família", description: "Mega combo completo para toda a família", priceCents: 13599, category: "Combos", image: "/combo-zero.jpeg", featured: true },
