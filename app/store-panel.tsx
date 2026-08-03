@@ -282,6 +282,7 @@ function Metric({ label, value, note, tone = "" }: { label: string; value: strin
 
 function ProductVisual({ product }: { product: Product }) {
   const name = product.name.toLowerCase();
+  if (product.image.startsWith("data:image/")) return <img src={product.image} alt={product.name} />;
   if (name.includes("coca-cola")) return <div className="brand-visual coca"><SiCocacola aria-label="Coca-Cola" /></div>;
   if (name.includes("monster")) return <div className="brand-visual monster"><SiMonster aria-label="Monster Energy" /><small>ENERGY</small></div>;
   if (name.includes("heineken")) return <div className="brand-visual heineken"><strong><b>★</b> HEINEKEN</strong><small>18+</small></div>;
