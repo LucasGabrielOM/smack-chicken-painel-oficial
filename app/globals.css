@@ -229,10 +229,11 @@ button { cursor: pointer; }
 .kitchen-order > footer button { margin-left: auto; border: 0; padding: 10px 12px; background: var(--ink); color: white; font-size: 9px; font-weight: 850; }
 .kitchen-lanes .ready footer button { background: var(--green); }
 .orders-table { border: 1px solid var(--line); background: white; overflow: auto; }
-.orders-table > header, .orders-table > div { min-width: 850px; display: grid; grid-template-columns: .7fr 1.1fr 1.1fr .9fr .8fr .9fr .7fr; align-items: center; gap: 10px; padding: 13px 16px; }
+.orders-table > header, .orders-table > div { min-width: 940px; display: grid; grid-template-columns: .7fr 1.1fr 1.05fr .65fr .85fr .75fr .85fr 1.25fr; align-items: center; gap: 10px; padding: 13px 16px; }
 .orders-table > header { background: #eee8df; color: var(--muted); font-size: 8px; font-weight: 900; text-transform: uppercase; }
 .orders-table > div { border-top: 1px solid #eee8e0; font-size: 9px; }
 .orders-table > div > b:first-child { color: var(--red); }
+.orders-table .order-duration { color: #9b6500; font-size: 10px; font-weight: 900; white-space: nowrap; }
 .orders-table i, .finance-table i { width: max-content; padding: 5px 7px; border-radius: 20px; background: #fff3cd; color: #9b6500; font-style: normal; font-size: 7px; font-weight: 900; }
 .orders-table i.ready, .orders-table i.completed { background: #e0f5e9; color: var(--green); }
 .orders-table i.cancelled { background: #f7e2e5; color: var(--red); }
