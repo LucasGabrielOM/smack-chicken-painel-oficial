@@ -299,9 +299,19 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
   const [saving, setSaving] = useState(false);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.priceCents * item.quantity, 0), [cart]);
   const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
-  const add = (product: Product) => setCart((current) => current.some((item) => item.id === product.id)
-    ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-    : [...current, { ...product, quantity: 1 }]);
+  const add = (product: Product) => setCart((current) => {
+    const isFreeSauce = product.category === "Molhos" && product.priceCents === 0;
+    const freeSauceCount = current
+      .filter((item) => item.category === "Molhos" && item.priceCents === 0)
+      .reduce((sum, item) => sum + item.quantity, 0);
+    if (isFreeSauce && freeSauceCount >= 2) {
+      notify("O pedido inclui até 2 molhos grátis. Use uma opção adicional para outros molhos.");
+      return current;
+    }
+    return current.some((item) => item.id === product.id)
+      ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+      : [...current, { ...product, quantity: 1 }];
+  });
   const changeQty = (id: number, amount: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: item.quantity + amount } : item).filter((item) => item.quantity > 0));
   const submit = async () => {
     if (!customer.trim() || !cart.length) return notify("Informe o cliente e adicione itens.");
