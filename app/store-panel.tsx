@@ -416,6 +416,7 @@ function KitchenCard({ order, label, onClick, onCancel, onPayment }: { order: Or
 }
 
 function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>; onPayment: (id: string, paymentMethod: string) => Promise<void> }) {
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const labels: Record<Order["status"], string> = { preparing: "Em preparo", ready: "Pronto", completed: "Finalizado", cancelled: "Cancelado" };
   const cancel = async (order: Order) => {
     if (!window.confirm(`Cancelar o pedido ${order.code} de ${order.customerName}? O valor será retirado do faturamento.`)) return;
@@ -433,10 +434,20 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
     await onDelete(order.id);
   };
   return <div className="panel-page">
-    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima, cancele ou exclua pedidos." />
+    <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Clique no número do pedido para consultar os itens." />
     <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Tempo</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><strong className="order-duration">{formatOrderDuration(order)}</strong><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
+      {orders.map((order) => <div key={order.id}><button type="button" className="order-code-button" onClick={() => setSelectedOrder(order)}>{order.code}</button><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><strong className="order-duration">{formatOrderDuration(order)}</strong><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
     </div>
+    {selectedOrder && <div className="order-detail-backdrop" role="presentation" onClick={() => setSelectedOrder(null)}>
+      <article className="order-detail-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-title" onClick={(event) => event.stopPropagation()}>
+        <header><div><span>DETALHES DO PEDIDO</span><h2 id="order-detail-title">{selectedOrder.code}</h2></div><button type="button" aria-label="Fechar detalhes" onClick={() => setSelectedOrder(null)}>×</button></header>
+        <section className="order-detail-customer"><span>CLIENTE</span><strong>{selectedOrder.customerName}</strong></section>
+        <section className="order-detail-items"><h3>Itens pedidos</h3><ul>{selectedOrder.items.map((item) => <li key={item.id}><b>{item.quantity}×</b><span>{item.name}</span><strong>{formatMoney(Number(item.unitPriceCents) * item.quantity)}</strong></li>)}</ul></section>
+        {selectedOrder.notes && <p className="order-detail-notes"><b>Observação:</b> {selectedOrder.notes}</p>}
+        <dl><div><dt>Horário</dt><dd>{new Date(selectedOrder.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</dd></div><div><dt>Tempo</dt><dd>{formatOrderDuration(selectedOrder)}</dd></div><div><dt>Pagamento</dt><dd>{selectedOrder.paymentMethod}</dd></div><div><dt>Status</dt><dd>{labels[selectedOrder.status]}</dd></div></dl>
+        <footer><span>Total</span><strong>{formatMoney(selectedOrder.totalCents)}</strong><button type="button" onClick={() => onPrint(selectedOrder)}>Imprimir pedido</button></footer>
+      </article>
+    </div>}
   </div>;
 }
 
