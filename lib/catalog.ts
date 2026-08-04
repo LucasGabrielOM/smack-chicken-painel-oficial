@@ -46,6 +46,17 @@ export const catalog: CatalogProduct[] = [
   { id: 33, name: "Baly Manga", description: "Energético gelado sabor manga", priceCents: 1200, category: "Bebidas", image: drinksCatalogImage },
   { id: 34, name: "Coca-Cola 200 ml", description: "Garrafa pequena gelada", priceCents: 400, category: "Bebidas", image: drinksCatalogImage },
   { id: 35, name: "Coca-Cola Zero 200 ml", description: "Garrafa pequena zero açúcar gelada", priceCents: 400, category: "Bebidas", image: drinksCatalogImage },
+  { id: 36, name: "Maionese Temperada — Grátis", description: "Escolha até 2 molhos grátis por pedido", priceCents: 0, category: "Molhos", image: "/molho.jpeg" },
+  { id: 37, name: "Maionese de Alho — Grátis", description: "Escolha até 2 molhos grátis por pedido", priceCents: 0, category: "Molhos", image: "/molho.jpeg" },
+  { id: 38, name: "Pimenta Agridoce — Grátis", description: "Escolha até 2 molhos grátis por pedido", priceCents: 0, category: "Molhos", image: "/molho.jpeg" },
+  { id: 39, name: "Barbecue — Grátis", description: "Escolha até 2 molhos grátis por pedido", priceCents: 0, category: "Molhos", image: "/molho.jpeg" },
+  { id: 40, name: "Molho Smack — Grátis", description: "Escolha até 2 molhos grátis por pedido", priceCents: 0, category: "Molhos", image: "/molho.jpeg" },
+  { id: 41, name: "Maionese Temperada — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
+  { id: 42, name: "Maionese de Alho — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
+  { id: 43, name: "Pimenta Agridoce — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
+  { id: 44, name: "Barbecue — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
+  { id: 45, name: "Molho Smack — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
+  { id: 46, name: "Molho de Bacon — Adicional", description: "Molho adicional de bacon", priceCents: 500, category: "Molhos", image: "/molho.jpeg" },
 ];
 
 export const formatMoney = (cents: number) =>
