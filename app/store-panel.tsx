@@ -55,6 +55,19 @@ function OrderTimer({ iso }: { iso: string }) {
   return <span className={Number(value.split(":")[0]) >= 15 ? "timer late" : "timer"}>{value}</span>;
 }
 
+function formatOrderDuration(order: Order) {
+  if (order.status === "cancelled") return "—";
+  const start = new Date(order.createdAt).getTime();
+  const endIso = order.completedAt || order.readyAt;
+  const end = endIso ? new Date(endIso).getTime() : Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "—";
+  const totalMinutes = Math.max(0, Math.round((end - start) / 60000));
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours}h ${minutes}min` : `${hours}h`;
+}
+
 export default function StorePanel() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
@@ -421,8 +434,8 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
   };
   return <div className="panel-page">
     <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Consulte comandas, imprima, cancele ou exclua pedidos." />
-    <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
+    <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Tempo</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
+      {orders.map((order) => <div key={order.id}><b>{order.code}</b><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><strong className="order-duration">{formatOrderDuration(order)}</strong><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
     </div>
   </div>;
 }
