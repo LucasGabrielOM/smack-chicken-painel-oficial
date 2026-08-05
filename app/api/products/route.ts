@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "../../../lib/auth";
 import { query } from "../../../lib/db";
+import { getProductImage } from "../../store-panel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,5 +14,11 @@ export async function GET(request: NextRequest) {
     `SELECT id,name,description,price_cents AS "priceCents",category,image,active,featured
      FROM products ORDER BY category,name`,
   );
-  return NextResponse.json({ products: result.rows });
+
+  const products = result.rows.map((product) => ({
+    ...product,
+    image: getProductImage(product),
+  }));
+
+  return NextResponse.json({ products });
 }
