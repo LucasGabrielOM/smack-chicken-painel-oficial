@@ -293,13 +293,37 @@ function Metric({ label, value, note, tone = "" }: { label: string; value: strin
   return <article><span>{label}</span><strong>{value}</strong><small className={tone}>{note}</small></article>;
 }
 
-function ProductVisual({ product }: { product: Product }) {
-  if (product.image) return <img src={product.image} alt={product.name} />;
+export function getProductImage(product: { name: string; category?: string; image?: string }): string {
   const name = product.name.toLowerCase();
-  if (name.includes("coca-cola")) return <div className="brand-visual coca"><SiCocacola aria-label="Coca-Cola" /></div>;
-  if (name.includes("monster")) return <div className="brand-visual monster"><SiMonster aria-label="Monster Energy" /><small>ENERGY</small></div>;
-  if (name.includes("heineken")) return <div className="brand-visual heineken"><strong><b>★</b> HEINEKEN</strong><small>18+</small></div>;
-  return <div className="brand-visual"><span>{product.name}</span></div>;
+
+  if (name.includes("batata frita") || name.includes("polenta frita") || name.includes("batata")) return "/batata-frita.jpeg";
+  if (name.includes("coca-cola lata zero") || (name.includes("coca") && name.includes("zero") && name.includes("lata"))) return "/coca-zero-lata.jpeg";
+  if (name.includes("coca-cola lata") || (name.includes("coca") && name.includes("lata"))) return "/coca-lata.jpeg";
+  if (name.includes("coca-cola") && (name.includes("1,5") || name.includes("1.5") || name.includes("litro"))) return "/coca-15l.jpeg";
+  if (name.includes("coca-cola 200") || name.includes("coca-cola 600")) return "/coca-lata.jpeg";
+  if (name.includes("sprite zero") || (name.includes("sprite") && name.includes("zero"))) return "/sprite-zero-lata.jpeg";
+  if (name.includes("sprite")) return "/sprite-lata.jpeg";
+  if (name.includes("baly tropical")) return "/baly-tropical.jpeg";
+  if (name.includes("baly tradicional")) return "/baly-tradicional.jpeg";
+  if (name.includes("baly manga")) return "/baly-manga.jpeg";
+  if (name.includes("kapo uva")) return "/kapo-uva.jpeg";
+  if (name.includes("kapo morango") || name.includes("kapo laranja")) return "/kapo-morango.jpeg";
+  if (name.includes("guaraná") || name.includes("stella") || name.includes("heineken") || name.includes("água")) return "/coca-lata.jpeg";
+
+  if (name.includes("tiras")) return "/balde-tiras.jpeg";
+  if (name.includes("coxinha")) return "/balde-coxinha.jpeg";
+  if (name.includes("combo")) return "/combo-mesa.jpeg";
+  if (name.includes("molho") || product.category === "Molhos") return "/molho.jpeg";
+
+  if (product.image && !["/combo.jpeg", "/balde.jpeg", "/combo-zero.jpeg", "/balde-mesa.jpeg"].includes(product.image)) {
+    return product.image;
+  }
+  return "/combo-mesa.jpeg";
+}
+
+function ProductVisual({ product }: { product: Product }) {
+  const imgSrc = getProductImage(product);
+  return <img src={imgSrc} alt={product.name} />;
 }
 
 function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Product[]; paperWidth: 58 | 80; onCreated: () => Promise<void>; notify: (message: string) => void }) {

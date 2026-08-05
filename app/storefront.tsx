@@ -1,4 +1,5 @@
 import { catalog } from "../lib/catalog";
+import { getProductImage } from "./store-panel";
 
 const MAPS_URL = "https://maps.app.goo.gl/f6Rk7JtTgcCMzCSr9";
 
@@ -99,7 +100,7 @@ export default function Storefront() {
             .map((product) => (
               <article key={product.id}>
                 <div className="sc-product-img">
-                  <img src={product.image} alt={product.name} />
+                  <img src={getProductImage(product)} alt={product.name} />
                   <span>{product.category}</span>
                 </div>
                 <section>
