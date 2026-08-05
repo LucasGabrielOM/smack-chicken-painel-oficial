@@ -86,24 +86,34 @@ export default function StorePanel() {
     window.setTimeout(() => setToast(""), 2800);
   };
 
-  const loadAll = useCallback(async () => {
+  const [selectedDate, setSelectedDate] = useState<string>("");
+
+  const loadAll = useCallback(async (targetDate?: string) => {
+    const dateQuery = targetDate ? `?date=${encodeURIComponent(targetDate)}` : "";
     const [productData, orderData, financeData, planData, dashboardData] = await Promise.all([
       api<{ products: Product[] }>("/api/products"),
       api<{ orders: Order[] }>("/api/orders"),
       api<{ entries: FinanceEntry[] }>("/api/finance"),
       api<{ plans: Plan[] }>("/api/plans"),
-      api<DashboardData>("/api/dashboard"),
+      api<DashboardData>(`/api/dashboard${dateQuery}`),
     ]);
-    setProducts(productData.products.map((product) => ({
+    const list = productData.products && productData.products.length > 0 ? productData.products : catalog;
+    setProducts(list.map((product) => ({
       ...product,
       id: Number(product.id),
       priceCents: Number(product.priceCents),
+      active: product.active !== false,
     })));
     setOrders(orderData.orders);
     setEntries(financeData.entries);
     setPlans(planData.plans);
     setDashboard(dashboardData);
   }, []);
+
+  const changeDashboardDate = async (newDate: string) => {
+    setSelectedDate(newDate);
+    await loadAll(newDate);
+  };
 
   useEffect(() => {
     api<{ user: User }>("/api/auth")
@@ -191,7 +201,7 @@ export default function StorePanel() {
           <div><b>SMACK CHICKEN</b><span>Rua Fúlvio Aducci, 1074 · Estreito</span></div>
           <div className="panel-top-actions"><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
         </header>
-        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} />}
+        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} selectedDate={selectedDate} onDateChange={changeDashboardDate} />}
         {view === "pos" && <PointOfSale products={products} paperWidth={paperWidth} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha e impressão preparada."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} onPayment={async (id, paymentMethod) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) }); await loadAll(); notify(`Pagamento alterado para ${paymentMethod}.`); }} />}
         {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} onDelete={async (id) => { await api(`/api/orders/${id}`, { method: "DELETE" }); await loadAll(); notify("Pedido excluído permanentemente."); }} onPayment={async (id, paymentMethod) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) }); await loadAll(); notify(`Pagamento alterado para ${paymentMethod}.`); }} />}
@@ -235,7 +245,7 @@ function Login({ onLogin }: { onLogin: (user: User) => Promise<void> }) {
   </main>;
 }
 
-function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order[] }) {
+function Dashboard({ data, orders, selectedDate, onDateChange }: { data: DashboardData | null; orders: Order[]; selectedDate: string; onDateChange: (date: string) => Promise<void> }) {
   if (!data) return <div className="panel-empty">Carregando indicadores…</div>;
   const balance = Number(data.finance.income) - Number(data.finance.expense);
   const hourly = Array.from({ length: 13 }, (_, index) => {
@@ -263,17 +273,57 @@ function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order
       value: Number(item.value),
     };
   });
+
+  const displayDateText = selectedDate ? selectedDate.split("-").reverse().join("/") : "Hoje";
+
   return <div className="panel-page dashboard-page">
-    <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle="Vendas, cozinha e caixa atualizados automaticamente a cada 10 segundos." action={<span className="live-pill"><i /> AO VIVO</span>} />
+    <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle={`Exibindo indicadores e faturamento de: ${displayDateText}`} action={<span className="live-pill"><i /> AO VIVO</span>} />
+
+    <div className="dashboard-date-picker" style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center", margin: "16px 0 24px 0", background: "#ffffff", padding: "12px 18px", borderRadius: "14px", boxShadow: "0 2px 10px rgba(0,0,0,0.04)", border: "1px solid #eee" }}>
+      <span style={{ fontWeight: 700, fontSize: "14px", color: "#1f1a18" }}>🔎 Pesquisar Vendas por Data:</span>
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => onDateChange(e.target.value)}
+        style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", outline: "none", cursor: "pointer" }}
+      />
+      <button
+        type="button"
+        onClick={() => onDateChange("")}
+        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "" ? "#c8102e" : "#f5f3f0", color: selectedDate === "" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+      >
+        Hoje
+      </button>
+      <button
+        type="button"
+        onClick={() => onDateChange("2026-08-04")}
+        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "2026-08-04" ? "#c8102e" : "#f5f3f0", color: selectedDate === "2026-08-04" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+      >
+        Ontem (04/08)
+      </button>
+      <button
+        type="button"
+        onClick={() => onDateChange("2026-08-03")}
+        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "2026-08-03" ? "#c8102e" : "#f5f3f0", color: selectedDate === "2026-08-03" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+      >
+        Segunda (03/08)
+      </button>
+      {selectedDate && (
+        <span style={{ marginLeft: "auto", fontSize: "13px", color: "#c8102e", fontWeight: 600 }}>
+          Exibindo resultados de {selectedDate.split("-").reverse().join("/")}
+        </span>
+      )}
+    </div>
+
     <div className="panel-metrics">
-      <Metric label="Faturamento hoje" value={formatMoney(Number(data.summary.revenue))} note={`${data.summary.orders} pedidos confirmados`} tone="green" />
+      <Metric label={`Faturamento (${displayDateText})`} value={formatMoney(Number(data.summary.revenue))} note={`${data.summary.orders} pedidos confirmados`} tone="green" />
       <Metric label="Ticket médio" value={formatMoney(Number(data.summary.ticket))} note="Valor médio por pedido" />
       <Metric label="Tempo médio" value={`${Number(data.summary.avgMinutes || 0).toFixed(0)} min`} note={`${orders.filter((item) => item.status === "preparing").length} em preparo`} tone="amber" />
       <Metric label="Saldo financeiro do mês" value={formatMoney(balance)} note={`${formatMoney(Number(data.finance.expense))} em despesas`} tone={balance >= 0 ? "green" : "red"} />
     </div>
     <div className="panel-dashboard-grid">
       <article className="panel-card sales-chart chart-card">
-        <header><div><span>VENDAS POR HORÁRIO</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>Hoje · tempo real</small></header>
+        <header><div><span>VENDAS POR HORÁRIO ({displayDateText})</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>{displayDateText}</small></header>
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart data={hourly} margin={{ top: 20, right: 4, left: -22, bottom: 0 }}>
             <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c8102e" stopOpacity=".35" /><stop offset="100%" stopColor="#c8102e" stopOpacity=".02" /></linearGradient></defs>
@@ -458,6 +508,9 @@ function KitchenCard({ order, label, onClick, onCancel, onPayment }: { order: Or
 
 function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Order[]; onPrint: (order: Order) => void; onCancel: (id: string) => Promise<void>; onDelete: (id: string) => Promise<void>; onPayment: (id: string, paymentMethod: string) => Promise<void> }) {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
   const labels: Record<Order["status"], string> = { preparing: "Em preparo", ready: "Pronto", completed: "Finalizado", cancelled: "Cancelado" };
   const cancel = async (order: Order) => {
     if (!window.confirm(`Cancelar o pedido ${order.code} de ${order.customerName}? O valor será retirado do faturamento.`)) return;
@@ -474,10 +527,54 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
     if (!window.confirm(`Excluir permanentemente o pedido ${order.code} de ${order.customerName}?`)) return;
     await onDelete(order.id);
   };
+
+  const filteredOrders = orders.filter((order) => {
+    if (filterDate) {
+      const orderDateStr = new Date(order.createdAt).toISOString().slice(0, 10);
+      if (orderDateStr !== filterDate) return false;
+    }
+    if (searchTerm.trim()) {
+      const query = searchTerm.toLowerCase().trim();
+      const matchCode = order.code.toLowerCase().includes(query);
+      const matchCustomer = order.customerName.toLowerCase().includes(query);
+      const matchPayment = order.paymentMethod.toLowerCase().includes(query);
+      const matchDateStr = new Date(order.createdAt).toLocaleDateString("pt-BR").includes(query);
+      if (!matchCode && !matchCustomer && !matchPayment && !matchDateStr) return false;
+    }
+    return true;
+  });
+
   return <div className="panel-page">
     <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Clique no número do pedido para consultar os itens." />
+
+    <div className="orders-filter-bar" style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", background: "#fff", padding: "12px 16px", borderRadius: "12px", border: "1px solid #eee" }}>
+      <input
+        type="text"
+        placeholder="🔍 Buscar cliente, pedido, pagamento ou data..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        style={{ padding: "8px 14px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", flex: 1, minWidth: "220px", outline: "none" }}
+      />
+      <span style={{ fontWeight: 600, fontSize: "13px", color: "#444" }}>📅 Filtrar por Data:</span>
+      <input
+        type="date"
+        value={filterDate}
+        onChange={(e) => setFilterDate(e.target.value)}
+        style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", outline: "none" }}
+      />
+      {(filterDate || searchTerm) && (
+        <button
+          type="button"
+          onClick={() => { setFilterDate(""); setSearchTerm(""); }}
+          style={{ padding: "8px 14px", borderRadius: "8px", background: "#c8102e", color: "#fff", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+        >
+          Limpar filtros
+        </button>
+      )}
+    </div>
+
     <div className="orders-table"><header><span>Pedido</span><span>Cliente</span><span>Horário</span><span>Tempo</span><span>Pagamento</span><span>Total</span><span>Status</span><span /></header>
-      {orders.map((order) => <div key={order.id}><button type="button" className="order-code-button" onClick={() => setSelectedOrder(order)}>{order.code}</button><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><strong className="order-duration">{formatOrderDuration(order)}</strong><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
+      {filteredOrders.map((order) => <div key={order.id}><button type="button" className="order-code-button" onClick={() => setSelectedOrder(order)}>{order.code}</button><strong>{order.customerName}</strong><span>{new Date(order.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><strong className="order-duration">{formatOrderDuration(order)}</strong><span>{order.paymentMethod}</span><b>{formatMoney(order.totalCents)}</b><i className={order.status}>{labels[order.status]}</i><span className="order-actions"><button onClick={() => onPrint(order)}>Imprimir</button><button onClick={() => editPayment(order)}>Alterar pagamento</button>{order.status !== "completed" && order.status !== "cancelled" && <button className="cancel-order" onClick={() => cancel(order)}>Cancelar</button>}<button className="row-delete" onClick={() => remove(order)}>Excluir</button></span></div>)}
     </div>
     {selectedOrder && <div className="order-detail-backdrop" role="presentation" onClick={() => setSelectedOrder(null)}>
       <article className="order-detail-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-title" onClick={(event) => event.stopPropagation()}>
@@ -503,10 +600,27 @@ function Finance({ entries, dashboard, onCreated, onDeleted }: { entries: Financ
   const expense = entries.filter((entry) => entry.entryType === "expense").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
   const sales = Number(dashboard?.days.reduce((sum, item) => sum + Number(item.value), 0) || 0);
   const net = sales + income - expense;
-  const cashflow = (dashboard?.days || []).map((item) => ({
-    day: new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    vendas: Number(item.value),
-  }));
+  const cashflow = (dashboard?.days || []).map((item) => {
+    const str = String(item.day);
+    let dayNum = "";
+    let monthNum = "";
+    if (str.includes("T")) {
+      const d = new Date(str);
+      dayNum = String(d.getUTCDate()).padStart(2, "0");
+      monthNum = String(d.getUTCMonth() + 1).padStart(2, "0");
+    } else {
+      const parts = str.slice(0, 10).split("-");
+      if (parts.length === 3) {
+        dayNum = parts[2];
+        monthNum = parts[1];
+      }
+    }
+    const dayLabel = dayNum && monthNum ? `${dayNum}/${monthNum}` : str;
+    return {
+      day: dayLabel,
+      vendas: Number(item.value),
+    };
+  });
   const expenseCategories = Object.entries(entries.filter((entry) => entry.entryType === "expense").reduce<Record<string, number>>((groups, entry) => {
     groups[entry.category] = (groups[entry.category] || 0) + Number(entry.amountCents);
     return groups;
