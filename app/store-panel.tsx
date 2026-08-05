@@ -72,7 +72,9 @@ export default function StorePanel() {
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState<View>("dashboard");
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() =>
+    catalog.map((item) => ({ ...item, id: Number(item.id), priceCents: Number(item.priceCents), active: true }))
+  );
   const [orders, setOrders] = useState<Order[]>([]);
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -90,24 +92,37 @@ export default function StorePanel() {
 
   const loadAll = useCallback(async (targetDate?: string) => {
     const dateQuery = targetDate ? `?date=${encodeURIComponent(targetDate)}` : "";
-    const [productData, orderData, financeData, planData, dashboardData] = await Promise.all([
-      api<{ products: Product[] }>("/api/products"),
-      api<{ orders: Order[] }>("/api/orders"),
-      api<{ entries: FinanceEntry[] }>("/api/finance"),
-      api<{ plans: Plan[] }>("/api/plans"),
-      api<DashboardData>(`/api/dashboard${dateQuery}`),
-    ]);
-    const list = productData.products && productData.products.length > 0 ? productData.products : catalog;
-    setProducts(list.map((product) => ({
-      ...product,
-      id: Number(product.id),
-      priceCents: Number(product.priceCents),
-      active: product.active !== false,
-    })));
-    setOrders(orderData.orders);
-    setEntries(financeData.entries);
-    setPlans(planData.plans);
-    setDashboard(dashboardData);
+    
+    try {
+      const productRes = await api<{ products: Product[] }>("/api/products").catch(() => ({ products: [] }));
+      const list = productRes.products && productRes.products.length > 0 ? productRes.products : catalog;
+      setProducts(list.map((product) => ({
+        ...product,
+        id: Number(product.id),
+        priceCents: Number(product.priceCents),
+        active: product.active !== false,
+      })));
+    } catch {}
+
+    try {
+      const orderRes = await api<{ orders: Order[] }>("/api/orders").catch(() => ({ orders: [] }));
+      setOrders(orderRes.orders || []);
+    } catch {}
+
+    try {
+      const financeRes = await api<{ entries: FinanceEntry[] }>("/api/finance").catch(() => ({ entries: [] }));
+      setEntries(financeRes.entries || []);
+    } catch {}
+
+    try {
+      const planRes = await api<{ plans: Plan[] }>("/api/plans").catch(() => ({ plans: [] }));
+      setPlans(planRes.plans || []);
+    } catch {}
+
+    try {
+      const dashRes = await api<DashboardData>(`/api/dashboard${dateQuery}`).catch(() => null);
+      if (dashRes) setDashboard(dashRes);
+    } catch {}
   }, []);
 
   const changeDashboardDate = async (newDate: string) => {
@@ -402,7 +417,8 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
   const [category, setCategory] = useState("Todos");
   const [saving, setSaving] = useState(false);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.priceCents * item.quantity, 0), [cart]);
-  const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
+  const displayProducts = products && products.length > 0 ? products : catalog.map((c) => ({ ...c, active: true }));
+  const categories = ["Todos", ...Array.from(new Set(displayProducts.map((product) => product.category)))];
   const add = (product: Product) => setCart((current) => {
     const isFreeSauce = product.category === "Molhos" && product.priceCents === 0;
     const freeSauceCount = current
@@ -456,7 +472,7 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
     <section className="pos-catalog">
       <PageTitle eyebrow="CAIXA" title="Novo pedido" subtitle="Selecione os itens e envie a comanda para a cozinha." />
       <div className="pos-categories">{categories.map((item) => <button className={category === item ? "active" : ""} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div>
-      <div className="real-product-grid">{products.filter((product) => product.active !== false && (category === "Todos" || product.category === category)).map((product) => (
+      <div className="real-product-grid">{displayProducts.filter((product) => product.active !== false && (category === "Todos" || product.category === category)).map((product) => (
         <button key={product.id} onClick={() => add(product)}><ProductVisual product={product} /><span><b>{product.name}</b><small>{product.description}</small><strong>{formatMoney(product.priceCents)}</strong></span><i>+</i></button>
       ))}</div>
     </section>
