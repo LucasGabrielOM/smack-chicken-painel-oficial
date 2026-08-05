@@ -378,52 +378,56 @@ function Metric({ label, value, note, tone = "" }: { label: string; value: strin
 export function getProductImage(product: { name: string; category?: string; image?: string }): string {
   const name = product.name.toLowerCase().trim();
 
-  // 1. Águas
+  // 1. Polenta Frita
+  if (name.includes("polenta")) return "/polenta-frita.jpg";
+
+  // 2. Batata Frita
+  if (name.includes("batata")) return "/batata-frita.jpeg";
+
+  // 3. Guaraná Lata e Pureza
+  if (name.includes("guaraná lata") || name.includes("guarana lata") || name.includes("guaraná") || name.includes("guarana")) {
+    if (name.includes("pureza")) return "/coca-lata.jpeg";
+    if (name.includes("zero")) return "/coca-zero-lata.jpeg";
+    return "/guarana-lata.png";
+  }
+
+  // 4. Águas
   if (name.includes("água sem gás") || name.includes("agua sem gas")) return "/agua-sem-gas.webp";
   if (name.includes("água com gás") || name.includes("agua com gas") || name.includes("com gás")) return "/agua-com-gas.jpg";
 
-  // 2. Cervejas
+  // 5. Cervejas
   if (name.includes("stella")) return "/stella.webp";
   if (name.includes("heineken")) return "/heineken.webp";
 
-  // 3. Batatas e Polentas
-  if (name.includes("batata") || name.includes("polenta")) return "/batata-frita.jpeg";
-
-  // 4. Coca 200ml
+  // 6. Coca 200ml
   if (name.includes("200 ml") || name.includes("200ml")) return "/coca-200ml.webp";
 
-  // 5. Coca 1.5L e 600ml
+  // 7. Coca 1.5L e 600ml
   if (name.includes("1,5") || name.includes("1.5") || name.includes("600 ml") || name.includes("600ml")) return "/coca-15l.jpeg";
 
-  // 6. Coca Lata Zero e Original
+  // 8. Coca Lata Zero e Original
   if (name.includes("coca") && (name.includes("zero") || name.includes("sem açúcar"))) return "/coca-zero-lata.jpeg";
   if (name.includes("coca")) return "/coca-lata.jpeg";
 
-  // 7. Sprite
+  // 9. Sprite
   if (name.includes("sprite") && name.includes("zero")) return "/sprite-zero-lata.jpeg";
   if (name.includes("sprite")) return "/sprite-lata.jpeg";
 
-  // 8. Baly
+  // 10. Baly
   if (name.includes("baly tropical")) return "/baly-tropical.jpeg";
   if (name.includes("baly tradicional")) return "/baly-tradicional.jpeg";
   if (name.includes("baly manga")) return "/baly-manga.jpeg";
 
-  // 9. Kapo
+  // 11. Kapo
   if (name.includes("kapo uva")) return "/kapo-uva.jpeg";
   if (name.includes("kapo morango") || name.includes("kapo laranja")) return "/kapo-morango.jpeg";
 
-  // 10. Guaraná
-  if (name.includes("guaraná") || name.includes("guarana")) {
-    if (name.includes("zero")) return "/coca-zero-lata.jpeg";
-    return "/coca-lata.jpeg";
-  }
-
-  // 11. Baldes & Combos
+  // 12. Baldes & Combos
   if (name.includes("tiras")) return "/balde-tiras.jpeg";
   if (name.includes("coxinha")) return "/balde-coxinha.jpeg";
   if (name.includes("combo")) return "/combo-mesa.jpeg";
 
-  // 12. Molhos
+  // 13. Molhos
   if (name.includes("molho") || name.includes("maionese") || name.includes("barbecue") || name.includes("pimenta") || product.category === "Molhos") return "/molho.jpeg";
 
   return "/combo-mesa.jpeg";
