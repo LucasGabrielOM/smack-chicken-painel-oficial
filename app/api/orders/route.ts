@@ -15,7 +15,6 @@ type NewOrder = {
 };
 
 export async function GET(request: NextRequest) {
-  if (process.env.SMACK_MODE !== "panel") return NextResponse.json({ error: "Not found" }, { status: 404 });
   const auth = await requireUser(request);
   if (auth.response) return auth.response;
   const result = await query(
@@ -35,7 +34,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (process.env.SMACK_MODE !== "panel") return NextResponse.json({ error: "Not found" }, { status: 404 });
   const auth = await requireUser(request);
   if (auth.response) return auth.response;
   const body = await request.json() as NewOrder;

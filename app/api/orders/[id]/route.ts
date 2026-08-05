@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 const PAYMENTS = ["Pix", "Dinheiro", "Crédito", "Débito"];
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (process.env.SMACK_MODE !== "panel") return NextResponse.json({ error: "Not found" }, { status: 404 });
   const auth = await requireUser(request);
   if (auth.response) return auth.response;
   const { id } = await context.params;
@@ -52,7 +51,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 }
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  if (process.env.SMACK_MODE !== "panel") return NextResponse.json({ error: "Not found" }, { status: 404 });
   const auth = await requireUser(request);
   if (auth.response) return auth.response;
   const { id } = await context.params;

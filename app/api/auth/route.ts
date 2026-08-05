@@ -4,10 +4,7 @@ import { clearSession, getUser, login, setSessionCookie } from "../../../lib/aut
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const panelOnly = () => process.env.SMACK_MODE === "panel";
-
 export async function GET(request: NextRequest) {
-  if (!panelOnly()) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const user = await getUser(request);
     return user
@@ -19,7 +16,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!panelOnly()) return NextResponse.json({ error: "Not found" }, { status: 404 });
   try {
     const body = await request.json() as { email?: string; password?: string };
     if (!body.email || !body.password) {
