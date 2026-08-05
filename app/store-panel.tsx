@@ -242,10 +242,14 @@ function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order
     const hour = index + 11;
     return { label: `${hour}h`, value: Number(data.hourly.find((item) => Number(item.hour) === hour)?.value || 0) };
   });
-  const days = data.days.map((item) => ({
-    label: new Date(item.day).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-    value: Number(item.value),
-  }));
+  const days = data.days.map((item) => {
+    const parts = String(item.day).slice(0, 10).split("-");
+    const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : String(item.day);
+    return {
+      label,
+      value: Number(item.value),
+    };
+  });
   return <div className="panel-page dashboard-page">
     <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle="Vendas, cozinha e caixa atualizados automaticamente a cada 10 segundos." action={<span className="live-pill"><i /> AO VIVO</span>} />
     <div className="panel-metrics">
@@ -389,7 +393,7 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
     <section className="pos-catalog">
       <PageTitle eyebrow="CAIXA" title="Novo pedido" subtitle="Selecione os itens e envie a comanda para a cozinha." />
       <div className="pos-categories">{categories.map((item) => <button className={category === item ? "active" : ""} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div>
-      <div className="real-product-grid">{products.filter((product) => product.active && (category === "Todos" || product.category === category)).map((product) => (
+      <div className="real-product-grid">{products.filter((product) => product.active !== false && (category === "Todos" || product.category === category)).map((product) => (
         <button key={product.id} onClick={() => add(product)}><ProductVisual product={product} /><span><b>{product.name}</b><small>{product.description}</small><strong>{formatMoney(product.priceCents)}</strong></span><i>+</i></button>
       ))}</div>
     </section>

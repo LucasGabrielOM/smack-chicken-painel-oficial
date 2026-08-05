@@ -6,6 +6,7 @@ export type CatalogProduct = {
   category: string;
   image: string;
   featured?: boolean;
+  active?: boolean;
 };
 
 
