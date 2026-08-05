@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
            WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date=(NOW() AT TIME ZONE 'America/Sao_Paulo')::date
              AND status<>'cancelled'
            GROUP BY 1 ORDER BY 1`),
-    query(`SELECT (created_at AT TIME ZONE 'America/Sao_Paulo')::date AS day,COALESCE(SUM(total_cents),0)::int AS value,COUNT(*)::int AS orders
+    query(`SELECT TO_CHAR((created_at AT TIME ZONE 'America/Sao_Paulo')::date, 'YYYY-MM-DD') AS day,COALESCE(SUM(total_cents),0)::int AS value,COUNT(*)::int AS orders
            FROM orders
            WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date >= (NOW() AT TIME ZONE 'America/Sao_Paulo')::date-13
              AND status<>'cancelled'

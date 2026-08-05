@@ -243,8 +243,21 @@ function Dashboard({ data, orders }: { data: DashboardData | null; orders: Order
     return { label: `${hour}h`, value: Number(data.hourly.find((item) => Number(item.hour) === hour)?.value || 0) };
   });
   const days = data.days.map((item) => {
-    const parts = String(item.day).slice(0, 10).split("-");
-    const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : String(item.day);
+    const str = String(item.day);
+    let dayNum = "";
+    let monthNum = "";
+    if (str.includes("T")) {
+      const d = new Date(str);
+      dayNum = String(d.getUTCDate()).padStart(2, "0");
+      monthNum = String(d.getUTCMonth() + 1).padStart(2, "0");
+    } else {
+      const parts = str.slice(0, 10).split("-");
+      if (parts.length === 3) {
+        dayNum = parts[2];
+        monthNum = parts[1];
+      }
+    }
+    const label = dayNum && monthNum ? `${dayNum}/${monthNum}` : str;
     return {
       label,
       value: Number(item.value),
