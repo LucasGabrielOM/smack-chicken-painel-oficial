@@ -294,37 +294,37 @@ function Dashboard({ data, orders, selectedDate, onDateChange }: { data: Dashboa
   return <div className="panel-page dashboard-page">
     <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle={`Exibindo indicadores e faturamento de: ${displayDateText}`} action={<span className="live-pill"><i /> AO VIVO</span>} />
 
-    <div className="dashboard-date-picker" style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center", margin: "16px 0 24px 0", background: "#ffffff", padding: "12px 18px", borderRadius: "14px", boxShadow: "0 2px 10px rgba(0,0,0,0.04)", border: "1px solid #eee" }}>
-      <span style={{ fontWeight: 700, fontSize: "14px", color: "#1f1a18" }}>🔎 Pesquisar Vendas por Data:</span>
+    <div className="dashboard-date-picker" style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center", margin: "16px 0 24px 0", padding: "12px 18px", borderRadius: "14px" }}>
+      <span style={{ fontWeight: 700, fontSize: "14px" }}>🔎 Pesquisar vendas por data:</span>
       <input
         type="date"
         value={selectedDate}
         onChange={(e) => onDateChange(e.target.value)}
-        style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", outline: "none", cursor: "pointer" }}
+        style={{ padding: "8px 12px", borderRadius: "8px", fontSize: "14px", outline: "none", cursor: "pointer" }}
       />
       <button
         type="button"
         onClick={() => onDateChange("")}
-        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "" ? "#c8102e" : "#f5f3f0", color: selectedDate === "" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === "" ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === "" ? "#fff" : "var(--p-text-dim)", border: selectedDate === "" ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
       >
         Hoje
       </button>
       <button
         type="button"
         onClick={() => onDateChange("2026-08-04")}
-        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "2026-08-04" ? "#c8102e" : "#f5f3f0", color: selectedDate === "2026-08-04" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === "2026-08-04" ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === "2026-08-04" ? "#fff" : "var(--p-text-dim)", border: selectedDate === "2026-08-04" ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
       >
         Ontem (04/08)
       </button>
       <button
         type="button"
         onClick={() => onDateChange("2026-08-03")}
-        style={{ padding: "8px 14px", borderRadius: "8px", background: selectedDate === "2026-08-03" ? "#c8102e" : "#f5f3f0", color: selectedDate === "2026-08-03" ? "#fff" : "#333", border: "none", fontWeight: 600, cursor: "pointer" }}
+        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === "2026-08-03" ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === "2026-08-03" ? "#fff" : "var(--p-text-dim)", border: selectedDate === "2026-08-03" ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
       >
         Segunda (03/08)
       </button>
       {selectedDate && (
-        <span style={{ marginLeft: "auto", fontSize: "13px", color: "#c8102e", fontWeight: 600 }}>
+        <span style={{ marginLeft: "auto", fontSize: "13px", color: "var(--p-gold)", fontWeight: 600 }}>
           Exibindo resultados de {selectedDate.split("-").reverse().join("/")}
         </span>
       )}
@@ -341,23 +341,23 @@ function Dashboard({ data, orders, selectedDate, onDateChange }: { data: Dashboa
         <header><div><span>VENDAS POR HORÁRIO ({displayDateText})</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>{displayDateText}</small></header>
         <ResponsiveContainer width="100%" height={250}>
           <AreaChart data={hourly} margin={{ top: 20, right: 4, left: -22, bottom: 0 }}>
-            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c8102e" stopOpacity=".35" /><stop offset="100%" stopColor="#c8102e" stopOpacity=".02" /></linearGradient></defs>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#857c75" }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
-            <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: 0, borderRadius: 10, boxShadow: "0 12px 35px #190b0e18", fontSize: 11 }} />
-            <Area type="monotone" dataKey="value" stroke="#c8102e" strokeWidth={3} fill="url(#salesFill)" animationDuration={900} />
+            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff3862" stopOpacity=".4" /><stop offset="100%" stopColor="#ff3862" stopOpacity=".02" /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#7c8698" }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
+            <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7", boxShadow: "0 12px 35px #00000060", fontSize: 11 }} />
+            <Area type="monotone" dataKey="value" stroke="#ff3862" strokeWidth={3} fill="url(#salesFill)" animationDuration={900} />
           </AreaChart>
         </ResponsiveContainer>
       </article>
       <article className="panel-card payment-card">
         <header><span>PAGAMENTOS HOJE</span></header>
-        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#16835b", "#1f1a18"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
+        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#29e6a6", "#2dd9ff"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
         <ul>{data.payments.length ? data.payments.map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(Number(item.value))}</b></li>) : <li><span>Sem vendas registradas</span></li>}</ul>
       </article>
       <article className="panel-card day-chart chart-card">
         <header><div><span>FATURAMENTO · 14 DIAS</span><h3>Histórico recente</h3></div></header>
-        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Bar dataKey="value" fill="#c8102e" radius={[5, 5, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /><Bar dataKey="value" fill="#ff3862" radius={[5, 5, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
       </article>
       <article className="panel-card product-ranking">
         <header><span>MAIS VENDIDOS HOJE</span></header>
@@ -593,26 +593,26 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
   return <div className="panel-page">
     <PageTitle eyebrow="HISTÓRICO E CONTROLE" title="Todos os pedidos" subtitle="Clique no número do pedido para consultar os itens." />
 
-    <div className="orders-filter-bar" style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", background: "#fff", padding: "12px 16px", borderRadius: "12px", border: "1px solid #eee" }}>
+    <div className="orders-filter-bar" style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", padding: "12px 16px", borderRadius: "12px" }}>
       <input
         type="text"
         placeholder="🔍 Buscar cliente, pedido, pagamento ou data..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        style={{ padding: "8px 14px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", flex: 1, minWidth: "220px", outline: "none" }}
+        style={{ padding: "8px 14px", borderRadius: "8px", fontSize: "14px", flex: 1, minWidth: "220px", outline: "none" }}
       />
-      <span style={{ fontWeight: 600, fontSize: "13px", color: "#444" }}>📅 Filtrar por Data:</span>
+      <span style={{ fontWeight: 600, fontSize: "13px" }}>📅 Filtrar por data:</span>
       <input
         type="date"
         value={filterDate}
         onChange={(e) => setFilterDate(e.target.value)}
-        style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", outline: "none" }}
+        style={{ padding: "8px 12px", borderRadius: "8px", fontSize: "14px", outline: "none" }}
       />
       {(filterDate || searchTerm) && (
         <button
           type="button"
           onClick={() => { setFilterDate(""); setSearchTerm(""); }}
-          style={{ padding: "8px 14px", borderRadius: "8px", background: "#c8102e", color: "#fff", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+          style={{ padding: "8px 14px", borderRadius: "999px", background: "linear-gradient(135deg, #ff4d70, #c8102e)", color: "#fff", border: "none", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}
         >
           Limpar filtros
         </button>
@@ -690,10 +690,10 @@ function Finance({ entries, dashboard, onCreated, onDeleted }: { entries: Financ
     </div>
     <section className="finance-charts">
       <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>Últimos 14 dias</small></header>
-        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#16835b" stopOpacity=".38" /><stop offset="100%" stopColor="#16835b" stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#eee8e0" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#857c75" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#a39a93" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke="#16835b" strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} /></AreaChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#29e6a6" stopOpacity=".4" /><stop offset="100%" stopColor="#29e6a6" stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke="#29e6a6" strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} /></AreaChart></ResponsiveContainer>
       </article>
       <article className="panel-card finance-categories"><header><div><span>DESPESAS</span><h3>Por categoria</h3></div></header>
-        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#c8102e", "#ffc514", "#1f1a18", "#ef7b45", "#7a2942"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
+        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#2dd9ff", "#ff8f3d", "#a3396a"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
       </article>
     </section>
     <section className="finance-layout">
