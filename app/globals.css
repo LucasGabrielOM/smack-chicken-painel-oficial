@@ -933,7 +933,7 @@ button { cursor: pointer; }
 .kitchen-order h3 { color: var(--p-text); }
 .kitchen-order ul { color: var(--p-text-dim); }
 .kitchen-order li b { color: var(--p-accent); }
-.kitchen-order > p { background: var(--p-amber-dim); color: #ffd591; }
+.kitchen-order > p { background: var(--p-amber-dim); color: var(--p-text); }
 .kitchen-order > footer span { background: var(--p-surface); color: var(--p-text-dim); }
 .kitchen-order > footer button { background: var(--p-surface); color: var(--p-text); border: 1px solid var(--p-border); }
 .kitchen-order > footer button:last-child { background: linear-gradient(135deg, #ff4d70, #c8102e); color: #fff; border: 0; }
@@ -972,7 +972,7 @@ button { cursor: pointer; }
 .order-detail-customer strong { color: var(--p-text); }
 .order-detail-items li { border-top: 1px solid var(--p-border-soft); }
 .order-detail-items li > b { color: var(--p-accent); }
-.order-detail-notes { border-left: 3px solid var(--p-gold); background: var(--p-gold-dim); color: #ffd591; }
+.order-detail-notes { border-left: 3px solid var(--p-gold); background: var(--p-gold-dim); color: var(--p-text); }
 .order-detail-modal dl div { background: var(--p-surface-2); }
 .order-detail-modal dt { color: var(--p-text-faint); }
 .order-detail-modal dd { color: var(--p-text); }
@@ -1035,3 +1035,54 @@ button { cursor: pointer; }
   .panel-sidebar { background: #05060a; border-right: 0; border-bottom: 1px solid var(--p-border-soft); }
   .panel-sidebar::after { display: none; }
 }
+
+/* ============================================================
+   TEMA CLARO (alternável) — a sidebar permanece escura (marca);
+   o conteúdo principal troca para um branco/creme técnico.
+   ============================================================ */
+.theme-toggle { display: inline-flex !important; }
+.theme-toggle i { font-size: 13px !important; }
+
+.panel-app.theme-light {
+  --p-bg: #f3f0e9;
+  --p-bg-soft: #ece7dc;
+  --p-surface: #ffffff;
+  --p-surface-2: #f6f2ea;
+  --p-surface-hover: #efe8db;
+  --p-border: #e5dccc;
+  --p-border-soft: #ece4d5;
+  --p-text: #201a18;
+  --p-text-dim: #6b6259;
+  --p-text-faint: #9a8f81;
+  --p-accent: #c8102e;
+  --p-accent-dim: #c8102e1c;
+  --p-gold: #a3690a;
+  --p-gold-dim: #a3690a20;
+  --p-cyan: #0f7ea6;
+  --p-cyan-dim: #0f7ea61c;
+  --p-green: #16835b;
+  --p-green-dim: #16835b1c;
+  --p-amber: #a3690a;
+  --p-amber-dim: #a3690a20;
+  --p-danger: #c8102e;
+  --p-danger-dim: #c8102e1a;
+  background:
+    radial-gradient(circle at 14% -8%, #c8102e12 0, transparent 40%),
+    radial-gradient(circle at 100% 0%, #0f7ea60d 0, transparent 35%),
+    var(--p-bg);
+}
+.panel-app.theme-light * { scrollbar-color: #ddd3c0 transparent; }
+.panel-app.theme-light ::-webkit-scrollbar-thumb { background: #ddd3c0; }
+.panel-app.theme-light .panel-sidebar {
+  --p-surface: #12151c; --p-surface-2: #171b24; --p-surface-hover: #1d222c;
+  --p-text: #edf1f7; --p-text-dim: #97a1b3; --p-text-faint: #576177;
+  --p-border: #242b38; --p-border-soft: #1a2028;
+}
+.panel-app.theme-light .panel-top { background: #ffffffe6; }
+.panel-app.theme-light .order-detail-backdrop, .panel-app.theme-light .panel-modal { background: #1d160fb3; }
+.panel-app.theme-light .kitchen-lanes > section { background: linear-gradient(145deg, #f6f1e6, #efe8da); }
+.panel-app.theme-light .real-product-grid > button:hover { box-shadow: 0 18px 40px -18px #c8102e26; }
+.panel-app.theme-light .panel-card, .panel-app.theme-light .panel-metrics article, .panel-app.theme-light .finance-summary article, .panel-app.theme-light .plan-card, .panel-app.theme-light .real-product-grid > button, .panel-app.theme-light .kitchen-order, .panel-app.theme-light .order-detail-modal, .panel-app.theme-light .panel-empty {
+  box-shadow: 0 10px 30px -18px #37221b1f;
+}
+.panel-app.theme-light .dashboard-date-picker input, .panel-app.theme-light .orders-filter-bar input { color-scheme: light; }

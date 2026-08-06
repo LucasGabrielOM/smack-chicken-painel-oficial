@@ -82,6 +82,7 @@ export default function StorePanel() {
   const [toast, setToast] = useState("");
   const [paperWidth, setPaperWidth] = useState<58 | 80>(80);
   const [refreshing, setRefreshing] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
 
   const notify = (message: string) => {
     setToast(message);
@@ -140,7 +141,17 @@ export default function StorePanel() {
   useEffect(() => {
     const savedWidth = Number(window.localStorage.getItem("smack-thermal-paper"));
     if (savedWidth === 58 || savedWidth === 80) setPaperWidth(savedWidth);
+    const savedTheme = window.localStorage.getItem("smack-panel-theme");
+    if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
   }, []);
+
+  const toggleTheme = () => {
+    setTheme((current) => {
+      const next = current === "dark" ? "light" : "dark";
+      window.localStorage.setItem("smack-panel-theme", next);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -196,7 +207,7 @@ export default function StorePanel() {
   };
 
   return (
-    <main className="panel-app">
+    <main className={theme === "light" ? "panel-app theme-light" : "panel-app"}>
       {toast && <div className="panel-toast">{toast}</div>}
       <aside className="panel-sidebar">
         <PanelLogo />
@@ -214,13 +225,13 @@ export default function StorePanel() {
       <section className="panel-main">
         <header className="panel-top">
           <div><b>SMACK CHICKEN</b><span>Rua Fúlvio Aducci, 1074 · Estreito</span></div>
-          <div className="panel-top-actions"><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
+          <div className="panel-top-actions"><button className="theme-toggle" onClick={toggleTheme} title={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}><i>{theme === "dark" ? "☀" : "🌙"}</i>{theme === "dark" ? "Tema claro" : "Tema escuro"}</button><button className={refreshing ? "refreshing" : ""} onClick={refresh} disabled={refreshing}><i>↻</i>{refreshing ? "Atualizando…" : "Atualizar"}</button><span className="panel-user"><i><b>{user.name}</b><small>{user.role === "owner" ? "Proprietário" : "Equipe"}</small></i><em>{user.name.charAt(0)}</em></span></div>
         </header>
-        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} selectedDate={selectedDate} onDateChange={changeDashboardDate} />}
+        {view === "dashboard" && <Dashboard data={dashboard} orders={orders} selectedDate={selectedDate} onDateChange={changeDashboardDate} theme={theme} />}
         {view === "pos" && <PointOfSale products={products} paperWidth={paperWidth} onCreated={async () => { await loadAll(); notify("Pedido enviado para a cozinha e impressão preparada."); }} notify={notify} />}
         {view === "kitchen" && <Kitchen orders={orders} onStatus={async (id, status) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await loadAll(); }} onPayment={async (id, paymentMethod) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) }); await loadAll(); notify(`Pagamento alterado para ${paymentMethod}.`); }} />}
         {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} onDelete={async (id) => { await api(`/api/orders/${id}`, { method: "DELETE" }); await loadAll(); notify("Pedido excluído permanentemente."); }} onPayment={async (id, paymentMethod) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) }); await loadAll(); notify(`Pagamento alterado para ${paymentMethod}.`); }} />}
-        {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} onDeleted={async (id) => { await api(`/api/finance?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Lançamento removido do histórico."); }} />}
+        {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} onDeleted={async (id) => { await api(`/api/finance?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Lançamento removido do histórico."); }} theme={theme} />}
         {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} onDeleted={async (id) => { await api(`/api/plans?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Meta removida do planejamento."); }} />}
       </section>
     </main>
@@ -260,8 +271,28 @@ function Login({ onLogin }: { onLogin: (user: User) => Promise<void> }) {
   </main>;
 }
 
-function Dashboard({ data, orders, selectedDate, onDateChange }: { data: DashboardData | null; orders: Order[]; selectedDate: string; onDateChange: (date: string) => Promise<void> }) {
+function chartTheme(theme: "dark" | "light") {
+  return theme === "light"
+    ? {
+        grid: "#e8e0d6",
+        tick: "#8a8078",
+        accent: "#c8102e",
+        accent2: "#16835b",
+        tooltipStyle: { border: "1px solid #ece4da", borderRadius: 10, background: "#ffffff", color: "#201a18", boxShadow: "0 12px 35px #00000018", fontSize: 11 },
+      }
+    : {
+        grid: "#1f2530",
+        tick: "#7c8698",
+        accent: "#ff3862",
+        accent2: "#29e6a6",
+        tooltipStyle: { border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7", boxShadow: "0 12px 35px #00000060", fontSize: 11 },
+      };
+}
+
+function Dashboard({ data, orders, selectedDate, onDateChange, theme }: { data: DashboardData | null; orders: Order[]; selectedDate: string; onDateChange: (date: string) => Promise<void>; theme: "dark" | "light" }) {
   if (!data) return <div className="panel-empty">Carregando indicadores…</div>;
+  const chart = chartTheme(theme);
+  const axisMoney = (value: number) => { const v = Number(value) / 100; return v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${v}`; };
   const balance = Number(data.finance.income) - Number(data.finance.expense);
   const hourly = Array.from({ length: 13 }, (_, index) => {
     const hour = index + 11;
@@ -338,26 +369,26 @@ function Dashboard({ data, orders, selectedDate, onDateChange }: { data: Dashboa
     </div>
     <div className="panel-dashboard-grid">
       <article className="panel-card sales-chart chart-card">
-        <header><div><span>VENDAS POR HORÁRIO ({displayDateText})</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>{displayDateText}</small></header>
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={hourly} margin={{ top: 20, right: 4, left: -22, bottom: 0 }}>
-            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ff3862" stopOpacity=".4" /><stop offset="100%" stopColor="#ff3862" stopOpacity=".02" /></linearGradient></defs>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "#7c8698" }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} />
-            <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7", boxShadow: "0 12px 35px #00000060", fontSize: 11 }} />
-            <Area type="monotone" dataKey="value" stroke="#ff3862" strokeWidth={3} fill="url(#salesFill)" animationDuration={900} />
+        <header><div><span>VENDAS POR HORÁRIO ({displayDateText})</span><h3>{formatMoney(Number(data.summary.revenue))}</h3></div><small>{hourly.filter((h) => h.value > 0).length} horários com venda</small></header>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={hourly} margin={{ top: 20, right: 8, left: -18, bottom: 0 }}>
+            <defs><linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chart.accent} stopOpacity=".42" /><stop offset="100%" stopColor={chart.accent} stopOpacity="0" /></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 6" vertical={false} stroke={chart.grid} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: chart.tick }} interval={1} />
+            <YAxis axisLine={false} tickLine={false} width={44} tick={{ fontSize: 9, fill: chart.tick }} tickFormatter={axisMoney} />
+            <Tooltip formatter={(value) => formatMoney(Number(value))} labelFormatter={(label) => `Horário: ${label}`} contentStyle={chart.tooltipStyle} cursor={{ stroke: chart.grid, strokeWidth: 1 }} />
+            <Area type="monotone" dataKey="value" stroke={chart.accent} strokeWidth={3} fill="url(#salesFill)" animationDuration={900} activeDot={{ r: 5, strokeWidth: 2, stroke: chart.tooltipStyle.background as string, fill: chart.accent }} />
           </AreaChart>
         </ResponsiveContainer>
       </article>
       <article className="panel-card payment-card">
         <header><span>PAGAMENTOS HOJE</span></header>
-        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#29e6a6", "#2dd9ff"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
+        <div className="payment-donut"><ResponsiveContainer width="100%" height={150}><PieChart><Pie data={data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]} dataKey="value" innerRadius={48} outerRadius={66} paddingAngle={3}>{(data.payments.length ? data.payments : [{ name: "Sem vendas", value: 1 }]).map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#29e6a6", "#2dd9ff"][index % 4]} />)}</Pie><Tooltip formatter={(value) => data.payments.length ? formatMoney(Number(value)) : "Sem vendas"} contentStyle={chart.tooltipStyle} /></PieChart></ResponsiveContainer><div><b>{data.summary.orders}</b><span>pedidos</span></div></div>
         <ul>{data.payments.length ? data.payments.map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(Number(item.value))}</b></li>) : <li><span>Sem vendas registradas</span></li>}</ul>
       </article>
       <article className="panel-card day-chart chart-card">
         <header><div><span>FATURAMENTO · 14 DIAS</span><h3>Histórico recente</h3></div></header>
-        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -24, bottom: 0 }}><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /><Bar dataKey="value" fill="#ff3862" radius={[5, 5, 0, 0]} animationDuration={1000} /></BarChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={205}><BarChart data={days} margin={{ top: 20, right: 2, left: -18, bottom: 0 }}><CartesianGrid strokeDasharray="3 6" vertical={false} stroke={chart.grid} /><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: chart.tick }} /><YAxis axisLine={false} tickLine={false} width={40} tick={{ fontSize: 9, fill: chart.tick }} tickFormatter={axisMoney} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={chart.tooltipStyle} cursor={{ fill: chart.grid, opacity: .4 }} /><Bar dataKey="value" fill={chart.accent} radius={[5, 5, 0, 0]} maxBarSize={26} animationDuration={1000} /></BarChart></ResponsiveContainer>
       </article>
       <article className="panel-card product-ranking">
         <header><span>MAIS VENDIDOS HOJE</span></header>
@@ -384,10 +415,8 @@ export function getProductImage(product: { name: string; category?: string; imag
   // 2. Batata Frita
   if (name.includes("batata")) return "/batata-frita.jpeg";
 
-  // 3. Guaraná Lata e Pureza
+  // 3. Guaraná Lata, Zero e Pureza — sempre a lata real do Guaraná, nunca foto de Coca-Cola
   if (name.includes("guaraná lata") || name.includes("guarana lata") || name.includes("guaraná") || name.includes("guarana")) {
-    if (name.includes("pureza")) return "/coca-lata.jpeg";
-    if (name.includes("zero")) return "/coca-zero-lata.jpeg";
     return "/guarana-lata.png";
   }
 
@@ -465,7 +494,6 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
   const changeQty = (id: number, amount: number) => setCart((current) => current.map((item) => item.id === id ? { ...item, quantity: item.quantity + amount } : item).filter((item) => item.quantity > 0));
   const submit = async () => {
     if (!customer.trim() || !cart.length) return notify("Informe o cliente e adicione itens.");
-    const printPopup = window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
     setSaving(true);
     try {
       const result = await api<{ order: { id: string; code: string; totalCents: number } }>("/api/orders", {
@@ -491,11 +519,11 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
         createdAt: new Date().toISOString(),
         items: cart.map((item) => ({ id: `new-${result.order.id}-${item.id}`, productId: String(item.id), name: item.name, quantity: item.quantity, unitPriceCents: item.priceCents })),
       };
-      if (printPopup) printOrder(createdOrder, paperWidth, printPopup);
-      else notify("Pedido salvo. Permita pop-ups para imprimir automaticamente.");
+      printOrder(createdOrder, paperWidth);
+      notify(`Pedido ${createdOrder.code} enviado para impressão automaticamente.`);
       setCart([]); setCustomer(""); setCash(""); setNotes("");
       await onCreated();
-    } catch (error) { printPopup?.close(); notify(error instanceof Error ? error.message : "Falha ao salvar pedido"); }
+    } catch (error) { notify(error instanceof Error ? error.message : "Falha ao salvar pedido"); }
     finally { setSaving(false); }
   };
   return <div className="panel-page pos-page">
@@ -635,7 +663,9 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
   </div>;
 }
 
-function Finance({ entries, dashboard, onCreated, onDeleted }: { entries: FinanceEntry[]; dashboard: DashboardData | null; onCreated: () => Promise<void>; onDeleted: (id: string) => Promise<void> }) {
+function Finance({ entries, dashboard, onCreated, onDeleted, theme }: { entries: FinanceEntry[]; dashboard: DashboardData | null; onCreated: () => Promise<void>; onDeleted: (id: string) => Promise<void>; theme: "dark" | "light" }) {
+  const chart = chartTheme(theme);
+  const axisMoney = (value: number) => { const v = Number(value) / 100; return v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${v}`; };
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"income" | "expense">("expense");
   const [category, setCategory] = useState("Fornecedores");
@@ -690,10 +720,10 @@ function Finance({ entries, dashboard, onCreated, onDeleted }: { entries: Financ
     </div>
     <section className="finance-charts">
       <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>Últimos 14 dias</small></header>
-        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -20, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#29e6a6" stopOpacity=".4" /><stop offset="100%" stopColor="#29e6a6" stopOpacity=".02" /></linearGradient></defs><CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#1f2530" /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: "#7c8698" }} tickFormatter={(value) => `R$${Number(value) / 100}`} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke="#29e6a6" strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} /></AreaChart></ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -18, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chart.accent2} stopOpacity=".4" /><stop offset="100%" stopColor={chart.accent2} stopOpacity="0" /></linearGradient></defs><CartesianGrid strokeDasharray="3 6" vertical={false} stroke={chart.grid} /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: chart.tick }} /><YAxis axisLine={false} tickLine={false} width={44} tick={{ fontSize: 9, fill: chart.tick }} tickFormatter={axisMoney} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={chart.tooltipStyle} cursor={{ stroke: chart.grid, strokeWidth: 1 }} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke={chart.accent2} strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} activeDot={{ r: 5, strokeWidth: 2, stroke: chart.tooltipStyle.background as string, fill: chart.accent2 }} /></AreaChart></ResponsiveContainer>
       </article>
       <article className="panel-card finance-categories"><header><div><span>DESPESAS</span><h3>Por categoria</h3></div></header>
-        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#2dd9ff", "#ff8f3d", "#a3396a"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ border: "1px solid #242b38", borderRadius: 10, background: "#12151c", color: "#edf1f7" }} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
+        {expenseCategories.length ? <><div className="finance-pie"><ResponsiveContainer width="100%" height={220}><PieChart><Pie data={expenseCategories} dataKey="value" innerRadius={58} outerRadius={84} paddingAngle={3}>{expenseCategories.map((item, index) => <Cell key={item.name} fill={["#ff3862", "#ffb32e", "#2dd9ff", "#ff8f3d", "#a3396a"][index % 5]} />)}</Pie><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={chart.tooltipStyle} /></PieChart></ResponsiveContainer><strong>{formatMoney(expense)}<small>Total</small></strong></div><ul>{expenseCategories.slice(0, 5).map((item) => <li key={item.name}><span>{item.name}</span><b>{formatMoney(item.value)}</b></li>)}</ul></> : <div className="panel-empty">Registre uma despesa para ver a distribuição.</div>}
       </article>
     </section>
     <section className="finance-layout">
@@ -748,31 +778,49 @@ function escapeReceipt(value: unknown) {
   })[character] || character);
 }
 
-function printOrder(order: Order, paperWidth: 58 | 80, existingPopup?: Window | null) {
-  const popup = existingPopup ?? window.open("", "_blank", `width=${paperWidth === 80 ? 520 : 390},height=760`);
-  if (!popup) return;
-  const fontSize = paperWidth === 58 ? 17 : 22;
-  const horizontalPadding = paperWidth === 58 ? 3.5 : 5;
-  const paperLength = paperWidth === 58 ? 200 : 297;
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeReceipt(order.code)}</title><style>
-    @page{size:${paperWidth}mm ${paperLength}mm;margin:0}
+function printOrder(order: Order, paperWidth: 58 | 80) {
+  const fontSize = paperWidth === 58 ? 20 : 26;
+  const horizontalPadding = paperWidth === 58 ? 4 : 6;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeReceipt(order.code)}</title><style>
+    @page{size:${paperWidth}mm auto;margin:0}
     *{box-sizing:border-box}
-    html,body{width:${paperWidth}mm;min-height:${paperLength}mm;margin:0;padding:0;background:#fff;color:#000}
-    body{font:${fontSize}px/1.55 "Courier New",monospace;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .receipt{width:${paperWidth}mm;min-height:${paperLength}mm;padding:7mm ${horizontalPadding}mm 22mm;margin:0 auto}
-    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 30 : 40}px;line-height:1.05;font-weight:900;letter-spacing:.6px}
-    .address{margin:4mm 0 6mm;font-size:${paperWidth === 58 ? 14 : 17}px;font-weight:700;line-height:1.4}
-    .divider{border:0;border-top:2px dashed #000;margin:5mm 0}
-    .identity{margin:0;padding:6mm 0;text-align:center;border-block:3px solid #000}
-    .identity-label{display:block;margin:0 0 2mm;font-size:${paperWidth === 58 ? 14 : 17}px;font-weight:900;letter-spacing:1.2px}
-    .order-code{display:block;margin:0 0 6mm;font-size:${paperWidth === 58 ? 38 : 52}px;line-height:1;font-weight:900;letter-spacing:2px}
-    .customer{display:block;font-size:${paperWidth === 58 ? 27 : 36}px;line-height:1.2;font-weight:900;text-transform:uppercase;overflow-wrap:anywhere}
-    .items-title{margin:7mm 0 2mm;padding:3mm 0;border-block:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 19 : 24}px;font-weight:900;letter-spacing:1px}
-    ul{margin:0 0 7mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 12 : 15}mm 1fr;align-items:start;gap:4mm;padding:5mm 0;border-bottom:2px solid #000;font-size:${paperWidth === 58 ? 21 : 27}px;line-height:1.45}
-    li b{font-size:${paperWidth === 58 ? 25 : 32}px;font-weight:900}li strong{font-weight:900}.notes{margin:6mm 0;padding:4mm;border:2px solid #000;font-size:${paperWidth === 58 ? 18 : 22}px;line-height:1.5}
-    .meta{margin-top:6mm;padding-top:5mm;border-top:2px dashed #000}.meta p{margin:3mm 0}.total{display:block;margin:5mm 0;font-size:${paperWidth === 58 ? 26 : 34}px;line-height:1.2}
-    .footer{margin-top:7mm;padding-top:4mm;border-top:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 14 : 17}px}.cut-space{height:14mm}
-    @media print{html,body,.receipt{width:${paperWidth}mm;min-height:${paperLength}mm}.receipt{break-inside:avoid}}
-  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main><script>window.onload=()=>setTimeout(()=>window.print(),180);window.onafterprint=()=>window.close()</script></body></html>`);
-  popup.document.close();
+    html,body{width:${paperWidth}mm;margin:0;padding:0;background:#fff;color:#000}
+    body{font:${fontSize}px/1.7 "Courier New",monospace;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .receipt{width:${paperWidth}mm;padding:8mm ${horizontalPadding}mm 28mm;margin:0 auto}
+    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 34 : 46}px;line-height:1.1;font-weight:900;letter-spacing:.6px}
+    .address{margin:5mm 0 8mm;font-size:${paperWidth === 58 ? 16 : 19}px;font-weight:700;line-height:1.5}
+    .divider{border:0;border-top:2px dashed #000;margin:7mm 0}
+    .identity{margin:0 0 8mm;padding:8mm 0;text-align:center;border-block:3px solid #000}
+    .identity-label{display:block;margin:0 0 3mm;font-size:${paperWidth === 58 ? 16 : 19}px;font-weight:900;letter-spacing:1.4px}
+    .order-code{display:block;margin:0 0 8mm;font-size:${paperWidth === 58 ? 44 : 60}px;line-height:1.1;font-weight:900;letter-spacing:2px}
+    .customer{display:block;font-size:${paperWidth === 58 ? 30 : 40}px;line-height:1.3;font-weight:900;text-transform:uppercase;overflow-wrap:anywhere}
+    .items-title{margin:9mm 0 4mm;padding:4mm 0;border-block:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 22 : 28}px;font-weight:900;letter-spacing:1px}
+    ul{margin:0 0 9mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 15 : 19}mm 1fr;align-items:start;gap:6mm;padding:7mm 0;border-bottom:2px solid #000;font-size:${paperWidth === 58 ? 25 : 31}px;line-height:1.6}
+    li b{font-size:${paperWidth === 58 ? 29 : 37}px;font-weight:900}li strong{font-weight:900}.notes{margin:8mm 0;padding:6mm;border:2px solid #000;font-size:${paperWidth === 58 ? 21 : 26}px;line-height:1.7}
+    .meta{margin-top:8mm;padding-top:7mm;border-top:2px dashed #000}.meta p{margin:5mm 0;font-size:${paperWidth === 58 ? 20 : 25}px}.total{display:block;margin:7mm 0;font-size:${paperWidth === 58 ? 32 : 40}px;line-height:1.3}
+    .footer{margin-top:9mm;padding-top:6mm;border-top:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 16 : 19}px}.cut-space{height:18mm}
+    @media print{html,body,.receipt{width:${paperWidth}mm}.receipt{break-inside:avoid}}
+  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+  document.body.appendChild(iframe);
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    window.setTimeout(() => iframe.remove(), 500);
+  };
+  iframe.onload = () => {
+    const win = iframe.contentWindow;
+    if (!win) { cleanup(); return; }
+    win.addEventListener("afterprint", cleanup);
+    window.setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 250);
+    window.setTimeout(cleanup, 60000);
+  };
+  iframe.srcdoc = html;
 }
