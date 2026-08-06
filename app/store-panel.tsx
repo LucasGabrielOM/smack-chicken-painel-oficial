@@ -80,7 +80,7 @@ export default function StorePanel() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [toast, setToast] = useState("");
-  const [paperWidth, setPaperWidth] = useState<58 | 80>(80);
+  const [paperWidth, setPaperWidth] = useState<58 | 80>(58);
   const [refreshing, setRefreshing] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -779,27 +779,27 @@ function escapeReceipt(value: unknown) {
 }
 
 function printOrder(order: Order, paperWidth: 58 | 80) {
-  const fontSize = paperWidth === 58 ? 20 : 26;
-  const horizontalPadding = paperWidth === 58 ? 4 : 6;
+  const fontSize = paperWidth === 58 ? 13 : 14;
+  const horizontalPadding = paperWidth === 58 ? 2.5 : 3;
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeReceipt(order.code)}</title><style>
     @page{size:${paperWidth}mm auto;margin:0}
     *{box-sizing:border-box}
     html,body{width:${paperWidth}mm;margin:0;padding:0;background:#fff;color:#000}
     body{font:${fontSize}px/1.7 "Courier New",monospace;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .receipt{width:${paperWidth}mm;padding:8mm ${horizontalPadding}mm 28mm;margin:0 auto}
-    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 34 : 46}px;line-height:1.1;font-weight:900;letter-spacing:.6px}
-    .address{margin:5mm 0 8mm;font-size:${paperWidth === 58 ? 16 : 19}px;font-weight:700;line-height:1.5}
-    .divider{border:0;border-top:2px dashed #000;margin:7mm 0}
-    .identity{margin:0 0 8mm;padding:8mm 0;text-align:center;border-block:3px solid #000}
-    .identity-label{display:block;margin:0 0 3mm;font-size:${paperWidth === 58 ? 16 : 19}px;font-weight:900;letter-spacing:1.4px}
-    .order-code{display:block;margin:0 0 8mm;font-size:${paperWidth === 58 ? 44 : 60}px;line-height:1.1;font-weight:900;letter-spacing:2px}
-    .customer{display:block;font-size:${paperWidth === 58 ? 30 : 40}px;line-height:1.3;font-weight:900;text-transform:uppercase;overflow-wrap:anywhere}
-    .items-title{margin:9mm 0 4mm;padding:4mm 0;border-block:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 22 : 28}px;font-weight:900;letter-spacing:1px}
-    ul{margin:0 0 9mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 15 : 19}mm 1fr;align-items:start;gap:6mm;padding:7mm 0;border-bottom:2px solid #000;font-size:${paperWidth === 58 ? 25 : 31}px;line-height:1.6}
-    li b{font-size:${paperWidth === 58 ? 29 : 37}px;font-weight:900}li strong{font-weight:900}.notes{margin:8mm 0;padding:6mm;border:2px solid #000;font-size:${paperWidth === 58 ? 21 : 26}px;line-height:1.7}
-    .meta{margin-top:8mm;padding-top:7mm;border-top:2px dashed #000}.meta p{margin:5mm 0;font-size:${paperWidth === 58 ? 20 : 25}px}.total{display:block;margin:7mm 0;font-size:${paperWidth === 58 ? 32 : 40}px;line-height:1.3}
-    .footer{margin-top:9mm;padding-top:6mm;border-top:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 16 : 19}px}.cut-space{height:18mm}
-    @media print{html,body,.receipt{width:${paperWidth}mm}.receipt{break-inside:avoid}}
+    .receipt{width:${paperWidth}mm;padding:3mm ${horizontalPadding}mm 8mm;margin:0}
+    .center{text-align:center}.brand{margin:0;font-size:${paperWidth === 58 ? 22 : 26}px;line-height:1.1;font-weight:900;letter-spacing:.3px}
+    .address{margin:2mm 0 3mm;font-size:${paperWidth === 58 ? 10 : 11}px;font-weight:700;line-height:1.35}
+    .divider{border:0;border-top:1px dashed #000;margin:3mm 0}
+    .identity{margin:0 0 3mm;padding:3mm 0;text-align:center;border-block:1px solid #000}
+    .identity-label{display:block;margin:0 0 1mm;font-size:${paperWidth === 58 ? 10 : 11}px;font-weight:900;letter-spacing:.8px}
+    .order-code{display:block;margin:0 0 3mm;font-size:${paperWidth === 58 ? 27 : 32}px;line-height:1.1;font-weight:900;letter-spacing:1px}
+    .customer{display:block;font-size:${paperWidth === 58 ? 16 : 19}px;line-height:1.25;font-weight:900;text-transform:uppercase;overflow-wrap:anywhere}
+    .items-title{margin:4mm 0 1mm;padding:2mm 0;border-block:1px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 14 : 16}px;font-weight:900;letter-spacing:.5px}
+    ul{margin:0 0 4mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 9 : 11}mm 1fr;align-items:start;gap:2mm;padding:2mm 0;border-bottom:1px solid #000;font-size:${paperWidth === 58 ? 14 : 16}px;line-height:1.35}
+    li b{font-size:${paperWidth === 58 ? 15 : 17}px;font-weight:900}li strong{font-weight:900}.notes{margin:3mm 0;padding:2mm;border:1px solid #000;font-size:${paperWidth === 58 ? 12 : 14}px;line-height:1.35}
+    .meta{margin-top:4mm;padding-top:3mm;border-top:1px dashed #000}.meta p{margin:2mm 0;font-size:${paperWidth === 58 ? 12 : 14}px}.total{display:block;margin:3mm 0;font-size:${paperWidth === 58 ? 18 : 22}px;line-height:1.2}
+    .footer{margin-top:4mm;padding-top:2mm;border-top:1px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 10 : 11}px}.cut-space{height:6mm}
+    @media print{@page{size:${paperWidth}mm auto;margin:0}html,body,.receipt{width:${paperWidth}mm!important;margin:0!important}.receipt{break-inside:avoid}}
   </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
 
   const iframe = document.createElement("iframe");
