@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import { SiCocacola, SiMonster } from "react-icons/si";
 
-type View = "dashboard" | "pos" | "kitchen" | "orders" | "finance" | "planning";
+type View = "dashboard" | "pos" | "kitchen" | "orders" | "finance" | "planning" | "menu";
 type User = { id: string; name: string; email: string; role: string };
 type Product = { id: number; name: string; description: string; priceCents: number; category: string; image: string; active: boolean };
 type CartItem = Product & { quantity: number };
@@ -178,6 +178,7 @@ export default function StorePanel() {
     ["orders", "≡", "Pedidos"],
     ["finance", "R$", "Financeiro"],
     ["planning", "◎", "Planejamento"],
+    ["menu", "▤", "Cardápio"],
   ];
 
   const refresh = async () => {
@@ -233,6 +234,7 @@ export default function StorePanel() {
         {view === "orders" && <Orders orders={orders} onPrint={(order) => printOrder(order, paperWidth)} onCancel={async (id) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ status: "cancelled" }) }); await loadAll(); notify("Pedido cancelado e retirado do faturamento."); }} onDelete={async (id) => { await api(`/api/orders/${id}`, { method: "DELETE" }); await loadAll(); notify("Pedido excluído permanentemente."); }} onPayment={async (id, paymentMethod) => { await api(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ paymentMethod }) }); await loadAll(); notify(`Pagamento alterado para ${paymentMethod}.`); }} />}
         {view === "finance" && <Finance entries={entries} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Lançamento salvo."); }} onDeleted={async (id) => { await api(`/api/finance?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Lançamento removido do histórico."); }} theme={theme} />}
         {view === "planning" && <Planning plans={plans} dashboard={dashboard} onCreated={async () => { await loadAll(); notify("Meta criada."); }} onDeleted={async (id) => { await api(`/api/plans?id=${encodeURIComponent(id)}`, { method: "DELETE" }); await loadAll(); notify("Meta removida do planejamento."); }} />}
+        {view === "menu" && <MenuManager products={products} onChanged={loadAll} notify={notify} />}
       </section>
     </main>
   );
@@ -415,6 +417,10 @@ function Metric({ label, value, note, tone = "" }: { label: string; value: strin
 }
 
 export function getProductImage(product: { name: string; category?: string; image?: string }): string {
+  // Produto com foto própria enviada pela tela Cardápio: usa exatamente ela,
+  // sem tentar adivinhar por palavra-chave no nome.
+  if (product.image && product.image.startsWith("data:")) return product.image;
+
   const name = product.name.toLowerCase().trim();
 
   // 1. Polenta Frita
@@ -500,6 +506,9 @@ function ProductVisual({ product }: { product: Product }) {
   if (product.category === "Doces") {
     const candy = getBadgeVisual(product.name, candyVisuals) || { label: "DOCE", gradient: "linear-gradient(150deg, #ff5f7a, #b3123a)" };
     return <div className="sauce-visual" style={{ background: candy.gradient }}><span>{candy.label}</span></div>;
+  }
+  if (!product.image) {
+    return <div className="sauce-visual" style={{ background: "linear-gradient(150deg, #4a5568, #1f2530)" }}><span>{product.name}</span></div>;
   }
   const imgSrc = getProductImage(product);
   return <img src={imgSrc} alt={product.name} />;
@@ -844,6 +853,149 @@ function Planning({ plans, dashboard, onCreated, onDeleted }: { plans: Plan[]; d
         <article className="planning-insight"><span>LEITURA DO NEGÓCIO</span><h3>Saldo financeiro registrado</h3><strong>{formatMoney(Number(dashboard?.finance.income || 0) - Number(dashboard?.finance.expense || 0))}</strong><p>Use as metas junto com os lançamentos do financeiro para organizar compras, investimentos e reserva de caixa.</p></article>
       </aside>
     </div>
+  </div>;
+}
+
+function readImageAsCompressedDataUrl(file: File, maxSize = 640, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => reject(new Error("Arquivo não é uma imagem válida."));
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Não foi possível processar a imagem.")); return; }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+type MenuFormState = { id: number | null; name: string; description: string; category: string; price: string; image: string; active: boolean };
+const emptyMenuForm: MenuFormState = { id: null, name: "", description: "", category: "", price: "", image: "", active: true };
+
+function MenuManager({ products, onChanged, notify }: { products: Product[]; onChanged: () => Promise<void>; notify: (message: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<MenuFormState>(emptyMenuForm);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [filterCategory, setFilterCategory] = useState("Todos");
+
+  const categories = ["Todos", ...Array.from(new Set(products.map((product) => product.category)))];
+  const visibleProducts = products
+    .filter((product) => filterCategory === "Todos" || product.category === filterCategory)
+    .slice()
+    .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+
+  const openCreate = () => { setForm({ ...emptyMenuForm, category: filterCategory !== "Todos" ? filterCategory : "" }); setOpen(true); };
+  const openEdit = (product: Product) => {
+    setForm({
+      id: product.id, name: product.name, description: product.description, category: product.category,
+      price: (product.priceCents / 100).toFixed(2).replace(".", ","), image: product.image || "", active: product.active !== false,
+    });
+    setOpen(true);
+  };
+
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { notify("Escolha um arquivo de imagem."); return; }
+    setUploading(true);
+    try {
+      const dataUrl = await readImageAsCompressedDataUrl(file);
+      setForm((current) => ({ ...current, image: dataUrl }));
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Falha ao processar a imagem.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.category.trim()) { notify("Informe nome e categoria do item."); return; }
+    const priceCents = Math.round(Number(form.price.replace(",", ".")) * 100);
+    if (!Number.isFinite(priceCents) || priceCents < 0) { notify("Informe um preço válido."); return; }
+    setSaving(true);
+    try {
+      const payload = { name: form.name.trim(), description: form.description.trim(), category: form.category.trim(), priceCents, image: form.image };
+      if (form.id === null) {
+        await api("/api/products", { method: "POST", body: JSON.stringify(payload) });
+        notify(`"${payload.name}" adicionado ao cardápio.`);
+      } else {
+        await api("/api/products", { method: "PATCH", body: JSON.stringify({ ...payload, id: form.id, active: form.active }) });
+        notify(`"${payload.name}" atualizado.`);
+      }
+      setOpen(false);
+      setForm(emptyMenuForm);
+      await onChanged();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Falha ao salvar o item.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (product: Product) => {
+    const goingActive = product.active === false;
+    if (!goingActive && !window.confirm(`Remover "${product.name}" do cardápio? Ele deixa de aparecer no caixa, mas o histórico de pedidos é mantido.`)) return;
+    try {
+      await api("/api/products", { method: "PATCH", body: JSON.stringify({ id: product.id, active: goingActive }) });
+      notify(goingActive ? `"${product.name}" voltou ao cardápio.` : `"${product.name}" removido do cardápio.`);
+      await onChanged();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Falha ao atualizar o item.");
+    }
+  };
+
+  return <div className="panel-page menu-admin-page">
+    <PageTitle eyebrow="CARDÁPIO" title="Itens do cardápio" subtitle="Crie, edite ou remova produtos sem precisar mexer em código." action={<button type="button" className="panel-primary" onClick={openCreate}>+ Novo item</button>} />
+    <div className="pos-categories">{categories.map((item) => <button type="button" className={filterCategory === item ? "active" : ""} key={item} onClick={() => setFilterCategory(item)}>{item}</button>)}</div>
+    <div className="menu-admin-grid">
+      {visibleProducts.map((product) => (
+        <article key={product.id} className={product.active === false ? "menu-admin-card inactive" : "menu-admin-card"}>
+          <div className="menu-admin-visual"><ProductVisual product={product} /></div>
+          <div className="menu-admin-body">
+            <span className="menu-admin-category">{product.category}</span>
+            <h3>{product.name}</h3>
+            <p>{product.description}</p>
+            <strong>{formatMoney(product.priceCents)}</strong>
+          </div>
+          <div className="menu-admin-actions">
+            {product.active === false && <span className="menu-admin-badge">Removido</span>}
+            <button type="button" onClick={() => openEdit(product)}>Editar</button>
+            <button type="button" className={product.active === false ? "" : "row-delete"} onClick={() => toggleActive(product)}>{product.active === false ? "Reativar" : "Remover"}</button>
+          </div>
+        </article>
+      ))}
+      {!visibleProducts.length && <div className="panel-empty">Nenhum item nesta categoria.</div>}
+    </div>
+    {open && <div className="panel-modal"><form onSubmit={submit}>
+      <header><div><span>{form.id === null ? "NOVO ITEM" : "EDITAR ITEM"}</span><h2>{form.id === null ? "Adicionar ao cardápio" : "Editar item"}</h2></div><button type="button" onClick={() => setOpen(false)}>×</button></header>
+      <label>Nome<input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} required placeholder="Ex.: Combo Família Grande" /></label>
+      <label>Descrição<textarea value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="O que vem no item, tamanho, ingredientes…" /></label>
+      <div className="form-row">
+        <label>Categoria<input value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} required placeholder="Ex.: Baldes, Bebidas, Doces…" list="menu-categories-list" /></label>
+        <label>Preço<input value={form.price} onChange={(event) => setForm((current) => ({ ...current, price: event.target.value }))} inputMode="decimal" required placeholder="0,00" /></label>
+      </div>
+      <datalist id="menu-categories-list">{categories.filter((item) => item !== "Todos").map((item) => <option key={item} value={item} />)}</datalist>
+      <label>Foto do produto
+        <div className="menu-photo-input">
+          {form.image && <img src={form.image} alt="Pré-visualização" />}
+          <input type="file" accept="image/*" onChange={(event) => handleFile(event.target.files?.[0] || null)} />
+        </div>
+        {uploading && <small>Processando imagem…</small>}
+      </label>
+      {form.id !== null && <label className="menu-active-toggle"><input type="checkbox" checked={form.active} onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))} /> Ativo no cardápio</label>}
+      <button className="panel-primary" disabled={saving || uploading}>{saving ? "Salvando…" : form.id === null ? "Adicionar item" : "Salvar alterações"}</button>
+    </form></div>}
   </div>;
 }
 

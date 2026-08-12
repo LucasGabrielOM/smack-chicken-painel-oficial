@@ -99,14 +99,14 @@ export async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS finance_entry_date_idx ON finance_entries(entry_date DESC);
       `);
 
+      // Semente inicial: só cria a linha se ela ainda não existir. A partir daí
+      // o banco é a fonte de verdade — edições feitas na tela Cardápio não são
+      // mais sobrescritas a cada reinício do servidor.
       for (const product of catalog) {
         await db.query(
           `INSERT INTO products (id,name,description,price_cents,category,image,featured)
            VALUES ($1,$2,$3,$4,$5,$6,$7)
-           ON CONFLICT (id) DO UPDATE SET
-             name=EXCLUDED.name, description=EXCLUDED.description,
-             price_cents=EXCLUDED.price_cents, category=EXCLUDED.category,
-             image=EXCLUDED.image, featured=EXCLUDED.featured`,
+           ON CONFLICT (id) DO NOTHING`,
           [product.id, product.name, product.description, product.priceCents, product.category, product.image, Boolean(product.featured)],
         );
       }
