@@ -15,7 +15,7 @@ type CartItem = Product & { quantity: number };
 type OrderItem = { id: string; productId: string; name: string; quantity: number; unitPriceCents: number };
 type Order = {
   id: string; code: string; customerName: string; status: "preparing" | "ready" | "completed" | "cancelled";
-  paymentMethod: string; cashReceivedCents?: number; totalCents: number; channel: string; notes?: string;
+  paymentMethod: string; cashReceivedCents?: number; totalCents: number; discountCents?: number; splitCount?: number; channel: string; notes?: string;
   createdAt: string; readyAt?: string; completedAt?: string; items: OrderItem[];
 };
 type FinanceEntry = {
@@ -321,6 +321,14 @@ function Dashboard({ data, orders, selectedDate, onDateChange, theme }: { data: 
   });
 
   const displayDateText = selectedDate ? selectedDate.split("-").reverse().join("/") : "Hoje";
+  const localDateOffset = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const yesterdayIso = localDateOffset(1);
+  const twoDaysAgoIso = localDateOffset(2);
+  const shortLabel = (iso: string) => iso.split("-").slice(1).reverse().join("/");
 
   return <div className="panel-page dashboard-page">
     <PageTitle eyebrow="CENTRAL AO VIVO" title="Visão geral da operação" subtitle={`Exibindo indicadores e faturamento de: ${displayDateText}`} action={<span className="live-pill"><i /> AO VIVO</span>} />
@@ -342,17 +350,17 @@ function Dashboard({ data, orders, selectedDate, onDateChange, theme }: { data: 
       </button>
       <button
         type="button"
-        onClick={() => onDateChange("2026-08-04")}
-        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === "2026-08-04" ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === "2026-08-04" ? "#fff" : "var(--p-text-dim)", border: selectedDate === "2026-08-04" ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
+        onClick={() => onDateChange(yesterdayIso)}
+        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === yesterdayIso ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === yesterdayIso ? "#fff" : "var(--p-text-dim)", border: selectedDate === yesterdayIso ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
       >
-        Ontem (04/08)
+        Ontem ({shortLabel(yesterdayIso)})
       </button>
       <button
         type="button"
-        onClick={() => onDateChange("2026-08-03")}
-        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === "2026-08-03" ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === "2026-08-03" ? "#fff" : "var(--p-text-dim)", border: selectedDate === "2026-08-03" ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
+        onClick={() => onDateChange(twoDaysAgoIso)}
+        style={{ padding: "8px 14px", borderRadius: "999px", background: selectedDate === twoDaysAgoIso ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)", color: selectedDate === twoDaysAgoIso ? "#fff" : "var(--p-text-dim)", border: selectedDate === twoDaysAgoIso ? "1px solid transparent" : "1px solid var(--p-border)", fontWeight: 700, cursor: "pointer" }}
       >
-        Segunda (03/08)
+        Anteontem ({shortLabel(twoDaysAgoIso)})
       </button>
       {selectedDate && (
         <span style={{ marginLeft: "auto", fontSize: "13px", color: "var(--p-gold)", fontWeight: 600 }}>
@@ -462,7 +470,37 @@ export function getProductImage(product: { name: string; category?: string; imag
   return "/combo-mesa.jpeg";
 }
 
+const sauceVisuals: Array<{ match: string; label: string; gradient: string }> = [
+  { match: "molho smack", label: "MOLHO SMACK", gradient: "linear-gradient(150deg, #d41435, #7a0016)" },
+  { match: "barbecue", label: "BARBECUE", gradient: "linear-gradient(150deg, #8a4a12, #4a2405)" },
+  { match: "bacon", label: "MOLHO DE BACON", gradient: "linear-gradient(150deg, #6b2a1e, #34120a)" },
+  { match: "pimenta agridoce", label: "PIMENTA AGRIDOCE", gradient: "linear-gradient(150deg, #e0631f, #9a3a0a)" },
+  { match: "maionese de alho", label: "MAIONESE DE ALHO", gradient: "linear-gradient(150deg, #e8c15a, #b3892a)" },
+  { match: "maionese", label: "MAIONESE TEMPERADA", gradient: "linear-gradient(150deg, #efd48a, #c8a13f)" },
+];
+
+const candyVisuals: Array<{ match: string; label: string; gradient: string }> = [
+  { match: "azedinho", label: "AZEDINHOS", gradient: "linear-gradient(150deg, #9be62f, #4f8f0c)" },
+  { match: "halls", label: "HALLS", gradient: "linear-gradient(150deg, #3fb0e6, #0b5f8a)" },
+  { match: "frisgels", label: "FRISGELS", gradient: "linear-gradient(150deg, #ff6fc7, #a11f7a)" },
+  { match: "plutonita", label: "PLUTONITA", gradient: "linear-gradient(150deg, #8a5cf0, #3d1c8f)" },
+  { match: "coração", label: "BALA DE CORAÇÃO", gradient: "linear-gradient(150deg, #ff5f7a, #b3123a)" },
+];
+
+function getBadgeVisual(name: string, list: Array<{ match: string; label: string; gradient: string }>) {
+  const lower = name.toLowerCase();
+  return list.find((item) => lower.includes(item.match)) || null;
+}
+
 function ProductVisual({ product }: { product: Product }) {
+  if (product.category === "Molhos") {
+    const sauce = getBadgeVisual(product.name, sauceVisuals) || { label: "MOLHO DA CASA", gradient: "linear-gradient(150deg, #d41435, #7a0016)" };
+    return <div className="sauce-visual" style={{ background: sauce.gradient }}><span>{sauce.label}</span></div>;
+  }
+  if (product.category === "Doces") {
+    const candy = getBadgeVisual(product.name, candyVisuals) || { label: "DOCE", gradient: "linear-gradient(150deg, #ff5f7a, #b3123a)" };
+    return <div className="sauce-visual" style={{ background: candy.gradient }}><span>{candy.label}</span></div>;
+  }
   const imgSrc = getProductImage(product);
   return <img src={imgSrc} alt={product.name} />;
 }
@@ -475,7 +513,20 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
   const [notes, setNotes] = useState("");
   const [category, setCategory] = useState("Todos");
   const [saving, setSaving] = useState(false);
+  const [discountMode, setDiscountMode] = useState<"none" | "percent" | "amount">("none");
+  const [discountInput, setDiscountInput] = useState("");
+  const [splitInput, setSplitInput] = useState("1");
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.priceCents * item.quantity, 0), [cart]);
+  const discountCents = useMemo(() => {
+    if (discountMode === "none" || !discountInput.trim()) return 0;
+    const raw = Number(discountInput.replace(",", "."));
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    const cents = discountMode === "percent" ? Math.round(total * (raw / 100)) : Math.round(raw * 100);
+    return Math.min(Math.max(0, cents), total);
+  }, [discountMode, discountInput, total]);
+  const finalTotal = total - discountCents;
+  const splitPeople = Math.min(20, Math.max(1, Math.round(Number(splitInput) || 1)));
+  const perPerson = splitPeople > 1 ? Math.ceil(finalTotal / splitPeople) : finalTotal;
   const displayProducts = products && products.length > 0 ? products : catalog.map((c) => ({ ...c, active: true }));
   const categories = ["Todos", ...Array.from(new Set(displayProducts.map((product) => product.category)))];
   const add = (product: Product) => setCart((current) => {
@@ -496,13 +547,15 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
     if (!customer.trim() || !cart.length) return notify("Informe o cliente e adicione itens.");
     setSaving(true);
     try {
-      const result = await api<{ order: { id: string; code: string; totalCents: number } }>("/api/orders", {
+      const result = await api<{ order: { id: string; code: string; totalCents: number; discountCents: number; splitCount: number } }>("/api/orders", {
         method: "POST",
         body: JSON.stringify({
           customerName: customer,
           paymentMethod: payment,
           cashReceivedCents: payment === "Dinheiro" ? Math.round(Number(cash.replace(",", ".")) * 100) : null,
           notes,
+          discountCents,
+          splitCount: splitPeople,
           items: cart.map((item) => ({ productId: item.id, quantity: item.quantity })),
         }),
       });
@@ -514,6 +567,8 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
         paymentMethod: payment,
         cashReceivedCents: payment === "Dinheiro" ? Math.round(Number(cash.replace(",", ".")) * 100) : undefined,
         totalCents: result.order.totalCents,
+        discountCents: result.order.discountCents,
+        splitCount: result.order.splitCount,
         channel: "Balcão",
         notes: notes.trim() || undefined,
         createdAt: new Date().toISOString(),
@@ -521,7 +576,7 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
       };
       printOrder(createdOrder, paperWidth);
       notify(`Pedido ${createdOrder.code} enviado para impressão automaticamente.`);
-      setCart([]); setCustomer(""); setCash(""); setNotes("");
+      setCart([]); setCustomer(""); setCash(""); setNotes(""); setDiscountMode("none"); setDiscountInput(""); setSplitInput("1");
       await onCreated();
     } catch (error) { notify(error instanceof Error ? error.message : "Falha ao salvar pedido"); }
     finally { setSaving(false); }
@@ -541,7 +596,27 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
       <label>Observações<textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Sem molho, bem passado, alergias…" /></label>
       <label>Forma de pagamento<select value={payment} onChange={(event) => setPayment(event.target.value)}><option>Pix</option><option>Dinheiro</option><option>Crédito</option><option>Débito</option></select></label>
       {payment === "Dinheiro" && <label>Valor recebido<input inputMode="decimal" value={cash} onChange={(event) => setCash(event.target.value)} placeholder="0,00" /><span className="cash-change">Troco <b>{formatMoney(Math.max(0, Math.round(Number(cash.replace(",", ".")) * 100) - total))}</b></span></label>}
-      <div className="checkout-total"><span>Total</span><strong>{formatMoney(total)}</strong></div>
+      <div className="discount-split-row">
+        <label>Desconto
+          <div className="discount-controls">
+            <select value={discountMode} onChange={(event) => { setDiscountMode(event.target.value as "none" | "percent" | "amount"); setDiscountInput(""); }}>
+              <option value="none">Sem desconto</option>
+              <option value="percent">Porcentagem (%)</option>
+              <option value="amount">Valor (R$)</option>
+            </select>
+            {discountMode !== "none" && <input inputMode="decimal" value={discountInput} onChange={(event) => setDiscountInput(event.target.value)} placeholder={discountMode === "percent" ? "Ex.: 10" : "0,00"} />}
+          </div>
+        </label>
+        <label>Dividir a conta entre
+          <input inputMode="numeric" value={splitInput} onChange={(event) => setSplitInput(event.target.value.replace(/\D/g, ""))} placeholder="1" />
+        </label>
+      </div>
+      <div className="checkout-total">
+        {discountCents > 0 && <div className="checkout-subtotal"><span>Subtotal</span><b>{formatMoney(total)}</b></div>}
+        {discountCents > 0 && <div className="checkout-subtotal discount"><span>Desconto</span><b>− {formatMoney(discountCents)}</b></div>}
+        <span>Total</span><strong>{formatMoney(finalTotal)}</strong>
+      </div>
+      {splitPeople > 1 && <div className="checkout-split"><span>Dividido em {splitPeople}x</span><strong>{formatMoney(perPerson)} cada</strong></div>}
       <button className="send-kitchen" onClick={submit} disabled={saving}>{saving ? "Salvando…" : "Confirmar e enviar à cozinha →"}</button>
     </aside>
   </div>;
@@ -656,7 +731,7 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
         <section className="order-detail-customer"><span>CLIENTE</span><strong>{selectedOrder.customerName}</strong></section>
         <section className="order-detail-items"><h3>Itens pedidos</h3><ul>{selectedOrder.items.map((item) => <li key={item.id}><b>{item.quantity}×</b><span>{item.name}</span><strong>{formatMoney(Number(item.unitPriceCents) * item.quantity)}</strong></li>)}</ul></section>
         {selectedOrder.notes && <p className="order-detail-notes"><b>Observação:</b> {selectedOrder.notes}</p>}
-        <dl><div><dt>Horário</dt><dd>{new Date(selectedOrder.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</dd></div><div><dt>Tempo</dt><dd>{formatOrderDuration(selectedOrder)}</dd></div><div><dt>Pagamento</dt><dd>{selectedOrder.paymentMethod}</dd></div><div><dt>Status</dt><dd>{labels[selectedOrder.status]}</dd></div></dl>
+        <dl><div><dt>Horário</dt><dd>{new Date(selectedOrder.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</dd></div><div><dt>Tempo</dt><dd>{formatOrderDuration(selectedOrder)}</dd></div><div><dt>Pagamento</dt><dd>{selectedOrder.paymentMethod}</dd></div><div><dt>Status</dt><dd>{labels[selectedOrder.status]}</dd></div>{!!selectedOrder.discountCents && <div><dt>Desconto</dt><dd>− {formatMoney(selectedOrder.discountCents)}</dd></div>}{!!selectedOrder.splitCount && selectedOrder.splitCount > 1 && <div><dt>Dividido em</dt><dd>{selectedOrder.splitCount}x · {formatMoney(Math.ceil(selectedOrder.totalCents / selectedOrder.splitCount))} cada</dd></div>}</dl>
         <footer><span>Total</span><strong>{formatMoney(selectedOrder.totalCents)}</strong><button type="button" onClick={() => onPrint(selectedOrder)}>Imprimir pedido</button></footer>
       </article>
     </div>}
@@ -798,9 +873,10 @@ function printOrder(order: Order, paperWidth: 58 | 80) {
     ul{margin:0 0 9mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 15 : 19}mm 1fr;align-items:start;gap:6mm;padding:7mm 0;border-bottom:2px solid #000;font-size:${paperWidth === 58 ? 25 : 31}px;line-height:1.6}
     li b{font-size:${paperWidth === 58 ? 29 : 37}px;font-weight:900}li strong{font-weight:900}.notes{margin:8mm 0;padding:6mm;border:2px solid #000;font-size:${paperWidth === 58 ? 21 : 26}px;line-height:1.7}
     .meta{margin-top:8mm;padding-top:7mm;border-top:2px dashed #000}.meta p{margin:5mm 0;font-size:${paperWidth === 58 ? 20 : 25}px}.total{display:block;margin:7mm 0;font-size:${paperWidth === 58 ? 32 : 40}px;line-height:1.3}
+    .split-line{margin:6mm 0;padding:5mm;border:2px solid #000;text-align:center;font-size:${paperWidth === 58 ? 20 : 25}px;font-weight:900;line-height:1.6}
     .footer{margin-top:9mm;padding-top:6mm;border-top:2px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 16 : 19}px}.cut-space{height:18mm}
     @media print{html,body,.receipt{width:${paperWidth}mm}.receipt{break-inside:avoid}}
-  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p><strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong><p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
+  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p>${order.discountCents ? `<p>Subtotal: <b>${formatMoney(order.totalCents + order.discountCents)}</b></p><p>Desconto: <b>−${formatMoney(order.discountCents)}</b></p>` : ""}<strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong>${order.splitCount && order.splitCount > 1 ? `<p class="split-line">DIVIDIDO EM ${order.splitCount}x<br>${formatMoney(Math.ceil(order.totalCents / order.splitCount))} CADA</p>` : ""}<p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
 
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");

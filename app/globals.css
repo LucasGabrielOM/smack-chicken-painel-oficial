@@ -1086,3 +1086,21 @@ button { cursor: pointer; }
   box-shadow: 0 10px 30px -18px #37221b1f;
 }
 .panel-app.theme-light .dashboard-date-picker input, .panel-app.theme-light .orders-filter-bar input { color-scheme: light; }
+
+/* Desconto e dividir a conta (PDV) */
+.discount-split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.discount-split-row label { margin-top: 0 !important; }
+.discount-controls { display: flex; gap: 6px; margin-top: 7px; }
+.discount-controls select { flex: 1 1 auto; min-width: 0; }
+.discount-controls input { flex: 1 1 auto; min-width: 0; }
+.checkout-subtotal { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--p-text-dim); margin-bottom: 6px; }
+.checkout-subtotal.discount b { color: var(--p-green); }
+.checkout-split { display: flex; justify-content: space-between; align-items: center; margin-top: -6px; margin-bottom: 16px; padding: 10px 12px; border-radius: 10px; background: var(--p-gold-dim); color: var(--p-gold); font-size: 11px; font-weight: 900; }
+@media (max-width: 480px) {
+  .discount-split-row { grid-template-columns: 1fr; }
+}
+
+/* Molhos sem foto: painel colorido com o nome */
+.sauce-visual { height: 125px; display: flex; align-items: center; justify-content: center; padding: 10px; text-align: center; position: relative; overflow: hidden; }
+.sauce-visual::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 25% 15%, #ffffff26, transparent 55%); }
+.sauce-visual span { position: relative; z-index: 1; color: #fff; font-size: 13px; font-weight: 900; letter-spacing: .6px; text-shadow: 0 2px 6px #00000040; }

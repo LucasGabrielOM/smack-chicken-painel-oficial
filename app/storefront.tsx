@@ -96,7 +96,7 @@ export default function Storefront() {
         </div>
         <div className="sc-product-grid">
           {catalog
-            .filter((product) => product.category !== "Bebidas")
+            .filter((product) => product.category !== "Bebidas" && product.category !== "Doces")
             .map((product) => (
               <article key={product.id}>
                 <div className="sc-product-img">

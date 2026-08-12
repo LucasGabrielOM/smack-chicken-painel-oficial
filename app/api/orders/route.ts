@@ -11,6 +11,8 @@ type NewOrder = {
   cashReceivedCents?: number | null;
   channel?: string;
   notes?: string;
+  discountCents?: number;
+  splitCount?: number;
   items?: Array<{ productId: number | string; quantity: number | string }>;
 };
 
@@ -20,7 +22,8 @@ export async function GET(request: NextRequest) {
   const result = await query(
     `SELECT o.id,o.code,o.customer_name AS "customerName",o.status,
             o.payment_method AS "paymentMethod",o.cash_received_cents AS "cashReceivedCents",
-            o.total_cents AS "totalCents",o.channel,o.notes,o.created_at AS "createdAt",
+            o.total_cents AS "totalCents",o.discount_cents AS "discountCents",o.split_count AS "splitCount",
+            o.channel,o.notes,o.created_at AS "createdAt",
             o.ready_at AS "readyAt",o.completed_at AS "completedAt",
             COALESCE(json_agg(json_build_object(
               'id',oi.id,'productId',oi.product_id,'name',oi.product_name,
@@ -55,20 +58,25 @@ export async function POST(request: NextRequest) {
         [productIds],
       );
       const byId = new Map(products.rows.map((product) => [Number(product.id), product]));
-      let totalCents = 0;
+      let itemsTotalCents = 0;
       for (const item of items) {
         const product = byId.get(item.productId);
         if (!product || item.quantity < 1) throw new Error("Item inválido no pedido");
-        totalCents += product.price_cents * item.quantity;
+        itemsTotalCents += product.price_cents * item.quantity;
       }
+      const discountCents = Math.min(Math.max(0, Math.round(Number(body.discountCents) || 0)), itemsTotalCents);
+      const totalCents = itemsTotalCents - discountCents;
+      const splitCount = Math.min(20, Math.max(1, Math.round(Number(body.splitCount) || 1)));
       const inserted = await client.query<{ id: string }>(
-        `INSERT INTO orders (customer_name,payment_method,cash_received_cents,total_cents,channel,notes)
-         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+        `INSERT INTO orders (customer_name,payment_method,cash_received_cents,total_cents,discount_cents,split_count,channel,notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
         [
           body.customerName!.trim(),
           body.paymentMethod,
           body.cashReceivedCents || null,
           totalCents,
+          discountCents,
+          splitCount,
           body.channel || "Balcão",
           body.notes?.trim() || null,
         ],
@@ -84,7 +92,7 @@ export async function POST(request: NextRequest) {
           [id, item.productId, product.name, item.quantity, product.price_cents],
         );
       }
-      return { id, code, totalCents };
+      return { id, code, totalCents, discountCents, splitCount };
     });
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

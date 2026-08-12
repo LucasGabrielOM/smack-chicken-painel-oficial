@@ -55,12 +55,16 @@ export async function ensureSchema() {
           payment_method TEXT NOT NULL,
           cash_received_cents INTEGER,
           total_cents INTEGER NOT NULL CHECK (total_cents >= 0),
+          discount_cents INTEGER NOT NULL DEFAULT 0,
+          split_count INTEGER NOT NULL DEFAULT 1,
           channel TEXT NOT NULL DEFAULT 'Balcão',
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           ready_at TIMESTAMPTZ,
           completed_at TIMESTAMPTZ
         );
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount_cents INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS split_count INTEGER NOT NULL DEFAULT 1;
         CREATE TABLE IF NOT EXISTS order_items (
           id BIGSERIAL PRIMARY KEY,
           order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,

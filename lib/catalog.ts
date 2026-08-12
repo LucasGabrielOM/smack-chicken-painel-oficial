@@ -57,6 +57,11 @@ export const catalog: CatalogProduct[] = [
   { id: 44, name: "Barbecue — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
   { id: 45, name: "Molho Smack — Adicional", description: "Molho adicional", priceCents: 400, category: "Molhos", image: "/molho.jpeg" },
   { id: 46, name: "Molho de Bacon — Adicional", description: "Molho adicional de bacon", priceCents: 500, category: "Molhos", image: "/molho.jpeg" },
+  { id: 47, name: "Fini Azedinhos", description: "Bala de goma azedinha sabor frutas", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
+  { id: 48, name: "Halls", description: "Bala refrescante", priceCents: 350, category: "Doces", image: "/molho.jpeg" },
+  { id: 49, name: "Fini Frisgels", description: "Bala de goma recheada", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
+  { id: 50, name: "Fini Plutonita", description: "Bala de goma ácida que muda a cor da língua", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
+  { id: 51, name: "Bala de Coração", description: "Bala de goma em formato de coração", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
 ];
 
 export const formatMoney = (cents: number) =>
