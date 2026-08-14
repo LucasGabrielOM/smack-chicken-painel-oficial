@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "../../../lib/auth";
 import { query } from "../../../lib/db";
 import { catalog } from "../../../lib/catalog";
-import { getProductImage } from "../../store-panel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
     mergedMap.set(item.id, {
       ...item,
       active: true,
-      image: getProductImage(item),
+      image: item.image || "",
     });
   }
 
@@ -47,7 +46,7 @@ export async function GET(request: NextRequest) {
       priceCents: Number(item.priceCents),
       active: item.active !== false,
     };
-    merged.image = catalogItem ? getProductImage(merged) : (item.image || "");
+    merged.image = item.image || catalogItem?.image || "";
     mergedMap.set(numId, merged);
   }
 
