@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
-    apple: "/smack-chicken-mark.png",
+    apple: "/favicon.png",
   },
   openGraph: {
     title: "SMACK CHICKEN — Frango crocante. Sem conversa.",
