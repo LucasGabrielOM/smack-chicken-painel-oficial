@@ -10,9 +10,9 @@ export const metadata: Metadata = {
     ? "Painel privado de caixa, cozinha, pedidos e gestão financeira da SMACK CHICKEN."
     : "Frango crocante no Estreito, Florianópolis. Consumo no local e entrega pelo iFood.",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    icon: "/smack-favicon.png",
+    shortcut: "/smack-favicon.png",
+    apple: "/smack-favicon.png",
   },
   openGraph: {
     title: "SMACK CHICKEN — Frango crocante. Sem conversa.",

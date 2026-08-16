@@ -11,6 +11,13 @@ const BUCKETS = [
   { size: "G", name: "Balde G — 800 g", note: "Tiras ou coxinha da asa crocante", price: "R$ 79,99", image: "/combo-mesa.jpeg" },
 ];
 
+const LANCHES = [
+  { name: "Smack Kids + Batata Smile", note: "Opção especial para os pequenos: pão brioche, frango crocante por fora e macio por dentro, com 150 g de batata smile.", price: "R$ 32,90", image: "/lanche-kids.jpeg" },
+  { name: "Smack Fresh", note: "Crocância e frescor no mesmo lanche: frango crocante em tirinhas, alface roxa, tomate, cebola roxa, queijo e molho à escolha.", price: "R$ 39,90", image: "/lanche-fresh.jpeg" },
+  { name: "Smack Original", note: "O clássico da casa: frango crocante em tirinhas, queijo, molho à escolha e pão brioche. Simples e saboroso.", price: "R$ 29,90", image: "/lanche-original.jpeg" },
+  { name: "Smack Power", note: "Frango crocante em tirinhas, bacon crocante, queijo cheddar ou mussarela e cebola caramelizada.", price: "R$ 49,90", image: "/lanche-power.jpeg" },
+];
+
 const reasons = [
   { n: "01", title: "Crunch inesquecível", text: "Empanado dourado, crocante até a última mordida." },
   { n: "02", title: "Feito no pedido", text: "Nada parado: sai quente direto da nossa cozinha." },
@@ -177,6 +184,39 @@ export default function Storefront() {
         </div>
         <div className="sc-menu-cta">
           <p>Combos, porções e bebidas também estão no cardápio completo do iFood.</p>
+          <a href={IFOOD_URL} target="_blank" rel="noreferrer">
+            Ver cardápio completo ↗
+          </a>
+        </div>
+      </section>
+
+      <section className="sc-menu" id="lanches">
+        <div className="sc-section-title sc-reveal sc-pre">
+          <span>TAMBÉM TEMOS</span>
+          <h2>
+            Lanches <em>Smack</em>
+          </h2>
+          <p>Sanduíches de frango crocante, do jeitinho que só a Smack faz.</p>
+        </div>
+        <div className="sc-bucket-grid sc-lanche-grid">
+          {LANCHES.map((item) => (
+            <article key={item.name} className="sc-reveal sc-pre">
+              <div className="sc-bucket-img sc-lanche-img">
+                <img src={item.image} alt={item.name} />
+              </div>
+              <div className="sc-bucket-body">
+                <h3>{item.name}</h3>
+                <p>{item.note}</p>
+                <div className="sc-bucket-price">
+                  <span>a partir de</span>
+                  <b>{item.price}</b>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="sc-menu-cta">
+          <p>Cardápio completo de lanches, combos e bebidas no iFood.</p>
           <a href={IFOOD_URL} target="_blank" rel="noreferrer">
             Ver cardápio completo ↗
           </a>

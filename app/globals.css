@@ -682,8 +682,9 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
 .sc-facts span { display: block; padding-left: 14px; border-left: 1px solid var(--sc-line); color: var(--sc-muted); font-size: 11px; }
 .sc-facts b { display: block; color: var(--sc-ink); font-size: 13px; margin-bottom: 4px; font-weight: 600; }
 
-.sc-hero-image { position: relative; min-height: 420px; border-radius: 20px; overflow: hidden; box-shadow: 0 30px 60px -22px #27171340; }
+.sc-hero-image { position: relative; min-height: 420px; border-radius: 20px; overflow: hidden; box-shadow: 0 26px 54px -20px #27171355, 0 38px 74px -16px #6b0f1f4d; }
 .sc-hero-image img { width: 100%; height: 100%; min-height: 420px; object-fit: cover; }
+.sc-hero-image::after { content: ""; position: absolute; inset: 0; background: linear-gradient(200deg, transparent 45%, #1a08084d 100%); pointer-events: none; }
 .sc-hero-tag { position: absolute; left: 20px; top: 20px; z-index: 2; padding: 10px 16px; background: var(--sc-paper); border-radius: 3px; box-shadow: 0 12px 24px #00000022; transform: rotate(-3deg); }
 .sc-hero-tag em { font-family: "Fraunces", Georgia, serif; font-style: italic; font-size: 13px; color: var(--sc-wine); font-weight: 600; }
 
@@ -710,6 +711,10 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
 .sc-bucket-img { height: 220px; position: relative; overflow: hidden; }
 .sc-bucket-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 .sc-bucket-grid article:hover .sc-bucket-img img { transform: scale(1.04); }
+/* Fotos de lanche são retratos altos com bastante fundo vazio em cima —
+   janela maior e ancorada mais abaixo para o sanduíche aparecer inteiro. */
+.sc-lanche-img { height: 340px; }
+.sc-lanche-img img { object-position: 50% 72%; }
 .sc-bucket-size { position: absolute; left: 14px; top: 14px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--sc-wine); color: #fff; font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: 14px; }
 .sc-bucket-body { padding: 20px 22px 24px; }
 .sc-bucket-body h3 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
@@ -821,6 +826,13 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
   .sc-promo > a { width: 100%; text-align: center; }
   .sc-footer { justify-content: flex-start; }
 }
+
+/* Grade de lanches: 4 itens ficam melhor em 2x2 (cards mais largos) do que 3+1 */
+@media (min-width: 901px) {
+  .sc-lanche-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.sc-lanche-grid .sc-reveal:nth-child(3) { transition-delay: 0s; }
+.sc-lanche-grid .sc-reveal:nth-child(4) { transition-delay: .09s; }
 
 /* ============================================================
    PAINEL INTERNO — REDESIGN TECNOLÓGICO (2026)
