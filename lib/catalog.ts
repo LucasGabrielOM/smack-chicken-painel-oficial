@@ -62,6 +62,7 @@ export const catalog: CatalogProduct[] = [
   { id: 49, name: "Fini Frisgels", description: "Bala de goma recheada", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
   { id: 50, name: "Fini Plutonita", description: "Bala de goma ácida que muda a cor da língua", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
   { id: 51, name: "Bala de Coração", description: "Bala de goma em formato de coração", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
+  { id: 52, name: "MARMITA SMACK 600g", description: "Uma refeição completa, saborosa e bem servida com 600g ao todo! Frango Smack: filé de sassami crocante e sequinho. Arroz branco soltinho, feijão carioca bem temperado, batata frita crocante. Acompanha salada.", priceCents: 2990, category: "Marmitas", image: "/marmita-smack.jpg", featured: true },
 ];
 
 export const formatMoney = (cents: number) =>

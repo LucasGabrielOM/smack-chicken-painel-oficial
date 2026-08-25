@@ -84,7 +84,9 @@ export default function Storefront() {
         <Logo />
         <nav>
           <a href="#inicio">Início</a>
+          <a href="#almoco">Almoço</a>
           <a href="#cardapio">Cardápio</a>
+          <a href="#lanches">Lanches</a>
           <a href="#avaliacoes">Avaliações</a>
           <a href="#loja">Como chegar</a>
         </nav>
@@ -154,6 +156,45 @@ export default function Storefront() {
             </span>
           </article>
         ))}
+      </section>
+
+      <section className="sc-menu" id="almoco">
+        <div className="sc-section-title sc-reveal sc-pre">
+          <span>HORA DO ALMOÇO</span>
+          <h2>
+            Marmita <em>Smack 600g</em>
+          </h2>
+          <p>Uma refeição completa, saborosa e bem servida para o seu almoço!</p>
+        </div>
+        <div className="sc-marmita-grid">
+          <article className="sc-reveal sc-pre sc-marmita-card">
+            <div className="sc-marmita-img">
+              <img src="/marmita-smack.jpg" alt="Marmita Smack 600g" />
+              <span className="sc-bucket-size">600g</span>
+            </div>
+            <div className="sc-marmita-body">
+              <span className="sc-marmita-tag">NOVIDADE DA LOJA</span>
+              <h3>MARMITA SMACK 600g</h3>
+              <p>
+                Uma refeição completa, saborosa e bem servida com 600g ao todo!
+              </p>
+              <ul className="sc-marmita-items">
+                <li><strong>Frango Smack:</strong> filé de sassami crocante e sequinho</li>
+                <li><strong>Arroz branco:</strong> soltinho</li>
+                <li><strong>Feijão carioca:</strong> bem temperado</li>
+                <li><strong>Batata frita:</strong> crocante</li>
+                <li><strong>Salada:</strong> acompanha salada fresca</li>
+              </ul>
+              <div className="sc-bucket-price">
+                <span>Refeição completa por</span>
+                <b>R$ 29,90</b>
+              </div>
+              <a href={IFOOD_URL} target="_blank" rel="noreferrer" className="sc-marmita-btn sc-cta-pulse">
+                Pedir Marmita no iFood <span className="sc-cta-arrow">→</span>
+              </a>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section className="sc-menu" id="cardapio">
