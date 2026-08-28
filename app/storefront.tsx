@@ -131,7 +131,7 @@ export default function Storefront() {
           </div>
           <div className="sc-facts">
             <span>
-              <b>18h — 00h</b>Segunda a sábado
+              <b>17h00 — 23h00</b>Segunda a sábado
             </span>
             <span>
               <b>Rua Fúlvio Aducci, 1074</b>Estreito · Florianópolis
@@ -328,7 +328,7 @@ export default function Storefront() {
             <br />
             Florianópolis — SC
             <br />
-            Aberto de segunda a sábado, das 18h às 00h.
+            Aberto de segunda a sábado, das 17h00 às 23h00.
           </p>
           <a href={MAPS_URL} target="_blank" rel="noreferrer">
             Abrir no Google Maps ↗
