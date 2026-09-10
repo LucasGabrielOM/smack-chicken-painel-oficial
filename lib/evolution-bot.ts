@@ -10,6 +10,9 @@ import { sendEvolutionText, sendEvolutionLocation, sendEvolutionLinkButton } fro
  */
 
 const ORDER_LINK = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/";
+const HEADER_IMAGE_URL = `${
+  process.env.SITE_URL || "https://smack-chicken.vercel.app"
+}/lanches-destaque.jpg`;
 const STORE_NAME = "Smack Chicken";
 const STORE_ADDRESS = "Rua General Liberato Bittencourt, Estreito, Florianópolis - SC";
 const STORE_LAT = -27.5879265;
@@ -68,7 +71,7 @@ export async function handleEvolutionWebhook(webhookBody: any) {
 
   if (textClean === "1" || textClean.includes("cardap") || textClean.includes("pedido")) {
     state.step = "IDLE";
-    return sendOrderLink(phone);
+    return sendOrderLink(phone, customerName);
   }
 
   if (
@@ -109,14 +112,18 @@ export async function sendWelcomeMenu(phone: string, name: string) {
   );
 }
 
-export async function sendOrderLink(phone: string) {
+export async function sendOrderLink(phone: string, name: string = "Cliente") {
   return sendEvolutionLinkButton(
     phone,
-    "🍗 Cardápio & Pedidos",
-    "Faça seu pedido direto pelo nosso site, é rápido e você acompanha tudo por lá!",
-    "Ver cardápio e pedir",
+    `Olá, ${name}! 👋`,
+    "Você sabia que agora dá pra fazer seu pedido direto no nosso site oficial?\n\n" +
+      "Peça seus baldes crocantes, lanches e marmitas direto pelo nosso cardápio digital, de forma rápida e sem taxas intermediárias!\n\n" +
+      "Acesse nosso site e faça seu pedido agora:",
+    "Fazer Pedido no Site",
     ORDER_LINK,
-    "Smack Chicken · Digite MENU pra voltar",
+    "SMACK CHICKEN · Pedido Online Direto",
+    undefined,
+    HEADER_IMAGE_URL,
   );
 }
 

@@ -142,7 +142,8 @@ export async function sendEvolutionButtons(
   description: string,
   buttons: Array<EvolutionButton>,
   footerText?: string,
-  instanceName: string = INSTANCE_NAME
+  instanceName: string = INSTANCE_NAME,
+  thumbnailUrl?: string
 ) {
   const formattedNumber = formatPhoneNumber(number);
   const formattedButtons = buttons.map((b) =>
@@ -157,6 +158,7 @@ export async function sendEvolutionButtons(
     description,
     footer: footerText || "Smack Chicken",
     buttons: formattedButtons,
+    ...(thumbnailUrl ? { thumbnailUrl } : {}),
   });
 }
 
@@ -164,6 +166,8 @@ export async function sendEvolutionButtons(
  * Envia uma mensagem "estilo template" com um botão de link (URL) —
  * igual ao rodapé com botão que a Meta usa em mensagens de template,
  * mas aqui via botão nativo do WhatsApp (sem link cru no corpo do texto).
+ * `imageUrl` opcional adiciona um cabeçalho de imagem (precisa ser uma URL
+ * pública, ex: a própria imagem hospedada em /public no site).
  */
 export async function sendEvolutionLinkButton(
   number: string,
@@ -172,7 +176,8 @@ export async function sendEvolutionLinkButton(
   buttonLabel: string,
   url: string,
   footerText?: string,
-  instanceName: string = INSTANCE_NAME
+  instanceName: string = INSTANCE_NAME,
+  imageUrl?: string
 ) {
   return sendEvolutionButtons(
     number,
@@ -181,6 +186,7 @@ export async function sendEvolutionLinkButton(
     [{ type: "url", label: buttonLabel, url }],
     footerText,
     instanceName,
+    imageUrl,
   );
 }
 
