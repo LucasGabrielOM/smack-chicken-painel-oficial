@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendBroadcastMessage } from "@/lib/baileys-service";
+import { sendEvolutionText, formatPhoneNumber } from "@/lib/evolution";
 import { query } from "@/lib/db";
+
+async function sendBroadcastMessage(numbers: string[], text: string, delayMs: number) {
+  const results: Array<{ phone: string; success: boolean; error?: string }> = [];
+  for (const phone of numbers) {
+    const cleaned = formatPhoneNumber(phone);
+    try {
+      const res = (await sendEvolutionText(cleaned, text)) as { error?: boolean; details?: string };
+      if (res?.error) throw new Error(res.details || "Falha ao enviar pela Evolution API");
+      results.push({ phone: cleaned, success: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      results.push({ phone: cleaned, success: false, error: message });
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return results;
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
