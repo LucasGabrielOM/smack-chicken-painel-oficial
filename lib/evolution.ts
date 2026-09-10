@@ -2,7 +2,7 @@ const EVOLUTION_API_URL =
   process.env.EVOLUTION_API_URL || "https://smack-evolution.onrender.com";
 
 const EVOLUTION_API_KEY =
-  process.env.EVOLUTION_API_KEY || "smack_chicken_evo_key_2026";
+  process.env.EVOLUTION_API_KEY || "c18ee9d461f8cbe87885585a06d3d680514f314aa8b11cb1";
 
 const INSTANCE_NAME =
   process.env.EVOLUTION_INSTANCE || "smack-chicken";
