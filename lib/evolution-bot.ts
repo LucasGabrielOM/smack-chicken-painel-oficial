@@ -92,7 +92,9 @@ export async function handleEvolutionWebhook(webhookBody: any) {
     state.step = "HUMAN_ATTENDANT";
     return sendEvolutionText(
       phone,
-      `👨‍🍳 *Atendimento Humano — Smack Chicken*\n\nJá notifiquei nossa equipe! Um de nossos atendentes entrará em contato com você neste número em instantes.\n\nPara voltar ao atendimento automático a qualquer momento, digite *MENU*.`,
+      `👩‍🍳 *Falar com um atendente*\n\n` +
+        `Perfeito! Já avisamos nossa equipe por aqui — em instantes alguém vai continuar seu atendimento neste mesmo número. 💬\n\n` +
+        `_Digite *MENU* a qualquer momento para voltar ao atendimento automático._`,
     );
   }
 
@@ -105,20 +107,22 @@ export async function handleEvolutionWebhook(webhookBody: any) {
 export async function sendWelcomeMenu(phone: string, name: string) {
   return sendEvolutionText(
     phone,
-    `Olá, *${name}*! 👋 Seja muito bem-vindo(a) à *SMACK CHICKEN* — Frango Frito no Balde crocante no Estreito (Florianópolis)! 🍗🔥\n\n` +
-      `Digite o *número* da opção que deseja:\n\n` +
+    `🍗 *Bem-vindo(a) à Smack Chicken, ${name}!*\n\n` +
+      `Frango crocante feito na hora, do nosso jeito. Como podemos te ajudar hoje?\n\n` +
+      `Digite o *número* da opção desejada:\n\n` +
       `1️⃣ Ver cardápio e fazer pedido\n` +
       `2️⃣ Horário de funcionamento e endereço\n` +
-      `3️⃣ Falar com atendente`,
+      `3️⃣ Falar com um atendente`,
   );
 }
 
 export async function sendOrderLink(phone: string, name: string = "Cliente") {
   const caption =
-    `*Olá, ${name}! 👋*\n\n` +
-    "Você sabia que agora dá pra fazer seu pedido direto no nosso site oficial?\n\n" +
-    "Peça seus baldes crocantes, lanches e marmitas direto pelo nosso cardápio digital, de forma rápida e sem taxas intermediárias!\n\n" +
-    `Acesse nosso site e faça seu pedido agora:\n${ORDER_LINK}`;
+    `🍗 *Cardápio & Pedidos*\n\n` +
+    `Oi, *${name}*! Agora dá pra pedir seu Smack Chicken direto pelo nosso site — rápido, sem intermediários e você acompanha tudo em tempo real.\n\n` +
+    `Baldes crocantes, lanches, marmitas e muito mais esperando por você. 🔥\n\n` +
+    `👉 *Faça seu pedido:*\n${ORDER_LINK}\n\n` +
+    `_Digite *MENU* a qualquer momento para voltar às opções._`;
 
   return sendEvolutionImage(phone, HEADER_IMAGE_URL, caption);
 }
@@ -128,10 +132,11 @@ export async function sendStoreInfo(phone: string) {
   await sendEvolutionLocation(phone, STORE_LAT, STORE_LNG, STORE_NAME, STORE_ADDRESS);
 
   const text =
-    `📍 *SMACK CHICKEN — Endereço & Horários*\n\n` +
-    `🏢 *Localização:* ${STORE_ADDRESS}\n\n` +
-    `⏰ *Horário de Funcionamento:* ${STORE_HOURS}\n\n` +
-    `Digite *MENU* a qualquer momento para voltar ao atendimento inicial.`;
+    `📍 *Endereço & Horários — Smack Chicken*\n\n` +
+    `🏠 ${STORE_ADDRESS}\n` +
+    `⏰ ${STORE_HOURS}\n\n` +
+    `Te esperamos por lá! 🍗\n\n` +
+    `_Digite *MENU* a qualquer momento para voltar às opções._`;
 
   return sendEvolutionText(phone, text);
 }
