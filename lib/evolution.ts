@@ -60,6 +60,7 @@ export async function createEvolutionInstance(instanceName: string = INSTANCE_NA
     qrcode: true,
     integration: "WHATSAPP-BAILEYS",
     webhook: {
+      enabled: true,
       url: webhookUrl(),
       byEvents: false,
       base64: true,
@@ -76,6 +77,7 @@ export async function createEvolutionInstance(instanceName: string = INSTANCE_NA
 export async function setEvolutionWebhook(instanceName: string = INSTANCE_NAME) {
   return callEvolutionAPI(`/webhook/set/${instanceName}`, "POST", {
     webhook: {
+      enabled: true,
       url: webhookUrl(),
       byEvents: false,
       base64: true,
