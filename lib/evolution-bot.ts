@@ -1,4 +1,4 @@
-import { sendEvolutionText, sendEvolutionLocation, sendEvolutionLinkButton } from "./evolution";
+import { sendEvolutionText, sendEvolutionLocation, sendEvolutionImage } from "./evolution";
 
 /**
  * Bot de triagem do WhatsApp (Evolution API).
@@ -9,10 +9,11 @@ import { sendEvolutionText, sendEvolutionLocation, sendEvolutionLinkButton } fro
  * O pedido em si acontece no site (`smack-chicken-pedidos`), que fica separado.
  */
 
-const ORDER_LINK = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/";
-const HEADER_IMAGE_URL = `${
-  process.env.SITE_URL || "https://smack-chicken.vercel.app"
-}/lanches-destaque.jpg`;
+const SITE_URL = process.env.SITE_URL || "https://smack-chicken.vercel.app";
+// Link curto e com a cara da marca (redireciona pro site de pedidos) em vez
+// do endereço bruto do workers.dev na legenda da mensagem.
+const ORDER_LINK = `${SITE_URL}/pedido`;
+const HEADER_IMAGE_URL = `${SITE_URL}/lanches-destaque.jpg`;
 const STORE_NAME = "Smack Chicken";
 const STORE_ADDRESS = "Rua General Liberato Bittencourt, Estreito, Florianópolis - SC";
 const STORE_LAT = -27.5879265;
@@ -113,18 +114,13 @@ export async function sendWelcomeMenu(phone: string, name: string) {
 }
 
 export async function sendOrderLink(phone: string, name: string = "Cliente") {
-  return sendEvolutionLinkButton(
-    phone,
-    `Olá, ${name}! 👋`,
+  const caption =
+    `*Olá, ${name}! 👋*\n\n` +
     "Você sabia que agora dá pra fazer seu pedido direto no nosso site oficial?\n\n" +
-      "Peça seus baldes crocantes, lanches e marmitas direto pelo nosso cardápio digital, de forma rápida e sem taxas intermediárias!\n\n" +
-      "Acesse nosso site e faça seu pedido agora:",
-    "Fazer Pedido no Site",
-    ORDER_LINK,
-    "SMACK CHICKEN · Pedido Online Direto",
-    undefined,
-    HEADER_IMAGE_URL,
-  );
+    "Peça seus baldes crocantes, lanches e marmitas direto pelo nosso cardápio digital, de forma rápida e sem taxas intermediárias!\n\n" +
+    `Acesse nosso site e faça seu pedido agora:\n${ORDER_LINK}`;
+
+  return sendEvolutionImage(phone, HEADER_IMAGE_URL, caption);
 }
 
 export async function sendStoreInfo(phone: string) {

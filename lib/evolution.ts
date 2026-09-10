@@ -228,6 +228,29 @@ export async function sendEvolutionList(
  * Envia um pino de localização nativo do WhatsApp (sem mostrar link nenhum
  * na mensagem — aparece como o cartão de mapa que o WhatsApp já entende).
  */
+/**
+ * Envia uma imagem com legenda (mensagem normal de mídia, não interativa).
+ * Botões/CTA de link (nativeFlowMessage) não chegam em contas pessoais do
+ * WhatsApp via API não-oficial — só mensagem de mídia comum é entregue de
+ * forma confiável, então é isso que usamos pro "cabeçalho com imagem".
+ */
+export async function sendEvolutionImage(
+  number: string,
+  imageUrl: string,
+  caption: string,
+  instanceName: string = INSTANCE_NAME
+) {
+  const formattedNumber = formatPhoneNumber(number);
+  return callEvolutionAPI(`/message/sendMedia/${instanceName}`, "POST", {
+    number: formattedNumber,
+    mediatype: "image",
+    mimetype: "image/jpeg",
+    media: imageUrl,
+    fileName: "smack-chicken.jpg",
+    caption,
+  });
+}
+
 export async function sendEvolutionLocation(
   number: string,
   latitude: number,
