@@ -122,16 +122,15 @@ export async function sendEvolutionText(
   const formattedNumber = formatPhoneNumber(number);
   return callEvolutionAPI(`/message/sendText/${instanceName}`, "POST", {
     number: formattedNumber,
-    options: {
-      delay: 1200,
-      presence: "composing",
-    },
     text,
+    delay: 1200,
   });
 }
 
 /**
- * Envia mensagem com botões de resposta rápida
+ * Envia mensagem com botões de resposta rápida.
+ * Formato exigido por esta versão da Evolution API: cada botão precisa de
+ * `type: "reply"` (não o formato `quick_reply`/`buttonParamsJson` da API oficial).
  */
 export async function sendEvolutionButtons(
   number: string,
@@ -143,11 +142,9 @@ export async function sendEvolutionButtons(
 ) {
   const formattedNumber = formatPhoneNumber(number);
   const formattedButtons = buttons.map((b) => ({
-    name: "quick_reply",
-    buttonParamsJson: JSON.stringify({
-      display_text: b.label,
-      id: b.id,
-    }),
+    type: "reply",
+    displayText: b.label,
+    id: b.id,
   }));
 
   return callEvolutionAPI(`/message/sendButtons/${instanceName}`, "POST", {
@@ -160,7 +157,8 @@ export async function sendEvolutionButtons(
 }
 
 /**
- * Envia mensagem de lista interativa (Menu do Cardápio)
+ * Envia mensagem de lista interativa (Menu do Cardápio).
+ * Cada linha precisa de `rowId` (não `id`), conforme o DTO desta versão.
  */
 export async function sendEvolutionList(
   number: string,
@@ -181,6 +179,13 @@ export async function sendEvolutionList(
     description,
     buttonText,
     footerText: footerText || "Smack Chicken",
-    sections,
+    sections: sections.map((s) => ({
+      title: s.title,
+      rows: s.rows.map((r) => ({
+        rowId: r.id,
+        title: r.title,
+        description: r.description || "",
+      })),
+    })),
   });
 }
