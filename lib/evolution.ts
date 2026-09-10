@@ -132,20 +132,24 @@ export async function sendEvolutionText(
  * Formato exigido por esta versão da Evolution API: cada botão precisa de
  * `type: "reply"` (não o formato `quick_reply`/`buttonParamsJson` da API oficial).
  */
+type EvolutionButton =
+  | { type: "reply"; id: string; label: string }
+  | { type: "url"; label: string; url: string };
+
 export async function sendEvolutionButtons(
   number: string,
   title: string,
   description: string,
-  buttons: Array<{ id: string; label: string }>,
+  buttons: Array<EvolutionButton>,
   footerText?: string,
   instanceName: string = INSTANCE_NAME
 ) {
   const formattedNumber = formatPhoneNumber(number);
-  const formattedButtons = buttons.map((b) => ({
-    type: "reply",
-    displayText: b.label,
-    id: b.id,
-  }));
+  const formattedButtons = buttons.map((b) =>
+    b.type === "url"
+      ? { type: "url", displayText: b.label, url: b.url }
+      : { type: "reply", displayText: b.label, id: b.id },
+  );
 
   return callEvolutionAPI(`/message/sendButtons/${instanceName}`, "POST", {
     number: formattedNumber,
@@ -154,6 +158,30 @@ export async function sendEvolutionButtons(
     footer: footerText || "Smack Chicken",
     buttons: formattedButtons,
   });
+}
+
+/**
+ * Envia uma mensagem "estilo template" com um botão de link (URL) —
+ * igual ao rodapé com botão que a Meta usa em mensagens de template,
+ * mas aqui via botão nativo do WhatsApp (sem link cru no corpo do texto).
+ */
+export async function sendEvolutionLinkButton(
+  number: string,
+  title: string,
+  description: string,
+  buttonLabel: string,
+  url: string,
+  footerText?: string,
+  instanceName: string = INSTANCE_NAME
+) {
+  return sendEvolutionButtons(
+    number,
+    title,
+    description,
+    [{ type: "url", label: buttonLabel, url }],
+    footerText,
+    instanceName,
+  );
 }
 
 /**
@@ -187,5 +215,27 @@ export async function sendEvolutionList(
         description: r.description || "",
       })),
     })),
+  });
+}
+
+/**
+ * Envia um pino de localização nativo do WhatsApp (sem mostrar link nenhum
+ * na mensagem — aparece como o cartão de mapa que o WhatsApp já entende).
+ */
+export async function sendEvolutionLocation(
+  number: string,
+  latitude: number,
+  longitude: number,
+  name?: string,
+  address?: string,
+  instanceName: string = INSTANCE_NAME
+) {
+  const formattedNumber = formatPhoneNumber(number);
+  return callEvolutionAPI(`/message/sendLocation/${instanceName}`, "POST", {
+    number: formattedNumber,
+    latitude,
+    longitude,
+    name,
+    address,
   });
 }

@@ -1,17 +1,20 @@
-import { sendEvolutionText } from "./evolution";
+import { sendEvolutionText, sendEvolutionLocation, sendEvolutionLinkButton } from "./evolution";
 
 /**
  * Bot de triagem do WhatsApp (Evolution API).
  *
  * Não faz mais pedido dentro do chat — só direciona o cliente:
- * 1) link do site de pedidos online, 2) horário/endereço, 3) atendente humano.
+ * 1) link do site de pedidos online, 2) horário/endereço (com pino de
+ *    localização nativo do WhatsApp, sem link cru), 3) atendente humano.
  * O pedido em si acontece no site (`smack-chicken-pedidos`), que fica separado.
  */
 
 const ORDER_LINK = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/";
-const MAPS_LINK =
-  "https://www.google.com/maps/place/SMACK+CHIKEN/@-27.5879265,-48.5799352,17z/data=!4m6!3m5!1s0x9527379af9edc3fd:0x2a9689e00f3ff563!8m2!3d-27.5879265!4d-48.5773603!16s%2Fg%2F11ntnfqg6n";
-const STORE_HOURS = "Todos os dias das 11:00 às 23:00";
+const STORE_NAME = "Smack Chicken";
+const STORE_ADDRESS = "Rua General Liberato Bittencourt, Estreito, Florianópolis - SC";
+const STORE_LAT = -27.5879265;
+const STORE_LNG = -48.5773603;
+const STORE_HOURS = "Todos os dias das 17:00 às 23:00";
 
 type UserState = { step: "IDLE" | "HUMAN_ATTENDANT"; lastActive: number };
 
@@ -107,17 +110,23 @@ export async function sendWelcomeMenu(phone: string, name: string) {
 }
 
 export async function sendOrderLink(phone: string) {
-  return sendEvolutionText(
+  return sendEvolutionLinkButton(
     phone,
-    `🍗 *Cardápio & Pedidos — Smack Chicken*\n\nFaça seu pedido direto pelo nosso site, é rápido e você acompanha tudo por lá:\n\n${ORDER_LINK}\n\nDigite *MENU* pra voltar às opções.`,
+    "🍗 Cardápio & Pedidos",
+    "Faça seu pedido direto pelo nosso site, é rápido e você acompanha tudo por lá!",
+    "Ver cardápio e pedir",
+    ORDER_LINK,
+    "Smack Chicken · Digite MENU pra voltar",
   );
 }
 
 export async function sendStoreInfo(phone: string) {
+  // Pino de localização nativo (o WhatsApp já mostra o mapa, sem link cru).
+  await sendEvolutionLocation(phone, STORE_LAT, STORE_LNG, STORE_NAME, STORE_ADDRESS);
+
   const text =
     `📍 *SMACK CHICKEN — Endereço & Horários*\n\n` +
-    `🏢 *Localização:* Rua General Liberato Bittencourt, Estreito, Florianópolis - SC\n` +
-    `🗺️ *Google Maps:* ${MAPS_LINK}\n\n` +
+    `🏢 *Localização:* ${STORE_ADDRESS}\n\n` +
     `⏰ *Horário de Funcionamento:* ${STORE_HOURS}\n\n` +
     `Digite *MENU* a qualquer momento para voltar ao atendimento inicial.`;
 
