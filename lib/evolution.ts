@@ -7,6 +7,18 @@ const EVOLUTION_API_KEY =
 const INSTANCE_NAME =
   process.env.EVOLUTION_INSTANCE || "smack-chicken";
 
+function siteUrl() {
+  return (
+    process.env.SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+    "https://smack-chicken.vercel.app"
+  );
+}
+
+function webhookUrl() {
+  return `${siteUrl().replace(/\/$/, "")}/api/webhook/evolution`;
+}
+
 /**
  * Chamador genérico para a Evolution API
  */
@@ -39,13 +51,36 @@ export async function callEvolutionAPI(
 }
 
 /**
- * Cria a instância do WhatsApp na Evolution API se ela não existir
+ * Cria a instância do WhatsApp na Evolution API se ela não existir, já
+ * configurando o webhook pra este site receber as mensagens.
  */
 export async function createEvolutionInstance(instanceName: string = INSTANCE_NAME) {
   return callEvolutionAPI("/instance/create", "POST", {
     instanceName,
     qrcode: true,
     integration: "WHATSAPP-BAILEYS",
+    webhook: {
+      url: webhookUrl(),
+      byEvents: false,
+      base64: true,
+      events: ["MESSAGES_UPSERT"],
+    },
+  });
+}
+
+/**
+ * Configura (ou reconfigura) o webhook de uma instância já existente.
+ * Chamado sempre que conectamos, pra garantir que aponta pro site certo
+ * mesmo que a instância já existisse antes com outra URL.
+ */
+export async function setEvolutionWebhook(instanceName: string = INSTANCE_NAME) {
+  return callEvolutionAPI(`/webhook/set/${instanceName}`, "POST", {
+    webhook: {
+      url: webhookUrl(),
+      byEvents: false,
+      base64: true,
+      events: ["MESSAGES_UPSERT"],
+    },
   });
 }
 
