@@ -1,29 +1,87 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { catalog, formatMoney, CatalogProduct } from "../lib/catalog";
 
+// Molhos grátis da casa (até 2 grátis por lanche/balde/combo)
+const FREE_SAUCE_OPTIONS = [
+  { id: "maionese-temperada", name: "Maionese Temperada Especial" },
+  { id: "maionese-alho", name: "Maionese de Alho Artesanal" },
+  { id: "pimenta-agridoce", name: "Molho de Pimenta Agridoce" },
+  { id: "barbecue", name: "Molho Barbecue Defumado" },
+  { id: "molho-smack", name: "Molho Secreto da Smack" },
+];
+
+// Molhos extras pagos (a partir do 3º ou especiais)
+const EXTRA_SAUCE_OPTIONS = [
+  { id: "extra-bacon", name: "Molho de Bacon Crocante (50g)", priceCents: 500 },
+  { id: "extra-maionese-temperada", name: "Maionese Temperada Adicional (50g)", priceCents: 400 },
+  { id: "extra-maionese-alho", name: "Maionese de Alho Adicional (50g)", priceCents: 400 },
+  { id: "extra-pimenta-agridoce", name: "Pimenta Agridoce Adicional (50g)", priceCents: 400 },
+  { id: "extra-barbecue", name: "Barbecue Defumado Adicional (50g)", priceCents: 400 },
+  { id: "extra-molho-smack", name: "Molho Smack Adicional (50g)", priceCents: 400 },
+];
+
+// Acompanhamentos sugeridos (Turbine seu pedido)
+const RECOMMENDED_UPSELLS = [
+  { id: "upsell-batata-m", name: "Batata Frita 250g (M)", priceCents: 1499 },
+  { id: "upsell-batata-g", name: "Batata Frita 350g (G)", priceCents: 1999 },
+  { id: "upsell-polenta-m", name: "Polenta Frita Crocante 250g", priceCents: 1499 },
+  { id: "upsell-coca-lata", name: "Coca-Cola Lata 350ml Gelada", priceCents: 600 },
+  { id: "upsell-guarana-lata", name: "Guaraná Pureza / Antarctica 350ml", priceCents: 600 },
+];
+
+type CustomizationItem = {
+  id: string;
+  name: string;
+  priceCents: number;
+};
+
 type CartItem = {
+  cartItemId: string;
   product: CatalogProduct;
   quantity: number;
+  freeSauces: string[];
+  extraSauces: CustomizationItem[];
+  upsells: CustomizationItem[];
+  notes: string;
+  unitPriceCents: number;
+};
+
+type TrackedOrder = {
+  id: string;
+  code: string;
+  customerName: string;
+  status: "preparing" | "ready" | "completed" | "cancelled";
+  paymentMethod: string;
+  totalCents: number;
+  createdAt: string;
+  notes?: string;
+  items: Array<{ id: string; name: string; quantity: number; unitPriceCents: number }>;
 };
 
 export default function OnlineOrderingSystem() {
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
-  const [cart, setCart] = useState<CartItem[]>([
-    { product: catalog[0], quantity: 1 },
-    { product: catalog[3], quantity: 1 },
-  ]);
-  const [showCartModal, setShowCartModal] = useState(false);
-  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Product Detail Modal State (iFood style)
+  // Carrinho
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCartModal, setShowCartModal] = useState(false);
+
+  // Modal de Detalhes do Produto (iFood Style)
   const [activeProduct, setActiveProduct] = useState<CatalogProduct | null>(null);
   const [detailQuantity, setDetailQuantity] = useState(1);
-  const [detailExtras, setDetailExtras] = useState<string[]>([]);
+  const [selectedFreeSauces, setSelectedFreeSauces] = useState<string[]>([]);
+  const [selectedExtraSauces, setSelectedExtraSauces] = useState<CustomizationItem[]>([]);
+  const [selectedUpsells, setSelectedUpsells] = useState<CustomizationItem[]>([]);
   const [detailNotes, setDetailNotes] = useState("");
 
-  // ViaCEP Address Lookup State
+  // Checkout Form State
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryType, setDeliveryType] = useState<"ENTREGA" | "RETIRADA">("ENTREGA");
+
+  // ViaCEP Address State
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
@@ -33,18 +91,35 @@ export default function OnlineOrderingSystem() {
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState("");
 
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryType, setDeliveryType] = useState<"RETIRADA" | "ENTREGA">("ENTREGA");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("Pix");
-  const [submitting, setSubmitting] = useState(false);
-  const [completedOrderCode, setCompletedOrderCode] = useState<string | null>(null);
+  // Forma de Pagamento & Troco
+  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "DINHEIRO">("PIX");
+  const [needsChange, setNeedsChange] = useState(false);
+  const [changeForAmount, setChangeForAmount] = useState("");
 
+  // Status de envio e pedido confirmado
+  const [submitting, setSubmitting] = useState(false);
+  const [latestOrderCode, setLatestOrderCode] = useState<string | null>(null);
+
+  // Acompanhamento de Pedido
+  const [showTrackingModal, setShowTrackingModal] = useState(false);
+  const [trackQuery, setTrackQuery] = useState("");
+  const [trackedOrders, setTrackedOrders] = useState<TrackedOrder[]>([]);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  // Verifica se o produto atual tem direito a molhos grátis
+  const productHasFreeSauces = useMemo(() => {
+    if (!activeProduct) return false;
+    const cat = activeProduct.category.toLowerCase();
+    return cat === "baldes" || cat === "combos" || cat === "lanches";
+  }, [activeProduct]);
+
+  // Abertura do Modal de Detalhes
   const openProductDetail = (product: CatalogProduct) => {
     setActiveProduct(product);
     setDetailQuantity(1);
-    setDetailExtras([]);
+    setSelectedFreeSauces([]);
+    setSelectedExtraSauces([]);
+    setSelectedUpsells([]);
     setDetailNotes("");
   };
 
@@ -52,30 +127,131 @@ export default function OnlineOrderingSystem() {
     setActiveProduct(null);
   };
 
-  const handleAddFromDetail = () => {
+  // Alternar molho grátis (com limite máximo de 2)
+  const toggleFreeSauce = (sauceName: string) => {
+    setSelectedFreeSauces((prev) => {
+      if (prev.includes(sauceName)) {
+        return prev.filter((s) => s !== sauceName);
+      }
+      if (prev.length >= 2) {
+        return prev; // Limite máximo de 2 molhos grátis atingido
+      }
+      return [...prev, sauceName];
+    });
+  };
+
+  // Alternar molho extra pago
+  const toggleExtraSauce = (sauce: CustomizationItem) => {
+    setSelectedExtraSauces((prev) =>
+      prev.some((s) => s.id === sauce.id)
+        ? prev.filter((s) => s.id !== sauce.id)
+        : [...prev, sauce]
+    );
+  };
+
+  // Alternar acompanhamento upsell
+  const toggleUpsell = (item: CustomizationItem) => {
+    setSelectedUpsells((prev) =>
+      prev.some((i) => i.id === item.id)
+        ? prev.filter((i) => i.id !== item.id)
+        : [...prev, item]
+    );
+  };
+
+  // Preço unitário calculado para o item configurado
+  const currentDetailUnitPriceCents = useMemo(() => {
+    if (!activeProduct) return 0;
+    const extrasTotal = selectedExtraSauces.reduce((sum, s) => sum + s.priceCents, 0);
+    const upsellsTotal = selectedUpsells.reduce((sum, u) => sum + u.priceCents, 0);
+    return activeProduct.priceCents + extrasTotal + upsellsTotal;
+  }, [activeProduct, selectedExtraSauces, selectedUpsells]);
+
+  // Adicionar o item configurado ao carrinho
+  const handleAddConfiguredItemToCart = () => {
     if (!activeProduct) return;
-    const extrasStr = detailExtras.length > 0 ? ` [Adicionais: ${detailExtras.join(", ")}]` : "";
-    const notesStr = detailNotes.trim() ? ` (Obs: ${detailNotes.trim()})` : "";
-    const customName = `${activeProduct.name}${extrasStr}${notesStr}`;
 
-    const customizedProduct: CatalogProduct = {
-      ...activeProduct,
-      name: customName,
-    };
+    const extrasKey = [
+      ...selectedFreeSauces.map((s) => `free:${s}`),
+      ...selectedExtraSauces.map((s) => `extra:${s.id}`),
+      ...selectedUpsells.map((u) => `up:${u.id}`),
+      detailNotes.trim(),
+    ].join("|");
 
-    for (let i = 0; i < detailQuantity; i++) {
-      addToCart(customizedProduct);
-    }
+    const cartItemId = `${activeProduct.id}-${extrasKey}`;
+
+    setCart((prev) => {
+      const existingIdx = prev.findIndex((i) => i.cartItemId === cartItemId);
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + detailQuantity,
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          cartItemId,
+          product: activeProduct,
+          quantity: detailQuantity,
+          freeSauces: selectedFreeSauces,
+          extraSauces: selectedExtraSauces,
+          upsells: selectedUpsells,
+          notes: detailNotes.trim(),
+          unitPriceCents: currentDetailUnitPriceCents,
+        },
+      ];
+    });
+
     closeProductDetail();
   };
 
-  const handleFetchCep = async (cepInput: string) => {
-    const cleanCep = cepInput.replace(/\D/g, "");
+  // Quantidade e exclusão no carrinho
+  const updateCartQty = (cartItemId: string, delta: number) => {
+    setCart((prev) =>
+      prev
+        .map((item) => {
+          if (item.cartItemId === cartItemId) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean) as CartItem[]
+    );
+  };
+
+  const removeCartItem = (cartItemId: string) => {
+    setCart((prev) => prev.filter((i) => i.cartItemId !== cartItemId));
+  };
+
+  const cartItemCount = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
+  const subtotalCents = useMemo(
+    () => cart.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0),
+    [cart]
+  );
+  const deliveryFeeCents = deliveryType === "ENTREGA" ? 500 : 0;
+  const totalCents = subtotalCents + deliveryFeeCents;
+
+  // Troco calculado
+  const changeValueCents = useMemo(() => {
+    if (paymentMethod !== "DINHEIRO" || !needsChange) return 0;
+    const clean = changeForAmount.replace(/[^0-9]/g, "");
+    const givenCents = Number(clean) * 100;
+    return givenCents > totalCents ? givenCents - totalCents : 0;
+  }, [paymentMethod, needsChange, changeForAmount, totalCents]);
+
+  // Consulta por CEP via ViaCEP
+  const handleFetchCep = async (inputCep: string) => {
+    const cleanCep = inputCep.replace(/D/g, "");
     setCep(cleanCep);
     setCepError("");
 
     if (cleanCep.length !== 8) {
-      if (cleanCep.length > 0 && cleanCep.length < 8) setCepError("Digite os 8 números do CEP");
+      if (cleanCep.length > 0 && cleanCep.length < 8) {
+        setCepError("Digite os 8 números do CEP");
+      }
       return;
     }
 
@@ -84,64 +260,48 @@ export default function OnlineOrderingSystem() {
       const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
       const data = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
       if (data.erro || !data.logradouro) {
-        setCepError("CEP não encontrado. Preencha o endereço manualmente.");
+        setCepError("CEP não encontrado. Preencha o endereço abaixo.");
       } else {
         setStreet(data.logradouro || "");
         setNeighborhood(data.bairro || "");
         setCityState(`${data.localidade || "Florianópolis"} - ${data.uf || "SC"}`);
-        setDeliveryAddress(`${data.logradouro || ""}, ${neighborhood || ""} - ${data.localidade || "Florianópolis"}`);
       }
     } catch {
-      setCepError("Erro ao buscar CEP.");
+      setCepError("Não foi possível buscar o CEP automaticamente.");
     } finally {
       setLoadingCep(false);
     }
   };
 
-  const cartItemCount = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
-  const cartTotalCents = useMemo(
-    () => cart.reduce((s, i) => s + i.product.priceCents * i.quantity, 0),
-    [cart]
-  );
-
-  const addToCart = (product: CatalogProduct) => {
-    setCart((prev) => {
-      const idx = prev.findIndex((i) => i.product.id === product.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + 1 };
-        return next;
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (productId: number, delta: number) => {
-    setCart((prev) => {
-      return prev
-        .map((i) => {
-          if (i.product.id === productId) {
-            const qty = i.quantity + delta;
-            return qty > 0 ? { ...i, quantity: qty } : null;
-          }
-          return i;
-        })
-        .filter(Boolean) as CartItem[];
-    });
-  };
-
-  const categories = ["Todos", "Baldes", "Combos", "Marmitas", "Porções", "Bebidas", "Molhos"];
-
-  const filteredProducts = useMemo(() => {
-    if (selectedCategory === "Todos") return catalog;
-    return catalog.filter((p) => p.category === selectedCategory);
-  }, [selectedCategory]);
-
+  // Envio do Pedido
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim()) return alert("Por favor, digite seu nome");
-    if (!customerPhone.trim()) return alert("Por favor, digite seu telefone/WhatsApp");
-    if (deliveryType === "ENTREGA" && !deliveryAddress.trim()) return alert("Por favor, informe o endereco de entrega");
+    if (!customerName.trim()) return alert("Por favor, digite seu nome completo.");
+    if (!customerPhone.trim()) return alert("Por favor, informe seu número de WhatsApp.");
+
+    let fullAddressText = "Retirada no Balcão (Rua Fúlvio Aducci, 1074)";
+    if (deliveryType === "ENTREGA") {
+      if (!street.trim()) return alert("Por favor, informe o nome da Rua para a entrega.");
+      if (!number.trim()) return alert("Por favor, informe o Número da residência.");
+      fullAddressText = `CEP: ${cep || "N/A"} - ${street.trim()}, Nº ${number.trim()}${complement.trim() ? ` (${complement.trim()})` : ""} - Bairro: ${neighborhood.trim() || "Estreito"}, ${cityState || "Florianópolis - SC"}`;
+    }
+
+    let paymentDescription = "Pix";
+    if (paymentMethod === "CARTAO_CREDITO") paymentDescription = "Cartão de Crédito na Entrega";
+    if (paymentMethod === "CARTAO_DEBITO") paymentDescription = "Cartão de Débito na Entrega";
+    if (paymentMethod === "DINHEIRO") {
+      paymentDescription = needsChange && changeForAmount
+        ? `Dinheiro (Troco para R$ ${changeForAmount})`
+        : "Dinheiro (Não precisa de troco)";
+    }
+
+    const orderNotes = [
+      `WhatsApp: ${customerPhone.trim()}`,
+      `Modalidade: ${deliveryType === "ENTREGA" ? "Entrega em Domicílio" : "Retirada na Loja"}`,
+      `Endereço: ${fullAddressText}`,
+      `Pagamento: ${paymentDescription}`,
+      ...(needsChange && changeValueCents > 0 ? [`Levar troco de: ${formatMoney(changeValueCents)}`] : []),
+    ].join(" | ");
 
     setSubmitting(true);
     try {
@@ -150,545 +310,1685 @@ export default function OnlineOrderingSystem() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerName: customerName.trim(),
-          paymentMethod,
+          paymentMethod: paymentDescription,
           channel: "SITE_ONLINE",
-          notes: `Tel: ${customerPhone.trim()} | Entrega: ${deliveryType} | Endereco: ${deliveryAddress || "Balcao"}`,
-          items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+          notes: orderNotes,
+          items: cart.map((item) => {
+            const customParts = [
+              item.freeSauces.length > 0 ? `Molhos Grátis: ${item.freeSauces.join(", ")}` : null,
+              item.extraSauces.length > 0 ? `Molhos Extras: ${item.extraSauces.map((s) => s.name).join(", ")}` : null,
+              item.upsells.length > 0 ? `Acompanhamentos: ${item.upsells.map((u) => u.name).join(", ")}` : null,
+              item.notes ? `Obs: ${item.notes}` : null,
+            ].filter(Boolean);
+
+            const fullName = customParts.length > 0 ? `${item.product.name} [${customParts.join(" | ")}]` : item.product.name;
+
+            return {
+              productId: item.product.id,
+              quantity: item.quantity,
+              name: fullName,
+              unitPriceCents: item.unitPriceCents,
+            };
+          }),
         }),
       });
-      const data = await res.json() as { error?: string; order?: { code: string } };
-      if (!res.ok) throw new Error(data.error || "Falha ao enviar pedido");
-      if (data.order?.code) setCompletedOrderCode(data.order.code);
+
+      const data = (await res.json()) as { error?: string; order?: { code: string } };
+      if (!res.ok) throw new Error(data.error || "Não foi possível enviar o pedido.");
+
+      const newCode = data.order?.code || "#1042";
+      setLatestOrderCode(newCode);
       setCart([]);
+      // Busca dados imediatos para o acompanhamento
+      fetchOrderStatus(newCode);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erro ao enviar pedido");
+      alert(err instanceof Error ? err.message : "Erro ao enviar o pedido");
     } finally {
       setSubmitting(false);
     }
-  };  return (
+  };
+
+  // Buscar status do pedido
+  const fetchOrderStatus = async (queryText: string) => {
+    if (!queryText.trim()) return;
+    setTrackingLoading(true);
+    try {
+      const param = queryText.startsWith("#") || !queryText.replace(/\D/g, "") ? `code=${encodeURIComponent(queryText.trim())}` : `phone=${encodeURIComponent(queryText.trim())}`;
+      const res = await fetch(`/api/orders?${param}`);
+      const data = (await res.json()) as { orders?: TrackedOrder[] };
+      setTrackedOrders(data.orders || []);
+    } catch {
+      setTrackedOrders([]);
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos", "Doces"];
+
+  const filteredProducts = useMemo(() => {
+    let list = catalog;
+    if (selectedCategory !== "Todos") {
+      list = list.filter((p) => p.category === selectedCategory);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+    }
+    return list;
+  }, [selectedCategory, searchQuery]);
+
+  return (
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #3d070f; color: #ffffff; font-family: Inter, ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
         
-        .sc-online-app { min-height: 100vh; background: radial-gradient(circle at 50% 0%, #630d1a 0%, #3d070f 65%, #250308 100%); color: #fff; padding-bottom: 90px; }
+        body {
+          background-color: #FAF7F2;
+          color: #1B1715;
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          -webkit-font-smoothing: antialiased;
+        }
 
-        .sc-online-header { height: 68px; padding: 0 5%; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(37,3,8,0.85); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
-        .sc-online-logo { display: flex; align-items: center; gap: 10px; }
-        .sc-online-logo img { height: 28px; width: auto; object-fit: contain; }
-        .sc-online-nav { display: flex; gap: 24px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); }
-        .sc-online-nav a { color: inherit; text-decoration: none; transition: color 0.15s; }
-        .sc-online-nav a:hover { color: #ffc814; }
-        .sc-cart-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 99px; padding: 7px 16px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-        .sc-cart-btn:hover { background: #ffc814; color: #1b1715; border-color: #ffc814; }
-        .sc-cart-badge { background: #ffc814; color: #1b1715; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 900; }
+        /* Top Header */
+        .sc-topbar {
+          background: #FFFFFF;
+          border-bottom: 1px solid #E6DFD6;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+        .sc-topbar-inner {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+        }
+        .sc-brand-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-decoration: none;
+        }
+        .sc-brand-logo {
+          height: 38px;
+          width: auto;
+          object-fit: contain;
+        }
+        .sc-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #EBF8F1;
+          border: 1px solid #C4EDD6;
+          color: #138C56;
+          padding: 4px 10px;
+          border-radius: 99px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .sc-status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #138C56;
+        }
 
-        .sc-online-hero { max-width: 1200px; margin: 0 auto; padding: 44px 5% 36px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; }
-        .sc-hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 99px; background: rgba(255,200,20,0.12); border: 1px solid rgba(255,200,20,0.3); color: #ffc814; font-size: 11px; font-weight: 800; letter-spacing: 1px; margin-bottom: 18px; }
-        .sc-hero-title { font-size: clamp(34px, 4.5vw, 56px); font-weight: 900; line-height: 1.08; letter-spacing: -1px; margin-bottom: 16px; }
-        .sc-hero-title em { color: #ffc814; font-style: italic; font-weight: 400; font-family: Georgia, serif; }
-        .sc-hero-sub { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.6; max-width: 480px; margin-bottom: 28px; }
-        .sc-hero-btns { display: flex; gap: 12px; margin-bottom: 28px; }
-        .btn-gold { background: #ffc814; color: #1b1715; border: none; border-radius: 99px; padding: 14px 28px; font-size: 14px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s, background 0.15s; }
-        .btn-gold:hover { background: #ffe066; transform: translateY(-2px); }
-        .btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 99px; padding: 14px 24px; font-size: 14px; font-weight: 700; cursor: pointer; text-decoration: none; transition: all 0.15s; }
-        .btn-outline:hover { border-color: #ffc814; color: #ffc814; }
-        .sc-hero-pills { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: rgba(255,255,255,0.7); }
+        .sc-topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .sc-btn-track {
+          background: #F5F2EC;
+          border: 1px solid #E6DFD6;
+          color: #1B1715;
+          padding: 8px 16px;
+          border-radius: 99px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.15s;
+        }
+        .sc-btn-track:hover {
+          background: #EAE5DC;
+          border-color: #D3C9BC;
+        }
+        .sc-btn-cart {
+          background: #B70922;
+          color: #FFFFFF;
+          border: none;
+          padding: 8px 18px;
+          border-radius: 99px;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.15s;
+          box-shadow: 0 4px 12px rgba(183, 9, 34, 0.25);
+        }
+        .sc-btn-cart:hover {
+          background: #820516;
+          transform: translateY(-1px);
+        }
+        .sc-cart-badge {
+          background: #FFC814;
+          color: #1B1715;
+          font-size: 11px;
+          font-weight: 900;
+          padding: 2px 7px;
+          border-radius: 99px;
+        }
 
-        /* Concentric Stage Hero Circle - STRICT MATHEMATICAL CENTER ALIGNMENT */
-        .sc-hero-stage {
-          position: relative;
-          width: 420px;
-          height: 420px;
+        /* Hero Banner */
+        .sc-hero-banner {
+          background: linear-gradient(135deg, #FAF7F2 0%, #F5F0E6 100%);
+          border-bottom: 1px solid #E6DFD6;
+          padding: 36px 20px;
+        }
+        .sc-hero-inner {
+          max-width: 1200px;
           margin: 0 auto;
           display: grid;
-          place-items: center;
-          grid-template-areas: "concentric";
+          grid-template-columns: 1.2fr 0.8fr;
+          gap: 32px;
+          align-items: center;
         }
-        .sc-hero-circle-img {
-          grid-area: concentric;
-          width: 310px;
-          height: 310px;
-          border-radius: 50%;
+        .sc-hero-tag {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 900;
+          color: #B70922;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        }
+        .sc-hero-title {
+          font-size: clamp(28px, 4vw, 42px);
+          font-weight: 900;
+          color: #1B1715;
+          line-height: 1.12;
+          letter-spacing: -0.5px;
+          margin-bottom: 12px;
+        }
+        .sc-hero-title em {
+          color: #B70922;
+          font-style: italic;
+          font-family: Georgia, serif;
+          font-weight: 400;
+        }
+        .sc-hero-desc {
+          font-size: 15px;
+          color: #706965;
+          line-height: 1.55;
+          max-width: 520px;
+          margin-bottom: 20px;
+        }
+        .sc-hero-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .sc-badge-item {
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          padding: 6px 14px;
+          border-radius: 99px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #1B1715;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .sc-hero-img-wrap {
+          display: flex;
+          justify-content: center;
+        }
+        .sc-hero-showcase-card {
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          border-radius: 18px;
+          padding: 12px;
+          box-shadow: 0 12px 30px rgba(0,0,0,0.06);
+          max-width: 320px;
+          width: 100%;
+        }
+        .sc-hero-showcase-card img {
+          width: 100%;
+          height: 190px;
+          object-fit: cover;
+          border-radius: 12px;
+        }
+        .sc-hero-showcase-body {
+          padding: 10px 4px 4px;
+        }
+        .sc-hero-showcase-tag {
+          font-size: 10px;
+          font-weight: 800;
+          color: #B70922;
+          text-transform: uppercase;
+        }
+        .sc-hero-showcase-title {
+          font-size: 15px;
+          font-weight: 800;
+          color: #1B1715;
+          margin-top: 2px;
+        }
+
+        /* Search & Categories */
+        .sc-menu-container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 32px 20px 100px;
+        }
+        .sc-filter-bar {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-bottom: 30px;
+        }
+        .sc-search-wrap {
+          position: relative;
+          width: 100%;
+          max-width: 500px;
+        }
+        .sc-search-wrap svg {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #706965;
+        }
+        .sc-search-input {
+          width: 100%;
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          border-radius: 99px;
+          padding: 12px 20px 12px 46px;
+          font-size: 14px;
+          color: #1B1715;
+          outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .sc-search-input:focus {
+          border-color: #B70922;
+          box-shadow: 0 0 0 3px rgba(183,9,34,0.08);
+        }
+        .sc-category-list {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 8px;
+          scrollbar-width: thin;
+        }
+        .sc-cat-btn {
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          color: #706965;
+          padding: 8px 18px;
+          border-radius: 99px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.15s;
+        }
+        .sc-cat-btn:hover {
+          color: #1B1715;
+          border-color: #D3C9BC;
+        }
+        .sc-cat-btn.active {
+          background: #B70922;
+          border-color: #B70922;
+          color: #FFFFFF;
+        }
+
+        /* Products Grid */
+        .sc-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+          gap: 20px;
+        }
+        .sc-card {
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          cursor: pointer;
+          transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+        }
+        .sc-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 10px 24px rgba(0,0,0,0.05);
+          border-color: #D3C9BC;
+        }
+        .sc-card-img-wrap {
+          height: 180px;
+          width: 100%;
+          background: #F5F2EC;
           overflow: hidden;
           position: relative;
-          z-index: 2;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 8px rgba(255,200,20,0.15);
         }
-        .sc-hero-circle-img img { width: 100%; height: 100%; object-fit: cover; }
-        
-        /* Rotating Text Ring - Strict center 50% 50% spin, NO translateY vertical movement */
-        .sc-hero-text-ring {
-          grid-area: concentric;
-          width: 420px;
-          height: 420px;
-          pointer-events: none;
-          z-index: 1;
-          transform-origin: 50% 50%;
-          transform-box: fill-box;
-          animation: sc-spin-ring 32s linear infinite;
+        .sc-card-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
         }
-        @keyframes sc-spin-ring {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        .sc-card-content {
+          padding: 16px;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
         }
-        .sc-hero-icon { position: absolute; z-index: 3; font-size: 26px; pointer-events: none; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); }
-        .sc-hero-icon.icon-top { top: 22px; left: 45px; transform: rotate(-15deg); }
-        .sc-hero-icon.icon-bottom { bottom: 45px; right: 25px; transform: rotate(25deg); }
+        .sc-card-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: #1B1715;
+          line-height: 1.25;
+          margin-bottom: 6px;
+        }
+        .sc-card-desc {
+          font-size: 12.5px;
+          color: #706965;
+          line-height: 1.45;
+          margin-bottom: 16px;
+          flex: 1;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .sc-card-foot {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-top: 12px;
+          border-top: 1px solid #F5F2EC;
+        }
+        .sc-card-price {
+          font-size: 17px;
+          font-weight: 900;
+          color: #B70922;
+        }
+        .sc-card-add-btn {
+          background: #F5F2EC;
+          border: 1px solid #E6DFD6;
+          color: #1B1715;
+          border-radius: 99px;
+          padding: 6px 14px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .sc-card:hover .sc-card-add-btn {
+          background: #B70922;
+          border-color: #B70922;
+          color: #FFFFFF;
+        }
 
-        .sc-hero-card {
-          position: absolute;
-          left: -10px;
+        /* Floating Cart Bar */
+        .sc-floating-bar {
+          position: fixed;
           bottom: 20px;
-          z-index: 10;
-          background: rgba(23, 19, 17, 0.94);
-          backdrop-filter: blur(14px);
-          border: 1px solid rgba(255,255,255,0.15);
-          border-radius: 14px;
-          padding: 12px 16px;
-          color: #fff;
-          box-shadow: 0 16px 36px rgba(0,0,0,0.6);
-          min-width: 210px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: calc(100% - 40px);
+          max-width: 500px;
+          background: #B70922;
+          color: #FFFFFF;
+          border-radius: 99px;
+          padding: 14px 22px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 14px 34px rgba(183, 9, 34, 0.4);
+          z-index: 200;
+          cursor: pointer;
+          transition: transform 0.15s, background 0.15s;
         }
-        .sc-hero-card-tag { font-size: 9px; font-weight: 800; color: #ffc814; letter-spacing: 1px; display: block; margin-bottom: 4px; }
-        .sc-hero-card strong { font-size: 14px; display: block; font-weight: 700; color: #fff; }
-        .sc-hero-card small { font-size: 11px; color: rgba(255,255,255,0.6); display: block; margin-bottom: 8px; }
-        .sc-hero-card-foot { display: flex; align-items: center; justify-content: space-between; }
-        .sc-hero-card-foot b { color: #ffc814; font-size: 15px; font-weight: 800; }
-        .qty-ctrl { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); border-radius: 99px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
-        .qty-ctrl button { background: none; border: none; color: #fff; cursor: pointer; font-size: 14px; font-weight: 800; padding: 0 4px; }
+        .sc-floating-bar:hover {
+          transform: translateX(-50%) scale(1.02);
+          background: #820516;
+        }
+        .sc-floating-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 14px;
+          font-weight: 800;
+        }
+        .sc-floating-badge {
+          background: #FFFFFF;
+          color: #B70922;
+          font-size: 12px;
+          font-weight: 900;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+        }
+        .sc-floating-price {
+          font-size: 16px;
+          font-weight: 900;
+          color: #FFC814;
+        }
 
-        .sc-menu-section { max-width: 1200px; margin: 0 auto; padding: 32px 5%; }
-        .sc-menu-title { font-size: 24px; font-weight: 800; margin-bottom: 20px; text-align: center; }
-        .sc-category-pills { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 14px; margin-bottom: 28px; justify-content: center; }
-        .sc-category-pill { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border-radius: 99px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-        .sc-category-pill.active { background: #ffc814; color: #1b1715; border-color: #ffc814; }
+        /* Modais */
+        .sc-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(27, 23, 21, 0.7);
+          backdrop-filter: blur(4px);
+          z-index: 1000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .sc-modal-card {
+          background: #FFFFFF;
+          border-radius: 20px;
+          width: 100%;
+          max-width: 540px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+          display: flex;
+          flex-direction: column;
+          position: relative;
+        }
 
-        .sc-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 18px; }
-        .sc-product-card { background: rgba(23, 19, 17, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s; }
-        .sc-product-card:hover { transform: translateY(-3px); border-color: rgba(255,200,20,0.4); }
-        .sc-product-img { height: 170px; position: relative; overflow: hidden; background: #250308; }
-        .sc-product-img img { width: 100%; height: 100%; object-fit: cover; }
-        .sc-product-body { padding: 16px; flex: 1; display: flex; flex-direction: column; }
-        .sc-product-name { font-size: 15px; font-weight: 800; margin-bottom: 4px; line-height: 1.3; }
-        .sc-product-desc { font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 14px; line-height: 1.4; flex: 1; }
-        .sc-product-foot { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-top: auto; }
-        .sc-product-price { font-size: 17px; font-weight: 800; color: #ffc814; }
-        .btn-add { background: #ffc814; color: #1b1715; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 800; cursor: pointer; transition: background 0.15s; }
-        .btn-add:hover { background: #ffe066; }
+        /* Modal do Produto (iFood Style) */
+        .sc-prod-modal-img {
+          width: 100%;
+          height: 220px;
+          object-fit: cover;
+          background: #F5F2EC;
+        }
+        .sc-prod-modal-close {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          background: #FFFFFF;
+          border: 1px solid #E6DFD6;
+          color: #1B1715;
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .sc-prod-modal-body {
+          padding: 24px;
+          flex: 1;
+        }
+        .sc-prod-title {
+          font-size: 22px;
+          font-weight: 900;
+          color: #1B1715;
+          margin-bottom: 4px;
+        }
+        .sc-prod-price {
+          font-size: 20px;
+          font-weight: 900;
+          color: #B70922;
+          margin-bottom: 12px;
+        }
+        .sc-prod-desc {
+          font-size: 14px;
+          color: #706965;
+          line-height: 1.5;
+          margin-bottom: 24px;
+          padding-bottom: 16px;
+          border-bottom: 1px solid #E6DFD6;
+        }
 
-        .sc-sticky-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 480px; background: #ffc814; color: #1b1715; border-radius: 14px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 16px 40px rgba(0,0,0,0.6); z-index: 1000; cursor: pointer; transition: transform 0.15s; }
-        .sc-sticky-bar:hover { transform: translateX(-50%) scale(1.02); }
-        .sc-sticky-left { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 800; }
-        .sc-sticky-count { background: #1b1715; color: #ffc814; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 900; }
-        .sc-sticky-total { font-size: 18px; font-weight: 900; }
+        .sc-section-label {
+          font-size: 14px;
+          font-weight: 800;
+          color: #1B1715;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .sc-section-sub {
+          font-size: 12px;
+          color: #706965;
+          margin-bottom: 12px;
+        }
+        .sc-opt-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 24px;
+        }
+        .sc-opt-row {
+          background: #FAF7F2;
+          border: 1px solid #E6DFD6;
+          border-radius: 12px;
+          padding: 12px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .sc-opt-row:hover {
+          border-color: #D3C9BC;
+          background: #F5F2EC;
+        }
+        .sc-opt-row.selected {
+          border-color: #B70922;
+          background: #FDF4F5;
+        }
+        .sc-opt-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #1B1715;
+        }
+        .sc-opt-price {
+          font-size: 13px;
+          font-weight: 800;
+          color: #B70922;
+        }
 
-        .sc-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
-        .sc-modal-box { background: #1d1917; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; color: #fff; padding: 24px; }
-        .sc-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 14px; }
-        .sc-modal-title { font-size: 18px; font-weight: 800; }
-        .sc-modal-close { background: none; border: none; color: rgba(255,255,255,0.6); font-size: 20px; cursor: pointer; }
-        .sc-form-group { margin-bottom: 14px; }
-        .sc-form-group label { display: block; font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.7); margin-bottom: 6px; }
-        .sc-input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 14px; outline: none; }
-        .sc-input:focus { border-color: #ffc814; }
+        .sc-textarea {
+          width: 100%;
+          background: #FAF7F2;
+          border: 1px solid #E6DFD6;
+          border-radius: 12px;
+          padding: 12px;
+          font-size: 13px;
+          color: #1B1715;
+          outline: none;
+          resize: vertical;
+          min-height: 70px;
+          margin-bottom: 24px;
+        }
+        .sc-textarea:focus {
+          border-color: #B70922;
+          background: #FFFFFF;
+        }
+
+        .sc-modal-footer {
+          position: sticky;
+          bottom: 0;
+          background: #FFFFFF;
+          border-top: 1px solid #E6DFD6;
+          padding: 16px 24px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        .sc-qty-box {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #FAF7F2;
+          border: 1px solid #E6DFD6;
+          padding: 8px 14px;
+          border-radius: 99px;
+        }
+        .sc-qty-box button {
+          background: none;
+          border: none;
+          color: #1B1715;
+          font-size: 18px;
+          font-weight: 900;
+          cursor: pointer;
+          padding: 0 4px;
+        }
+        .sc-qty-box span {
+          font-size: 15px;
+          font-weight: 800;
+          min-width: 18px;
+          text-align: center;
+        }
+        .sc-btn-primary {
+          flex: 1;
+          background: #B70922;
+          color: #FFFFFF;
+          border: none;
+          padding: 14px 20px;
+          border-radius: 99px;
+          font-size: 14px;
+          font-weight: 900;
+          cursor: pointer;
+          transition: background 0.15s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .sc-btn-primary:hover {
+          background: #820516;
+        }
+        .sc-btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        /* Formulário Checkout */
+        .sc-form-title {
+          font-size: 18px;
+          font-weight: 900;
+          color: #1B1715;
+          margin-bottom: 16px;
+        }
+        .sc-field {
+          margin-bottom: 14px;
+        }
+        .sc-field label {
+          display: block;
+          font-size: 12px;
+          font-weight: 700;
+          color: #706965;
+          margin-bottom: 6px;
+        }
+        .sc-input {
+          width: 100%;
+          background: #FAF7F2;
+          border: 1px solid #E6DFD6;
+          border-radius: 10px;
+          padding: 11px 14px;
+          font-size: 14px;
+          color: #1B1715;
+          outline: none;
+        }
+        .sc-input:focus {
+          border-color: #B70922;
+          background: #FFFFFF;
+        }
+
+        .sc-type-toggle {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-bottom: 18px;
+        }
+        .sc-type-btn {
+          background: #FAF7F2;
+          border: 1px solid #E6DFD6;
+          padding: 12px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 800;
+          color: #706965;
+          cursor: pointer;
+          text-align: center;
+          transition: all 0.15s;
+        }
+        .sc-type-btn.active {
+          background: #B70922;
+          border-color: #B70922;
+          color: #FFFFFF;
+        }
+
+        /* Acompanhamento de Pedido (Stepper) */
+        .sc-stepper {
+          display: flex;
+          justify-content: space-between;
+          position: relative;
+          margin: 28px 0;
+        }
+        .sc-stepper::before {
+          content: "";
+          position: absolute;
+          top: 15px;
+          left: 10%;
+          right: 10%;
+          height: 2px;
+          background: #E6DFD6;
+          z-index: 1;
+        }
+        .sc-step {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+        .sc-step-circle {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #FAF7F2;
+          border: 2px solid #E6DFD6;
+          display: grid;
+          place-items: center;
+          font-size: 12px;
+          font-weight: 800;
+          color: #706965;
+        }
+        .sc-step.active .sc-step-circle {
+          background: #B70922;
+          border-color: #B70922;
+          color: #FFFFFF;
+        }
+        .sc-step.done .sc-step-circle {
+          background: #138C56;
+          border-color: #138C56;
+          color: #FFFFFF;
+        }
+        .sc-step-label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #706965;
+          text-align: center;
+        }
+        .sc-step.active .sc-step-label {
+          color: #B70922;
+          font-weight: 800;
+        }
 
         @media (max-width: 768px) {
-          .sc-online-hero { grid-template-columns: 1fr; text-align: center; gap: 24px; padding-top: 24px; }
-          .sc-hero-sub { margin-left: auto; margin-right: auto; }
-          .sc-hero-btns { justify-content: center; }
-          .sc-hero-pills { justify-content: center; }
-          .sc-hero-stage { width: 290px; height: 290px; margin: 0 auto; }
-          .sc-hero-circle-img { width: 210px; height: 210px; }
-          .sc-hero-text-ring { width: 290px; height: 290px; }
-          .sc-hero-card { left: 50%; transform: translateX(-50%); bottom: -15px; width: 90%; max-width: 240px; }
-          .sc-online-nav { display: none; }
-          .sc-category-pills { justify-content: flex-start; }
+          .sc-hero-inner {
+            grid-template-columns: 1fr;
+            text-align: center;
+          }
+          .sc-hero-desc {
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .sc-hero-badges {
+            justify-content: center;
+          }
+          .sc-hero-img-wrap {
+            display: none;
+          }
         }
       `}</style>
 
-      <div className="sc-online-app">
-        <header className="sc-online-header">
-          <div className="sc-online-logo">
-            <img src="/smack-chicken-logo-white.png" alt="Smack Chicken" />
-          </div>
-          <nav className="sc-online-nav">
-            <a href="#hero">Destaques</a>
-            <a href="#menu">Cardapio</a>
-            <a href="#tracking" onClick={(e) => { e.preventDefault(); setShowTrackingModal(true); }}>Acompanhar pedido</a>
-          </nav>
-          <button className="sc-cart-btn" onClick={() => setShowCartModal(true)}>
-            <span>Meu pedido</span>
-            <span className="sc-cart-badge">{cartItemCount}</span>
-          </button>
-        </header>
+      <div className="sc-app">
+        {/* TOPBAR */}
+        <header className="sc-topbar">
+          <div className="sc-topbar-inner">
+            <a href="#inicio" className="sc-brand-link">
+              <img src="/smack-chicken-logo.png" alt="Smack Chicken" className="sc-brand-logo" />
+              <span className="sc-status-pill">
+                <span className="sc-status-dot"></span> Aberto agora
+              </span>
+            </a>
 
-        <section className="sc-online-hero" id="hero">
-          <div>
-            <span className="sc-hero-badge">● CARDAPIO ONLINE · FACA SEU PEDIDO</span>
-            <h1 className="sc-hero-title">
-              Crocante por fora.
-              <br />
-              <em>Irresistivel</em> por dentro.
-            </h1>
-            <p className="sc-hero-sub">
-              Tiras e coxinhas da asa empanadas na hora e douradas no ponto certo. Escolha, monte seu balde e retire no Estreito!
-            </p>
-            <div className="sc-hero-btns">
-              <a href="#menu" className="btn-gold">
-                Ver cardapio <span>→</span>
-              </a>
-              <button className="btn-outline" onClick={() => setShowTrackingModal(true)}>
-                Acompanhar pedido
+            <div className="sc-topbar-actions">
+              <button className="sc-btn-track" onClick={() => setShowTrackingModal(true)}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Acompanhar</span>
+              </button>
+
+              <button className="sc-btn-cart" onClick={() => setShowCartModal(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                <span>Sacola</span>
+                {cartItemCount > 0 && <span className="sc-cart-badge">{cartItemCount}</span>}
               </button>
             </div>
-            <div className="sc-hero-pills">
-              <span>🔥 Feito na hora</span>
-              <span>🥣 Ate 2 molhos gratis</span>
-              <span>📍 Rua Fulvio Aducci, 1074</span>
-            </div>
           </div>
+        </header>
 
-          <div className="sc-hero-stage">
-            <div className="sc-hero-circle-img">
-              <img src="/combo-mesa.jpeg" alt="Balde de frango crocante da SMACK CHICKEN" />
+        {/* HERO INSTITUCIONAL */}
+        <section className="sc-hero-banner" id="inicio">
+          <div className="sc-hero-inner">
+            <div>
+              <span className="sc-hero-tag">CARDÁPIO OFICIAL DE PEDIDOS ONLINE</span>
+              <h1 className="sc-hero-title">
+                Frango de verdade.
+                <br />
+                <em>Crocante</em> de verdade.
+              </h1>
+              <p className="sc-hero-desc">
+                Peça direto da nossa cozinha no Estreito. Baldes empanados à mão, lanches artesanais, marmitas bem servidas e combos completos para você e sua família.
+              </p>
+
+              <div className="sc-hero-badges">
+                <span className="sc-badge-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B70922" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Entrega em 35 a 50 min
+                </span>
+                <span className="sc-badge-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B70922" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                  Até 2 molhos grátis por lanche ou balde
+                </span>
+                <span className="sc-badge-item">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B70922" strokeWidth="2.5"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                  Pix, Cartão ou Dinheiro
+                </span>
+              </div>
             </div>
 
-            <svg className="sc-hero-text-ring" viewBox="0 0 500 500">
-              <path
-                id="heroCirclePathApp"
-                d="M 250, 250 m -185, 0 a 185,185 0 1,1 370,0 a 185,185 0 1,1 -370,0"
-                fill="none"
-              />
-              <text fill="#ffffff" opacity="0.65" fontSize="13" fontWeight="800" letterSpacing="4.5">
-                <textPath href="#heroCirclePathApp">
-                  • SMACK CHICKEN • FRANGO CROCANTE • FEITO NA HORA • CROCANTE POR FORA
-                </textPath>
-              </text>
-            </svg>
-
-            <div className="sc-hero-icon icon-top">🍗</div>
-            <div className="sc-hero-icon icon-bottom">🍗</div>
-
-            <div className="sc-hero-card">
-              <span className="sc-hero-card-tag">🔥 MAIS PEDIDO</span>
-              <strong>Baldinho P 250 g</strong>
-              <small>Tiras crocantes</small>
-              <div className="sc-hero-card-foot">
-                <b>R$ 26,99</b>
-                <div className="qty-ctrl">
-                  <button onClick={() => updateQuantity(1, -1)}>-</button>
-                  <span>{cart.find((i) => i.product.id === 1)?.quantity || 1}</span>
-                  <button onClick={() => updateQuantity(1, 1)}>+</button>
+            <div className="sc-hero-img-wrap">
+              <div className="sc-hero-showcase-card">
+                <img src="/balde-tiras.jpeg" alt="Balde de Frango Crocante" />
+                <div className="sc-hero-showcase-body">
+                  <span className="sc-hero-showcase-tag">Destaque da Loja</span>
+                  <div className="sc-hero-showcase-title">Balde M 500g — Tiras Crocantes</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="sc-menu-section" id="menu">
-          <h2 className="sc-menu-title">Cardapio Online</h2>
-          <div className="sc-category-pills">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                className={`sc-category-pill${selectedCategory === cat ? " active" : ""}`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
+        {/* CARDÁPIO */}
+        <main className="sc-menu-container">
+          <div className="sc-filter-bar">
+            <div className="sc-search-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                type="text"
+                className="sc-search-input"
+                placeholder="Buscar no cardápio: lanches, baldes, marmitas..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="sc-category-list">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  className={`sc-cat-btn ${selectedCategory === cat ? "active" : ""}`}
+                  onClick={() => setSelectedCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="sc-products-grid">
+          <div className="sc-grid">
             {filteredProducts.map((product) => (
-              <div key={product.id} className="sc-product-card" onClick={() => openProductDetail(product)}>
-                <div className="sc-product-img">
-                  <img src={product.image || "/smack-chicken-mark.png"} alt={product.name} />
+              <div
+                key={product.id}
+                className="sc-card"
+                onClick={() => openProductDetail(product)}
+              >
+                <div className="sc-card-img-wrap">
+                  <img src={product.image || "/balde-tiras.jpeg"} alt={product.name} />
                 </div>
-                <div className="sc-product-body">
-                  <div className="sc-product-name">{product.name}</div>
-                  <div className="sc-product-desc">{product.description}</div>
-                  <div className="sc-product-foot">
-                    <span className="sc-product-price">{formatMoney(product.priceCents)}</span>
+                <div className="sc-card-content">
+                  <h3 className="sc-card-title">{product.name}</h3>
+                  <p className="sc-card-desc">{product.description}</p>
+                  <div className="sc-card-foot">
+                    <span className="sc-card-price">{formatMoney(product.priceCents)}</span>
                     <button
-                      className="btn-add"
+                      className="sc-card-add-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         openProductDetail(product);
                       }}
                     >
-                      Ver detalhes +
+                      Escolher
                     </button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </section>
+        </main>
 
+        {/* BARRA FLUTUANTE DA SACOLA */}
         {cartItemCount > 0 && (
-          <div className="sc-sticky-bar" onClick={() => setShowCartModal(true)}>
-            <div className="sc-sticky-left">
-              <span className="sc-sticky-count">{cartItemCount}</span>
-              <span>Ver pedido</span>
+          <div className="sc-floating-bar" onClick={() => setShowCartModal(true)}>
+            <div className="sc-floating-left">
+              <span className="sc-floating-badge">{cartItemCount}</span>
+              <span>Ver sacola</span>
             </div>
-            <span className="sc-sticky-total">{formatMoney(cartTotalCents)}</span>
+            <span className="sc-floating-price">{formatMoney(totalCents)}</span>
           </div>
         )}
 
-        {/* iFOOD STYLE PRODUCT DETAIL MODAL */}
+        {/* MODAL DE DETALHES DO ITEM (ESTILO IFOOD) */}
         {activeProduct && (
-          <div className="sc-modal-overlay" onClick={closeProductDetail}>
-            <div className="sc-modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, padding: 0, overflow: "hidden" }}>
-              <div style={{ position: "relative", height: 200, background: "#250308" }}>
-                <img
-                  src={activeProduct.image || "/smack-chicken-mark.png"}
-                  alt={activeProduct.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
+          <div className="sc-modal-backdrop" onClick={closeProductDetail}>
+            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div style={{ position: "relative" }}>
+                <img src={activeProduct.image || "/balde-tiras.jpeg"} alt={activeProduct.name} className="sc-prod-modal-img" />
+                <button className="sc-prod-modal-close" onClick={closeProductDetail}>✕</button>
+              </div>
+
+              <div className="sc-prod-modal-body">
+                <h2 className="sc-prod-title">{activeProduct.name}</h2>
+                <div className="sc-prod-price">{formatMoney(activeProduct.priceCents)}</div>
+                <p className="sc-prod-desc">{activeProduct.description}</p>
+
+                {/* REGRA DOS 2 MOLHOS GRÁTIS */}
+                {productHasFreeSauces && (
+                  <div>
+                    <div className="sc-section-label">
+                      <span>Escolha até 2 molhos grátis da casa</span>
+                      <span style={{ fontSize: 12, color: "#B70922", fontWeight: 800 }}>
+                        {selectedFreeSauces.length}/2 grátis
+                      </span>
+                    </div>
+                    <div className="sc-section-sub">Incluso no seu item sem custo adicional.</div>
+
+                    <div className="sc-opt-list">
+                      {FREE_SAUCE_OPTIONS.map((sauce) => {
+                        const isSelected = selectedFreeSauces.includes(sauce.name);
+                        return (
+                          <div
+                            key={sauce.id}
+                            className={`sc-opt-row ${isSelected ? "selected" : ""}`}
+                            onClick={() => toggleFreeSauce(sauce.name)}
+                          >
+                            <div className="sc-opt-left">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}}
+                                style={{ accentColor: "#B70922", width: 17, height: 17 }}
+                              />
+                              <span>{sauce.name}</span>
+                            </div>
+                            <span className="sc-opt-price" style={{ color: "#138C56" }}>Grátis</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* MOLHOS EXTRAS COBRADOS */}
+                <div>
+                  <div className="sc-section-label">
+                    <span>Deseja molhos extras?</span>
+                    <span style={{ fontSize: 12, color: "#706965" }}>Opcional</span>
+                  </div>
+                  <div className="sc-section-sub">A partir do 3º molho ou molhos especiais da casa.</div>
+
+                  <div className="sc-opt-list">
+                    {EXTRA_SAUCE_OPTIONS.map((extra) => {
+                      const isSelected = selectedExtraSauces.some((s) => s.id === extra.id);
+                      return (
+                        <div
+                          key={extra.id}
+                          className={`sc-opt-row ${isSelected ? "selected" : ""}`}
+                          onClick={() => toggleExtraSauce(extra)}
+                        >
+                          <div className="sc-opt-left">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              style={{ accentColor: "#B70922", width: 17, height: 17 }}
+                            />
+                            <span>{extra.name}</span>
+                          </div>
+                          <span className="sc-opt-price">+{formatMoney(extra.priceCents)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* TURBINE SEU PEDIDO (ACOMPANHAMENTOS) */}
+                <div>
+                  <div className="sc-section-label">
+                    <span>Turbine seu pedido</span>
+                    <span style={{ fontSize: 12, color: "#706965" }}>Opcional</span>
+                  </div>
+                  <div className="sc-section-sub">Acompanhamentos que combinam perfeitamente com seu frango.</div>
+
+                  <div className="sc-opt-list">
+                    {RECOMMENDED_UPSELLS.map((upsell) => {
+                      const isSelected = selectedUpsells.some((u) => u.id === upsell.id);
+                      return (
+                        <div
+                          key={upsell.id}
+                          className={`sc-opt-row ${isSelected ? "selected" : ""}`}
+                          onClick={() => toggleUpsell(upsell)}
+                        >
+                          <div className="sc-opt-left">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              style={{ accentColor: "#B70922", width: 17, height: 17 }}
+                            />
+                            <span>{upsell.name}</span>
+                          </div>
+                          <span className="sc-opt-price">+{formatMoney(upsell.priceCents)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* OBSERVAÇÕES */}
+                <div>
+                  <div className="sc-section-label">
+                    <span>Observações para a cozinha</span>
+                  </div>
+                  <textarea
+                    className="sc-textarea"
+                    placeholder="Ex: sem molho no lanche, frango bem douradinho, guardanapo extra..."
+                    value={detailNotes}
+                    onChange={(e) => setDetailNotes(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="sc-modal-footer">
+                <div className="sc-qty-box">
+                  <button onClick={() => setDetailQuantity((q) => Math.max(1, q - 1))}>−</button>
+                  <span>{detailQuantity}</span>
+                  <button onClick={() => setDetailQuantity((q) => q + 1)}>+</button>
+                </div>
+
+                <button className="sc-btn-primary" onClick={handleAddConfiguredItemToCart}>
+                  <span>Adicionar à sacola</span>
+                  <span>•</span>
+                  <span>{formatMoney(currentDetailUnitPriceCents * detailQuantity)}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DA SACOLA E CHECKOUT */}
+        {showCartModal && (
+          <div className="sc-modal-backdrop" onClick={() => setShowCartModal(false)}>
+            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 900 }}>Finalizar Pedido</h3>
                 <button
-                  onClick={closeProductDetail}
-                  style={{
-                    position: "absolute",
-                    top: 12,
-                    right: 12,
-                    background: "rgba(0,0,0,0.6)",
-                    border: "none",
-                    color: "#fff",
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    fontSize: 16,
-                    cursor: "pointer",
-                  }}
+                  onClick={() => setShowCartModal(false)}
+                  style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#706965" }}
                 >
                   ✕
                 </button>
               </div>
 
-              <div style={{ padding: 20 }}>
-                <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>{activeProduct.name}</h3>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#ffc814", marginBottom: 12 }}>
-                  {formatMoney(activeProduct.priceCents)}
-                </div>
-                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, marginBottom: 20 }}>
-                  {activeProduct.description}
-                </p>
-
-                {/* OBSERVAÇÕES / EXTRAS */}
-                <div className="sc-form-group">
-                  <label>Alguma observação no item?</label>
-                  <input
-                    className="sc-input"
-                    placeholder="Ex: sem molho, bem passado, maionese à parte..."
-                    value={detailNotes}
-                    onChange={(e) => setDetailNotes(e.target.value)}
-                  />
-                </div>
-
-                {/* QUANTIDADE & ADICIONAR BUTTON */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                  <div className="qty-ctrl" style={{ padding: "6px 12px", background: "rgba(255,255,255,0.08)" }}>
-                    <button onClick={() => setDetailQuantity((q) => Math.max(1, q - 1))}>-</button>
-                    <span style={{ fontSize: 15, fontWeight: 800 }}>{detailQuantity}</span>
-                    <button onClick={() => setDetailQuantity((q) => q + 1)}>+</button>
-                  </div>
-
-                  <button className="btn-gold" style={{ flex: 1, justifyContent: "center" }} onClick={handleAddFromDetail}>
-                    Adicionar • {formatMoney(activeProduct.priceCents * detailQuantity)}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showCartModal && (
-          <div className="sc-modal-overlay" onClick={() => setShowCartModal(false)}>
-            <div className="sc-modal-box" onClick={(e) => e.stopPropagation()}>
-              <div className="sc-modal-head">
-                <span className="sc-modal-title">Seu Pedido</span>
-                <button className="sc-modal-close" onClick={() => setShowCartModal(false)}>✕</button>
-              </div>
-
-              {completedOrderCode ? (
+              {latestOrderCode ? (
                 <div style={{ textAlign: "center", padding: "20px 0" }}>
-                  <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-                  <h3 style={{ fontSize: 20, color: "#ffc814", marginBottom: 8 }}>Pedido Confirmado!</h3>
-                  <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginBottom: 16 }}>
-                    Seu pedido <strong style={{ color: "#fff" }}>#{completedOrderCode}</strong> foi enviado para a cozinha.
+                  <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#EBF8F1", color: "#138C56", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <h3 style={{ fontSize: 22, fontWeight: 900, color: "#1B1715", marginBottom: 6 }}>Pedido Realizado com Sucesso!</h3>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#B70922", marginBottom: 16 }}>
+                    Código: #{latestOrderCode}
+                  </div>
+                  <p style={{ fontSize: 14, color: "#706965", lineHeight: 1.5, marginBottom: 24 }}>
+                    Nossa cozinha já recebeu seu pedido. Você receberá atualizações em tempo real pelo WhatsApp!
                   </p>
-                  <button className="btn-gold" style={{ width: "100%" }} onClick={() => { setCompletedOrderCode(null); setShowCartModal(false); }}>
-                    Fechar
-                  </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <button
+                      className="sc-btn-primary"
+                      onClick={() => {
+                        setShowCartModal(false);
+                        setShowTrackingModal(true);
+                      }}
+                    >
+                      Acompanhar Andamento do Pedido
+                    </button>
+                    <button
+                      className="sc-btn-track"
+                      style={{ justifyContent: "center" }}
+                      onClick={() => {
+                        setLatestOrderCode(null);
+                        setShowCartModal(false);
+                      }}
+                    >
+                      Voltar ao Cardápio
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleSubmitOrder}>
-                  {cart.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "30px 0", color: "rgba(255,255,255,0.5)" }}>
-                      Seu carrinho esta vazio
+                  {/* ITENS NO CARRINHO */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#706965", textTransform: "uppercase", marginBottom: 12 }}>
+                      Itens na sua sacola ({cartItemCount})
                     </div>
-                  ) : (
-                    <>
-                      <div style={{ marginBottom: 20 }}>
+                    {cart.length === 0 ? (
+                      <p style={{ fontSize: 13, color: "#706965", padding: "16px 0" }}>Sua sacola está vazia.</p>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {cart.map((item) => (
-                          <div key={item.product.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: 14 }}>{item.product.name}</div>
-                              <div style={{ fontSize: 12, color: "#ffc814" }}>{formatMoney(item.product.priceCents * item.quantity)}</div>
+                          <div
+                            key={item.cartItemId}
+                            style={{
+                              background: "#FAF7F2",
+                              border: "1px solid #E6DFD6",
+                              borderRadius: 12,
+                              padding: "12px 14px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <div style={{ flex: 1, paddingRight: 12 }}>
+                              <div style={{ fontSize: 14, fontWeight: 800, color: "#1B1715" }}>
+                                {item.quantity}x {item.product.name}
+                              </div>
+                              {item.freeSauces.length > 0 && (
+                                <div style={{ fontSize: 11, color: "#138C56", fontWeight: 600, marginTop: 2 }}>
+                                  Molhos grátis: {item.freeSauces.join(", ")}
+                                </div>
+                              )}
+                              {item.extraSauces.length > 0 && (
+                                <div style={{ fontSize: 11, color: "#B70922", fontWeight: 600, marginTop: 2 }}>
+                                  Molhos extras: {item.extraSauces.map((s) => s.name).join(", ")}
+                                </div>
+                              )}
+                              {item.upsells.length > 0 && (
+                                <div style={{ fontSize: 11, color: "#706965", fontWeight: 600, marginTop: 2 }}>
+                                  Adicionais: {item.upsells.map((u) => u.name).join(", ")}
+                                </div>
+                              )}
+                              {item.notes && (
+                                <div style={{ fontSize: 11, color: "#706965", fontStyle: "italic", marginTop: 2 }}>
+                                  Obs: {item.notes}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 13, fontWeight: 800, color: "#B70922", marginTop: 6 }}>
+                                {formatMoney(item.unitPriceCents * item.quantity)}
+                              </div>
                             </div>
-                            <div className="qty-ctrl">
-                              <button type="button" onClick={() => updateQuantity(item.product.id, -1)}>-</button>
-                              <span>{item.quantity}</span>
-                              <button type="button" onClick={() => updateQuantity(item.product.id, 1)}>+</button>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div className="sc-qty-box" style={{ padding: "4px 8px" }}>
+                                <button type="button" onClick={() => updateCartQty(item.cartItemId, -1)}>−</button>
+                                <span style={{ fontSize: 13 }}>{item.quantity}</span>
+                                <button type="button" onClick={() => updateCartQty(item.cartItemId, 1)}>+</button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeCartItem(item.cartItemId)}
+                                style={{ background: "none", border: "none", color: "#B70922", cursor: "pointer", padding: 4 }}
+                                title="Remover item"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                              </button>
                             </div>
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
 
-                      <div className="sc-form-group">
-                        <label>Seu Nome</label>
-                        <input className="sc-input" placeholder="Digite seu nome" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
+                  {/* IDENTIFICAÇÃO DO CLIENTE */}
+                  <div className="sc-form-title">Seus Dados</div>
+                  <div className="sc-field">
+                    <label>Nome Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      className="sc-input"
+                      placeholder="Ex: Lucas Gabriel"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </div>
+                  <div className="sc-field">
+                    <label>Número de WhatsApp / Celular *</label>
+                    <input
+                      type="tel"
+                      required
+                      className="sc-input"
+                      placeholder="(48) 99999-9999"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                    />
+                  </div>
+
+                  {/* TIPO DE ENTREGA */}
+                  <div className="sc-form-title" style={{ marginTop: 20 }}>Como deseja receber?</div>
+                  <div className="sc-type-toggle">
+                    <button
+                      type="button"
+                      className={`sc-type-btn ${deliveryType === "ENTREGA" ? "active" : ""}`}
+                      onClick={() => setDeliveryType("ENTREGA")}
+                    >
+                      Entrega em Casa (+R$ 5,00)
+                    </button>
+                    <button
+                      type="button"
+                      className={`sc-type-btn ${deliveryType === "RETIRADA" ? "active" : ""}`}
+                      onClick={() => setDeliveryType("RETIRADA")}
+                    >
+                      Retirar na Loja (Grátis)
+                    </button>
+                  </div>
+
+                  {/* ENDEREÇO DE ENTREGA COM BUSCA POR CEP */}
+                  {deliveryType === "ENTREGA" && (
+                    <div style={{ background: "#FAF7F2", border: "1px solid #E6DFD6", borderRadius: 14, padding: 16, marginBottom: 20 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#B70922", marginBottom: 12 }}>
+                        Endereço de Entrega
                       </div>
 
-                      <div className="sc-form-group">
-                        <label>WhatsApp / Celular</label>
-                        <input className="sc-input" placeholder="(48) 99999-9999" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} required />
+                      <div className="sc-field">
+                        <label>CEP (Busca automática)</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            type="text"
+                            maxLength={9}
+                            className="sc-input"
+                            placeholder="88070-010"
+                            value={cep}
+                            onChange={(e) => handleFetchCep(e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="sc-btn-track"
+                            style={{ whiteSpace: "nowrap" }}
+                            onClick={() => handleFetchCep(cep)}
+                          >
+                            {loadingCep ? "Buscando..." : "Buscar CEP"}
+                          </button>
+                        </div>
+                        {cepError && <div style={{ fontSize: 11, color: "#B70922", marginTop: 4 }}>{cepError}</div>}
                       </div>
 
-                      <div className="sc-form-group">
-                        <label>Forma de Entrega</label>
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button type="button" className={`btn-outline${deliveryType === "RETIRADA" ? " active" : ""}`} style={{ flex: 1, borderColor: deliveryType === "RETIRADA" ? "#ffc814" : undefined }} onClick={() => setDeliveryType("RETIRADA")}>🛍️ Retirada Balcao</button>
-                          <button type="button" className={`btn-outline${deliveryType === "ENTREGA" ? " active" : ""}`} style={{ flex: 1, borderColor: deliveryType === "ENTREGA" ? "#ffc814" : undefined }} onClick={() => setDeliveryType("ENTREGA")}>🛵 Tele-Entrega</button>
+                      <div className="sc-field">
+                        <label>Rua / Logradouro *</label>
+                        <input
+                          type="text"
+                          required
+                          className="sc-input"
+                          placeholder="Ex: Rua Fúlvio Aducci"
+                          value={street}
+                          onChange={(e) => setStreet(e.target.value)}
+                        />
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div className="sc-field">
+                          <label>Número *</label>
+                          <input
+                            type="text"
+                            required
+                            className="sc-input"
+                            placeholder="Ex: 1074"
+                            value={number}
+                            onChange={(e) => setNumber(e.target.value)}
+                          />
+                        </div>
+                        <div className="sc-field">
+                          <label>Complemento</label>
+                          <input
+                            type="text"
+                            className="sc-input"
+                            placeholder="Apt 201, Bloco B..."
+                            value={complement}
+                            onChange={(e) => setComplement(e.target.value)}
+                          />
                         </div>
                       </div>
 
-                      {deliveryType === "ENTREGA" && (
-                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: "#ffc814", marginBottom: 10 }}>
-                            📍 Endereço de Entrega (Busca por CEP)
-                          </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div className="sc-field" style={{ marginBottom: 0 }}>
+                          <label>Bairro</label>
+                          <input
+                            type="text"
+                            className="sc-input"
+                            placeholder="Estreito"
+                            value={neighborhood}
+                            onChange={(e) => setNeighborhood(e.target.value)}
+                          />
+                        </div>
+                        <div className="sc-field" style={{ marginBottom: 0 }}>
+                          <label>Cidade / UF</label>
+                          <input
+                            type="text"
+                            className="sc-input"
+                            placeholder="Florianópolis - SC"
+                            value={cityState}
+                            onChange={(e) => setCityState(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                          <div className="sc-form-group">
-                            <label>CEP</label>
-                            <div style={{ display: "flex", gap: 8 }}>
-                              <input
-                                className="sc-input"
-                                placeholder="88070-010"
-                                value={cep}
-                                maxLength={9}
-                                onChange={(e) => handleFetchCep(e.target.value)}
-                              />
+                  {/* FORMA DE PAGAMENTO */}
+                  <div className="sc-form-title" style={{ marginTop: 20 }}>Forma de Pagamento</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    <label
+                      style={{
+                        background: paymentMethod === "PIX" ? "#FDF4F5" : "#FAF7F2",
+                        border: `1px solid ${paymentMethod === "PIX" ? "#B70922" : "#E6DFD6"}`,
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700, fontSize: 13.5 }}>
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === "PIX"}
+                          onChange={() => setPaymentMethod("PIX")}
+                          style={{ accentColor: "#B70922" }}
+                        />
+                        <span>Pix (Chave e QR Code instantâneo)</span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#138C56" }}>Recomendado</span>
+                    </label>
+
+                    <label
+                      style={{
+                        background: paymentMethod === "CARTAO_CREDITO" ? "#FDF4F5" : "#FAF7F2",
+                        border: `1px solid ${paymentMethod === "CARTAO_CREDITO" ? "#B70922" : "#E6DFD6"}`,
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        fontWeight: 700,
+                        fontSize: 13.5,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === "CARTAO_CREDITO"}
+                        onChange={() => setPaymentMethod("CARTAO_CREDITO")}
+                        style={{ accentColor: "#B70922" }}
+                      />
+                      <span>Cartão de Crédito (Maquininha na entrega/retirada)</span>
+                    </label>
+
+                    <label
+                      style={{
+                        background: paymentMethod === "CARTAO_DEBITO" ? "#FDF4F5" : "#FAF7F2",
+                        border: `1px solid ${paymentMethod === "CARTAO_DEBITO" ? "#B70922" : "#E6DFD6"}`,
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        fontWeight: 700,
+                        fontSize: 13.5,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === "CARTAO_DEBITO"}
+                        onChange={() => setPaymentMethod("CARTAO_DEBITO")}
+                        style={{ accentColor: "#B70922" }}
+                      />
+                      <span>Cartão de Débito (Maquininha na entrega/retirada)</span>
+                    </label>
+
+                    <label
+                      style={{
+                        background: paymentMethod === "DINHEIRO" ? "#FDF4F5" : "#FAF7F2",
+                        border: `1px solid ${paymentMethod === "DINHEIRO" ? "#B70922" : "#E6DFD6"}`,
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        fontWeight: 700,
+                        fontSize: 13.5,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={paymentMethod === "DINHEIRO"}
+                        onChange={() => setPaymentMethod("DINHEIRO")}
+                        style={{ accentColor: "#B70922" }}
+                      />
+                      <span>Dinheiro</span>
+                    </label>
+                  </div>
+
+                  {/* SELEÇÃO DE TROCO QUANDO DINHEIRO FOR ESCOLHIDO */}
+                  {paymentMethod === "DINHEIRO" && (
+                    <div style={{ background: "#FAF7F2", border: "1px solid #E6DFD6", borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Precisa de troco?</div>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        <button
+                          type="button"
+                          className={`sc-cat-btn ${!needsChange ? "active" : ""}`}
+                          onClick={() => { setNeedsChange(false); setChangeForAmount(""); }}
+                        >
+                          Não preciso de troco
+                        </button>
+                        <button
+                          type="button"
+                          className={`sc-cat-btn ${needsChange ? "active" : ""}`}
+                          onClick={() => setNeedsChange(true)}
+                        >
+                          Sim, preciso de troco
+                        </button>
+                      </div>
+
+                      {needsChange && (
+                        <div>
+                          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                            {["50", "100", "150", "200"].map((val) => (
                               <button
+                                key={val}
                                 type="button"
-                                className="btn-gold"
-                                style={{ padding: "0 16px", fontSize: 12, whiteSpace: "nowrap" }}
-                                onClick={() => handleFetchCep(cep)}
+                                className="sc-cat-btn"
+                                style={{
+                                  padding: "6px 12px",
+                                  fontSize: 12,
+                                  background: changeForAmount === val ? "#B70922" : "#FFFFFF",
+                                  color: changeForAmount === val ? "#FFFFFF" : "#1B1715",
+                                  borderColor: changeForAmount === val ? "#B70922" : "#E6DFD6",
+                                }}
+                                onClick={() => setChangeForAmount(val)}
                               >
-                                {loadingCep ? "..." : "Buscar CEP"}
+                                R$ {val}
                               </button>
-                            </div>
-                            {cepError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{cepError}</div>}
+                            ))}
                           </div>
 
-                          <div className="sc-form-group">
-                            <label>Rua / Logradouro</label>
+                          <div className="sc-field" style={{ marginBottom: 6 }}>
+                            <label>Troco para quanto?</label>
                             <input
+                              type="number"
                               className="sc-input"
-                              placeholder="Ex: Rua Fúlvio Aducci"
-                              value={street}
-                              onChange={(e) => setStreet(e.target.value)}
-                              required
+                              placeholder="Ex: 50 ou 100"
+                              value={changeForAmount}
+                              onChange={(e) => setChangeForAmount(e.target.value)}
                             />
                           </div>
 
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            <div className="sc-form-group">
-                              <label>Número</label>
-                              <input
-                                className="sc-input"
-                                placeholder="1074"
-                                value={number}
-                                onChange={(e) => {
-                                  setNumber(e.target.value);
-                                  setDeliveryAddress(`${street}, Nº ${e.target.value}${complement ? ` (${complement})` : ""} - ${neighborhood}, ${cityState}`);
-                                }}
-                                required
-                              />
+                          {changeValueCents > 0 && (
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#138C56", marginTop: 4 }}>
+                              Troco que levaremos: {formatMoney(changeValueCents)}
                             </div>
-                            <div className="sc-form-group">
-                              <label>Complemento</label>
-                              <input
-                                className="sc-input"
-                                placeholder="Apt, Bloco..."
-                                value={complement}
-                                onChange={(e) => {
-                                  setComplement(e.target.value);
-                                  setDeliveryAddress(`${street}, Nº ${number}${e.target.value ? ` (${e.target.value})` : ""} - ${neighborhood}, ${cityState}`);
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                            <div className="sc-form-group" style={{ marginBottom: 0 }}>
-                              <label>Bairro</label>
-                              <input
-                                className="sc-input"
-                                placeholder="Estreito"
-                                value={neighborhood}
-                                onChange={(e) => setNeighborhood(e.target.value)}
-                              />
-                            </div>
-                            <div className="sc-form-group" style={{ marginBottom: 0 }}>
-                              <label>Cidade / UF</label>
-                              <input
-                                className="sc-input"
-                                placeholder="Florianópolis - SC"
-                                value={cityState}
-                                onChange={(e) => setCityState(e.target.value)}
-                              />
-                            </div>
-                          </div>
+                          )}
                         </div>
                       )}
-
-                      <div className="sc-form-group">
-                        <label>Forma de Pagamento</label>
-                        <select className="sc-input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                          <option value="Pix">⚡ PIX</option>
-                          <option value="Cartao">💳 Cartao na Entrega</option>
-                          <option value="Dinheiro">💵 Dinheiro</option>
-                        </select>
-                      </div>
-
-                      <button type="submit" className="btn-gold" style={{ width: "100%", marginTop: 14 }} disabled={submitting}>
-                        {submitting ? "Enviando..." : `Confirmar Pedido · ${formatMoney(cartTotalCents)}`}
-                      </button>
-                    </>
+                    </div>
                   )}
+
+                  {/* RESUMO DE VALORES */}
+                  <div style={{ borderTop: "1px solid #E6DFD6", paddingTop: 16, marginTop: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#706965", marginBottom: 6 }}>
+                      <span>Subtotal dos itens:</span>
+                      <span>{formatMoney(subtotalCents)}</span>
+                    </div>
+                    {deliveryType === "ENTREGA" && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#706965", marginBottom: 6 }}>
+                        <span>Taxa de entrega (Estreito):</span>
+                        <span>{formatMoney(deliveryFeeCents)}</span>
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 900, color: "#B70922", marginTop: 8, marginBottom: 20 }}>
+                      <span>Total:</span>
+                      <span>{formatMoney(totalCents)}</span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting || cart.length === 0}
+                      className="sc-btn-primary"
+                      style={{ width: "100%", padding: "16px" }}
+                    >
+                      {submitting ? "Enviando seu pedido..." : `Confirmar Pedido • ${formatMoney(totalCents)}`}
+                    </button>
+                  </div>
                 </form>
               )}
             </div>
           </div>
         )}
 
+        {/* MODAL DE ACOMPANHAR PEDIDO (PAINEL DO CLIENTE AO VIVO) */}
         {showTrackingModal && (
-          <div className="sc-modal-overlay" onClick={() => setShowTrackingModal(false)}>
-            <div className="sc-modal-box" onClick={(e) => e.stopPropagation()}>
-              <div className="sc-modal-head">
-                <span className="sc-modal-title">Acompanhar Pedido</span>
-                <button className="sc-modal-close" onClick={() => setShowTrackingModal(false)}>✕</button>
+          <div className="sc-modal-backdrop" onClick={() => setShowTrackingModal(false)}>
+            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 900 }}>Acompanhar Pedido</h3>
+                <button
+                  onClick={() => setShowTrackingModal(false)}
+                  style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#706965" }}
+                >
+                  ✕
+                </button>
               </div>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 16 }}>
-                Digite o numero do seu WhatsApp para consultar o andamento do seu pedido:
-              </p>
-              <input className="sc-input" placeholder="(48) 99999-9999" style={{ marginBottom: 14 }} />
-              <button className="btn-gold" style={{ width: "100%" }} onClick={() => alert("Consulta realizada! Seu pedido esta em preparo.")}>
-                Consultar Pedido
-              </button>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#706965", marginBottom: 6 }}>
+                  Digite o código do pedido (ex: #1042) ou seu telefone:
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    type="text"
+                    className="sc-input"
+                    placeholder="#1042 ou 48999999999"
+                    value={trackQuery}
+                    onChange={(e) => setTrackQuery(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="sc-btn-primary"
+                    style={{ whiteSpace: "nowrap", flex: "none", padding: "0 20px" }}
+                    onClick={() => fetchOrderStatus(trackQuery)}
+                  >
+                    {trackingLoading ? "..." : "Consultar"}
+                  </button>
+                </div>
+              </div>
+
+              {trackedOrders.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "30px 10px", color: "#706965", fontSize: 13.5 }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D3C9BC" strokeWidth="1.8" style={{ margin: "0 auto 10px" }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <div>Digite o código para visualizar a etapa do seu pedido em tempo real.</div>
+                </div>
+              ) : (
+                trackedOrders.map((ord) => {
+                  const isPreparing = ord.status === "preparing";
+                  const isReady = ord.status === "ready";
+                  const isCompleted = ord.status === "completed";
+
+                  return (
+                    <div
+                      key={ord.id}
+                      style={{
+                        background: "#FAF7F2",
+                        border: "1px solid #E6DFD6",
+                        borderRadius: 16,
+                        padding: 18,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#1B1715" }}>Pedido {ord.code}</div>
+                          <div style={{ fontSize: 12, color: "#706965" }}>Cliente: {ord.customerName}</div>
+                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#B70922" }}>
+                          {formatMoney(ord.totalCents)}
+                        </div>
+                      </div>
+
+                      {/* STEPPER VISUAL */}
+                      <div className="sc-stepper">
+                        <div className={`sc-step ${true ? "done" : ""}`}>
+                          <div className="sc-step-circle">✓</div>
+                          <div className="sc-step-label">Recebido</div>
+                        </div>
+
+                        <div className={`sc-step ${isPreparing ? "active" : isReady || isCompleted ? "done" : ""}`}>
+                          <div className="sc-step-circle">{isReady || isCompleted ? "✓" : "2"}</div>
+                          <div className="sc-step-label">Em Preparo</div>
+                        </div>
+
+                        <div className={`sc-step ${isReady ? "active" : isCompleted ? "done" : ""}`}>
+                          <div className="sc-step-circle">{isCompleted ? "✓" : "3"}</div>
+                          <div className="sc-step-label">Saiu / Pronto</div>
+                        </div>
+
+                        <div className={`sc-step ${isCompleted ? "done" : ""}`}>
+                          <div className="sc-step-circle">{isCompleted ? "✓" : "4"}</div>
+                          <div className="sc-step-label">Entregue</div>
+                        </div>
+                      </div>
+
+                      {/* ITENS DO PEDIDO */}
+                      <div style={{ borderTop: "1px solid #E6DFD6", paddingTop: 12, marginTop: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#706965", marginBottom: 6 }}>Itens:</div>
+                        {ord.items.map((it) => (
+                          <div key={it.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
+                            <span>{it.quantity}x {it.name}</span>
+                            <span style={{ fontWeight: 700 }}>{formatMoney(it.unitPriceCents * it.quantity)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* CONTATO WHATSAPP DA LOJA */}
+                      <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #E6DFD6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 12, color: "#706965" }}>Dúvidas sobre o pedido?</span>
+                        <a
+                          href={`https://wa.me/5548988589088?text=${encodeURIComponent(`Olá, gostaria de saber sobre meu pedido ${ord.code}`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            background: "#138C56",
+                            color: "#FFFFFF",
+                            textDecoration: "none",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            padding: "6px 14px",
+                            borderRadius: "99px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          Falar no WhatsApp
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
