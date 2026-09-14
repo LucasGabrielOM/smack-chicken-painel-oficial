@@ -1,11 +1,19 @@
 import { headers } from "next/headers";
 import Storefront from "./storefront";
 import StorePanel from "./store-panel";
+import OnlineOrderManager from "./admin/online-order-manager";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const host = (await headers()).get("host") || "";
-  const isPanel = process.env.SMACK_MODE === "panel" || host.includes("painel");
-  return isPanel ? <StorePanel /> : <Storefront />;
+export default async function Home({ searchParams }: { searchParams: Promise<{ admin?: string; mode?: string }> }) {
+  const params = await searchParams;
+  const headerList = await headers();
+  const host = headerList.get("host") || "";
+
+  const isStorePanel = process.env.SMACK_MODE === "panel" || host.includes("painel");
+  const isOnlineAdmin = params.admin !== undefined || params.mode === "admin" || host.includes("admin");
+
+  if (isStorePanel) return <StorePanel />;
+  if (isOnlineAdmin) return <OnlineOrderManager />;
+  return <Storefront />;
 }
