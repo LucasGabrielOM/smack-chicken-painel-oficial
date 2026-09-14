@@ -16,13 +16,87 @@ export default function OnlineOrderingSystem() {
   ]);
   const [showCartModal, setShowCartModal] = useState(false);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
+
+  // Product Detail Modal State (iFood style)
+  const [activeProduct, setActiveProduct] = useState<CatalogProduct | null>(null);
+  const [detailQuantity, setDetailQuantity] = useState(1);
+  const [detailExtras, setDetailExtras] = useState<string[]>([]);
+  const [detailNotes, setDetailNotes] = useState("");
+
+  // ViaCEP Address Lookup State
+  const [cep, setCep] = useState("");
+  const [street, setStreet] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [cityState, setCityState] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState("");
+
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryType, setDeliveryType] = useState<"RETIRADA" | "ENTREGA">("RETIRADA");
+  const [deliveryType, setDeliveryType] = useState<"RETIRADA" | "ENTREGA">("ENTREGA");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Pix");
   const [submitting, setSubmitting] = useState(false);
   const [completedOrderCode, setCompletedOrderCode] = useState<string | null>(null);
+
+  const openProductDetail = (product: CatalogProduct) => {
+    setActiveProduct(product);
+    setDetailQuantity(1);
+    setDetailExtras([]);
+    setDetailNotes("");
+  };
+
+  const closeProductDetail = () => {
+    setActiveProduct(null);
+  };
+
+  const handleAddFromDetail = () => {
+    if (!activeProduct) return;
+    const extrasStr = detailExtras.length > 0 ? ` [Adicionais: ${detailExtras.join(", ")}]` : "";
+    const notesStr = detailNotes.trim() ? ` (Obs: ${detailNotes.trim()})` : "";
+    const customName = `${activeProduct.name}${extrasStr}${notesStr}`;
+
+    const customizedProduct: CatalogProduct = {
+      ...activeProduct,
+      name: customName,
+    };
+
+    for (let i = 0; i < detailQuantity; i++) {
+      addToCart(customizedProduct);
+    }
+    closeProductDetail();
+  };
+
+  const handleFetchCep = async (cepInput: string) => {
+    const cleanCep = cepInput.replace(/\D/g, "");
+    setCep(cleanCep);
+    setCepError("");
+
+    if (cleanCep.length !== 8) {
+      if (cleanCep.length > 0 && cleanCep.length < 8) setCepError("Digite os 8 números do CEP");
+      return;
+    }
+
+    setLoadingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+      const data = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
+      if (data.erro || !data.logradouro) {
+        setCepError("CEP não encontrado. Preencha o endereço manualmente.");
+      } else {
+        setStreet(data.logradouro || "");
+        setNeighborhood(data.bairro || "");
+        setCityState(`${data.localidade || "Florianópolis"} - ${data.uf || "SC"}`);
+        setDeliveryAddress(`${data.logradouro || ""}, ${neighborhood || ""} - ${data.localidade || "Florianópolis"}`);
+      }
+    } catch {
+      setCepError("Erro ao buscar CEP.");
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   const cartItemCount = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
   const cartTotalCents = useMemo(
@@ -328,7 +402,7 @@ export default function OnlineOrderingSystem() {
 
           <div className="sc-products-grid">
             {filteredProducts.map((product) => (
-              <div key={product.id} className="sc-product-card">
+              <div key={product.id} className="sc-product-card" onClick={() => openProductDetail(product)}>
                 <div className="sc-product-img">
                   <img src={product.image || "/smack-chicken-mark.png"} alt={product.name} />
                 </div>
@@ -337,8 +411,14 @@ export default function OnlineOrderingSystem() {
                   <div className="sc-product-desc">{product.description}</div>
                   <div className="sc-product-foot">
                     <span className="sc-product-price">{formatMoney(product.priceCents)}</span>
-                    <button className="btn-add" onClick={() => addToCart(product)}>
-                      + Adicionar
+                    <button
+                      className="btn-add"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openProductDetail(product);
+                      }}
+                    >
+                      Ver detalhes +
                     </button>
                   </div>
                 </div>
@@ -354,6 +434,73 @@ export default function OnlineOrderingSystem() {
               <span>Ver pedido</span>
             </div>
             <span className="sc-sticky-total">{formatMoney(cartTotalCents)}</span>
+          </div>
+        )}
+
+        {/* iFOOD STYLE PRODUCT DETAIL MODAL */}
+        {activeProduct && (
+          <div className="sc-modal-overlay" onClick={closeProductDetail}>
+            <div className="sc-modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, padding: 0, overflow: "hidden" }}>
+              <div style={{ position: "relative", height: 200, background: "#250308" }}>
+                <img
+                  src={activeProduct.image || "/smack-chicken-mark.png"}
+                  alt={activeProduct.name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                <button
+                  onClick={closeProductDetail}
+                  style={{
+                    position: "absolute",
+                    top: 12,
+                    right: 12,
+                    background: "rgba(0,0,0,0.6)",
+                    border: "none",
+                    color: "#fff",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    fontSize: 16,
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: 20 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 4 }}>{activeProduct.name}</h3>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#ffc814", marginBottom: 12 }}>
+                  {formatMoney(activeProduct.priceCents)}
+                </div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, marginBottom: 20 }}>
+                  {activeProduct.description}
+                </p>
+
+                {/* OBSERVAÇÕES / EXTRAS */}
+                <div className="sc-form-group">
+                  <label>Alguma observação no item?</label>
+                  <input
+                    className="sc-input"
+                    placeholder="Ex: sem molho, bem passado, maionese à parte..."
+                    value={detailNotes}
+                    onChange={(e) => setDetailNotes(e.target.value)}
+                  />
+                </div>
+
+                {/* QUANTIDADE & ADICIONAR BUTTON */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 24, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div className="qty-ctrl" style={{ padding: "6px 12px", background: "rgba(255,255,255,0.08)" }}>
+                    <button onClick={() => setDetailQuantity((q) => Math.max(1, q - 1))}>-</button>
+                    <span style={{ fontSize: 15, fontWeight: 800 }}>{detailQuantity}</span>
+                    <button onClick={() => setDetailQuantity((q) => q + 1)}>+</button>
+                  </div>
+
+                  <button className="btn-gold" style={{ flex: 1, justifyContent: "center" }} onClick={handleAddFromDetail}>
+                    Adicionar • {formatMoney(activeProduct.priceCents * detailQuantity)}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -419,9 +566,92 @@ export default function OnlineOrderingSystem() {
                       </div>
 
                       {deliveryType === "ENTREGA" && (
-                        <div className="sc-form-group">
-                          <label>Endereco de Entrega</label>
-                          <input className="sc-input" placeholder="Rua, Numero, Bairro e Ponto de Referencia" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} required />
+                        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: 14, marginBottom: 16 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: "#ffc814", marginBottom: 10 }}>
+                            📍 Endereço de Entrega (Busca por CEP)
+                          </div>
+
+                          <div className="sc-form-group">
+                            <label>CEP</label>
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <input
+                                className="sc-input"
+                                placeholder="88070-010"
+                                value={cep}
+                                maxLength={9}
+                                onChange={(e) => handleFetchCep(e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="btn-gold"
+                                style={{ padding: "0 16px", fontSize: 12, whiteSpace: "nowrap" }}
+                                onClick={() => handleFetchCep(cep)}
+                              >
+                                {loadingCep ? "..." : "Buscar CEP"}
+                              </button>
+                            </div>
+                            {cepError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{cepError}</div>}
+                          </div>
+
+                          <div className="sc-form-group">
+                            <label>Rua / Logradouro</label>
+                            <input
+                              className="sc-input"
+                              placeholder="Ex: Rua Fúlvio Aducci"
+                              value={street}
+                              onChange={(e) => setStreet(e.target.value)}
+                              required
+                            />
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                            <div className="sc-form-group">
+                              <label>Número</label>
+                              <input
+                                className="sc-input"
+                                placeholder="1074"
+                                value={number}
+                                onChange={(e) => {
+                                  setNumber(e.target.value);
+                                  setDeliveryAddress(`${street}, Nº ${e.target.value}${complement ? ` (${complement})` : ""} - ${neighborhood}, ${cityState}`);
+                                }}
+                                required
+                              />
+                            </div>
+                            <div className="sc-form-group">
+                              <label>Complemento</label>
+                              <input
+                                className="sc-input"
+                                placeholder="Apt, Bloco..."
+                                value={complement}
+                                onChange={(e) => {
+                                  setComplement(e.target.value);
+                                  setDeliveryAddress(`${street}, Nº ${number}${e.target.value ? ` (${e.target.value})` : ""} - ${neighborhood}, ${cityState}`);
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                            <div className="sc-form-group" style={{ marginBottom: 0 }}>
+                              <label>Bairro</label>
+                              <input
+                                className="sc-input"
+                                placeholder="Estreito"
+                                value={neighborhood}
+                                onChange={(e) => setNeighborhood(e.target.value)}
+                              />
+                            </div>
+                            <div className="sc-form-group" style={{ marginBottom: 0 }}>
+                              <label>Cidade / UF</label>
+                              <input
+                                className="sc-input"
+                                placeholder="Florianópolis - SC"
+                                value={cityState}
+                                onChange={(e) => setCityState(e.target.value)}
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
 
