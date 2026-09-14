@@ -31,6 +31,12 @@ const localBindingConfig = {
         },
       ]
     : [],
+  kv_namespaces: [
+    {
+      binding: "smack_orders",
+      id: "7ff97d2d2f20417e9f423b0e8e74f2de",
+    },
+  ],
 };
 
 export default defineConfig(async () => {

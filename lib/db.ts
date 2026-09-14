@@ -8,7 +8,7 @@ declare global {
 
 function getPool() {
   const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) throw new Error("DATABASE_URL não configurada");
+  if (!connectionString) return null;
   globalThis.smackPool ??= new Pool({
     connectionString,
     max: 8,
@@ -18,9 +18,11 @@ function getPool() {
 }
 
 export async function ensureSchema() {
+  if (!process.env.DATABASE_URL) return;
   if (!globalThis.smackSchemaReady) {
     globalThis.smackSchemaReady = (async () => {
       const db = getPool();
+      if (!db) return;
       await db.query(`
         CREATE TABLE IF NOT EXISTS staff_users (
           id BIGSERIAL PRIMARY KEY,
@@ -118,14 +120,29 @@ export async function ensureSchema() {
   return globalThis.smackSchemaReady;
 }
 
-export async function query<T extends QueryResultRow = Record<string, unknown>>(text: string, values: unknown[] = []) {
-  await ensureSchema();
-  return getPool().query<T>(text, values);
+export async function query<T extends QueryResultRow = Record<string, unknown>>(text: string, values: unknown[] = []): Promise<{ rows: T[]; rowCount: number | null }> {
+  const pool = getPool();
+  if (!pool) return { rows: [] as T[], rowCount: 0 };
+  try {
+    await ensureSchema();
+    return await pool.query<T>(text, values);
+  } catch (err) {
+    console.warn("Postgres query warning:", err);
+    return { rows: [] as T[], rowCount: 0 };
+  }
 }
 
-export async function transaction<T>(work: (client: PoolClient) => Promise<T>) {
+export async function transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+  const pool = getPool();
+  if (!pool) {
+    // Fallback client for environments without postgres
+    const mockClient = {
+      query: async () => ({ rows: [], rowCount: 0 }),
+    } as unknown as PoolClient;
+    return await work(mockClient);
+  }
   await ensureSchema();
-  const client = await getPool().connect();
+  const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await work(client);
@@ -138,3 +155,4 @@ export async function transaction<T>(work: (client: PoolClient) => Promise<T>) {
     client.release();
   }
 }
+

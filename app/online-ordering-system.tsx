@@ -339,6 +339,12 @@ export default function OnlineOrderingSystem() {
       const newCode = data.order?.code || "#1042";
       setLatestOrderCode(newCode);
       setCart([]);
+      setShowCartModal(false);
+      setTrackQuery(newCode);
+      setShowTrackingModal(true);
+      try {
+        localStorage.setItem("smack_latest_order", newCode);
+      } catch {}
       // Busca dados imediatos para o acompanhamento
       fetchOrderStatus(newCode);
     } catch (err) {
@@ -363,6 +369,26 @@ export default function OnlineOrderingSystem() {
       setTrackingLoading(false);
     }
   };
+
+  // Atualização em tempo real do acompanhamento enquanto o modal estiver aberto
+  useEffect(() => {
+    if (!showTrackingModal || !trackQuery.trim()) return;
+    const interval = setInterval(() => {
+      fetchOrderStatus(trackQuery);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [showTrackingModal, trackQuery]);
+
+  // Carrega último código salvo para facilitar acompanhamento
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("smack_latest_order");
+      if (saved && !trackQuery) {
+        setTrackQuery(saved);
+      }
+    } catch {}
+  }, []);
+
 
   const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos", "Doces"];
 
