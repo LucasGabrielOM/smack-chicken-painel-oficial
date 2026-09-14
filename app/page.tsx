@@ -13,11 +13,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
 
   const isStorePanel = process.env.SMACK_MODE === "panel" || host.includes("painel");
   const isOnlineAdmin = params.admin !== undefined || params.mode === "admin" || host.includes("admin");
-  const isVitrine = params.mode === "vitrine" || host.includes("vitrine");
+  const isPedidosOnline = params.mode === "pedidos" || host.includes("pedidos") || host.includes("workers.dev");
 
   if (isStorePanel) return <StorePanel />;
   if (isOnlineAdmin) return <OnlineOrderManager />;
-  if (isVitrine) return <Storefront />;
+  if (isPedidosOnline) return <OnlineOrderingSystem />;
 
-  return <OnlineOrderingSystem />;
+  // Vitrine oficial da loja no Vercel (https://smack-chicken.vercel.app)
+  return <Storefront />;
 }
