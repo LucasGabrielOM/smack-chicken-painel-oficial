@@ -61,11 +61,7 @@ const ADMIN_CSS = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 .adm-shell{display:flex;height:100vh;overflow:hidden;background:#f1ede8;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#1b1715}
 .adm-sidebar{width:220px;flex-shrink:0;background:#1d1917;display:flex;flex-direction:column;border-right:1px solid #2c2624}
-.adm-sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid #2c2624;display:flex;align-items:center;gap:10px}
-.adm-sidebar-logo img{height:36px;width:auto;object-fit:contain}
-.adm-logo-text{display:flex;flex-direction:column}
-.adm-logo-text strong{font-size:13px;font-weight:700;color:#fff;line-height:1.2}
-.adm-logo-text span{font-size:9px;color:#ffc814;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.adm-sidebar-logo{padding:18px 18px 14px;border-bottom:1px solid #2c2624;display:flex;flex-direction:column;align-items:flex-start}
 .adm-sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
 .adm-nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:#9c918d;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:background .15s,color .15s}
 .adm-nav-item:hover{background:#2c2624;color:#e8e0db}
@@ -248,11 +244,15 @@ export default function OnlineOrderManager() {
       <div className="adm-shell">
         <aside className="adm-sidebar">
           <div className="adm-sidebar-logo">
-            <img src="/smack-chicken-mark.png" alt="Smack Chicken" onError={(e) => { (e.target as HTMLImageElement).style.display="none"; }} />
-            <div className="adm-logo-text">
-              <strong>Smack Chicken</strong>
-              <span>Gestao Online</span>
-            </div>
+            <img
+              src="/smack-chicken-logo-white.png"
+              alt="Smack Chicken"
+              style={{ height: "26px", width: "auto", objectFit: "contain" }}
+              onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-logo.png"; }}
+            />
+            <span style={{ fontSize: "9px", color: "#ffc814", letterSpacing: "2px", textTransform: "uppercase", fontWeight: 700, marginTop: "4px" }}>
+              Gestão Online
+            </span>
           </div>
           <nav className="adm-sidebar-nav">
             {navItems.map(({ id, label, Icon }) => (
