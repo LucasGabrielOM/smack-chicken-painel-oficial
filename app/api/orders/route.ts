@@ -59,3 +59,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  const auth = await requireUser(request);
+  if (auth.response) return auth.response;
+
+  const { clearAllOrders } = await import("../../../lib/order-store");
+  await clearAllOrders();
+  return NextResponse.json({ ok: true, message: "Todos os pedidos foram limpos com sucesso" });
+}
+
+

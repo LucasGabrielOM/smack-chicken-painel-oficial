@@ -32,59 +32,20 @@ declare global {
 }
 
 function getInitialOrders(): StoredOrder[] {
-  const now = Date.now();
-  return [
-    {
-      id: "1040",
-      code: "#1040",
-      customerName: "Mariana Costa",
-      status: "preparing",
-      paymentMethod: "Pix",
-      cashReceivedCents: null,
-      totalCents: 5999,
-      discountCents: 0,
-      splitCount: 1,
-      channel: "SITE_ONLINE",
-      notes: "WhatsApp: 48991234567 | Modalidade: Entrega em Domicílio | Endereço: CEP: 88070-100 - Rua Felipe Neves, Nº 410 - Bairro: Estreito, Florianópolis - SC | Pagamento: Pix",
-      createdAt: new Date(now - 14 * 60 * 1000).toISOString(),
-      readyAt: null,
-      completedAt: null,
-      items: [
-        {
-          id: "item-1040-1",
-          productId: 2,
-          name: "Balde M 500 g — Tiras Crocantes [Molhos Grátis: Maionese Temperada, Barbecue]",
-          quantity: 1,
-          unitPriceCents: 5999,
-        },
-      ],
-    },
-    {
-      id: "1041",
-      code: "#1041",
-      customerName: "Rodrigo Silva",
-      status: "ready",
-      paymentMethod: "Cartão de Crédito na Entrega",
-      cashReceivedCents: null,
-      totalCents: 7990,
-      discountCents: 0,
-      splitCount: 1,
-      channel: "SITE_ONLINE",
-      notes: "WhatsApp: 48988776655 | Modalidade: Entrega em Domicílio | Endereço: CEP: 88070-200 - Rua Gen. Eurico Gaspar Dutra, Nº 890 - Bairro: Estreito, Florianópolis - SC | Pagamento: Cartão de Crédito na Entrega",
-      createdAt: new Date(now - 32 * 60 * 1000).toISOString(),
-      readyAt: new Date(now - 8 * 60 * 1000).toISOString(),
-      completedAt: null,
-      items: [
-        {
-          id: "item-1041-1",
-          productId: 4,
-          name: "Combo Pra Dois [Molhos Grátis: Molho Smack, Maionese de Alho]",
-          quantity: 1,
-          unitPriceCents: 7990,
-        },
-      ],
-    },
-  ];
+  return [];
+}
+
+export async function clearAllOrders(): Promise<void> {
+  globalThis.__smackOrders = [];
+  globalThis.__smackOrderSeq = 1000;
+  await persistOrders([]);
+  if (process.env.DATABASE_URL) {
+    try {
+      const { query } = await import("./db");
+      await query("DELETE FROM order_items");
+      await query("DELETE FROM orders");
+    } catch {}
+  }
 }
 
 function getKv(): {

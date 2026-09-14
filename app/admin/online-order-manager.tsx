@@ -303,7 +303,7 @@ export default function OnlineOrderManager() {
             )}
             {view === "cardapio" && <CardapioView notify={notify} />}
             {view === "relatorios" && <RelatoriosView orders={orders} completedOrders={completedOrders} />}
-            {view === "settings" && <SettingsView paperWidth={paperWidth} setPaperWidth={setPaperWidth} notify={notify} />}
+            {view === "settings" && <SettingsView paperWidth={paperWidth} setPaperWidth={setPaperWidth} notify={notify} onClear={loadOrders} />}
           </main>
         </div>
       </div>
@@ -548,8 +548,8 @@ function RelatoriosView({ orders, completedOrders }: { orders: Order[]; complete
 }
 
 /* SETTINGS */
-function SettingsView({ paperWidth, setPaperWidth, notify }: {
-  paperWidth: 58 | 80; setPaperWidth: (w: 58 | 80) => void; notify: (m: string) => void;
+function SettingsView({ paperWidth, setPaperWidth, notify, onClear }: {
+  paperWidth: 58 | 80; setPaperWidth: (w: 58 | 80) => void; notify: (m: string) => void; onClear?: () => void;
 }) {
   return (
     <>
@@ -577,6 +577,32 @@ function SettingsView({ paperWidth, setPaperWidth, notify }: {
         <div className="srow">
           <div><div className="slabel">Notificacao por WhatsApp ao cliente</div><div className="shint">Envia atualizacao de status automaticamente</div></div>
           <span style={{ fontSize:12, fontWeight:700, color:"#17a35c" }}>Ativo</span>
+        </div>
+      </div>
+      <div className="ssection">
+        <div className="ssection-title">Gerenciamento de Testes</div>
+        <div className="srow">
+          <div>
+            <div className="slabel" style={{ color:"#9b1c1c" }}>Limpar Pedidos de Teste</div>
+            <div className="shint">Zera todos os pedidos do Quadro Kanban e histórico</div>
+          </div>
+          <button
+            className="btn-danger"
+            style={{ padding:"8px 16px", fontSize:12 }}
+            onClick={async () => {
+              if (confirm("Deseja realmente limpar todos os pedidos de teste?")) {
+                try {
+                  await fetch("/api/orders", { method: "DELETE" });
+                  notify("Todos os pedidos foram limpos!");
+                  if (onClear) onClear();
+                } catch (e) {
+                  notify("Falha ao limpar pedidos");
+                }
+              }
+            }}
+          >
+            Limpar Pedidos
+          </button>
         </div>
       </div>
       <div className="ssection">
