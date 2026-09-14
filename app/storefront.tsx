@@ -139,10 +139,34 @@ export default function Storefront() {
             </span>
           </div>
         </div>
-        <div className="sc-hero-image">
-          <img src="/balde-tiras.jpeg" alt="Balde de frango crocante da SMACK CHICKEN" />
-          <div className="sc-hero-tag">
-            <em>Feito na hora, todo dia.</em>
+        <div className="sc-hero-circle-wrap">
+          <svg className="sc-hero-text-ring" viewBox="0 0 500 500">
+            <path
+              id="heroCirclePath"
+              d="M 250, 250 m -195, 0 a 195,195 0 1,1 390,0 a 195,195 0 1,1 -390,0"
+              fill="none"
+            />
+            <text fill="#b70922" opacity="0.65" fontSize="13" fontWeight="800" letterSpacing="4">
+              <textPath href="#heroCirclePath">
+                • SMACK CHICKEN • FRANGO CROCANTE • FEITO NA HORA • CROCANTE POR FORA
+              </textPath>
+            </text>
+          </svg>
+
+          <div className="sc-hero-icon icon-top">🍗</div>
+          <div className="sc-hero-icon icon-bottom">🍗</div>
+
+          <div className="sc-hero-circle-img">
+            <img src="/combo-mesa.jpeg" alt="Balde de frango crocante da SMACK CHICKEN" />
+          </div>
+
+          <div className="sc-hero-card">
+            <span className="sc-hero-card-tag">🔥 MAIS PEDIDO</span>
+            <strong>Baldinho P 250 g</strong>
+            <small>Tiras crocantes</small>
+            <div className="sc-hero-card-foot">
+              <b>R$ 26,99</b>
+            </div>
           </div>
         </div>
       </section>
