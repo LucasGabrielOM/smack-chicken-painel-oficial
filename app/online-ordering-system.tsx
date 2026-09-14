@@ -389,6 +389,42 @@ export default function OnlineOrderingSystem() {
     } catch {}
   }, []);
 
+  // Trava o scroll da tela de fundo quando qualquer janela flutuante estiver aberta
+  useEffect(() => {
+    const isAnyModalOpen = Boolean(activeProduct) || showCartModal || showTrackingModal;
+    if (isAnyModalOpen) {
+      const scrollY = window.scrollY;
+      document.documentElement.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+    } else {
+      const scrollY = document.body.style.top;
+      document.documentElement.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || "0", 10) * -1);
+      }
+    }
+    return () => {
+      document.documentElement.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.width = "";
+      document.body.style.overflow = "";
+    };
+  }, [activeProduct, showCartModal, showTrackingModal]);
+
 
   const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos", "Doces"];
 
@@ -439,6 +475,8 @@ export default function OnlineOrderingSystem() {
           align-items: center;
           gap: 12px;
           text-decoration: none;
+          min-width: 0;
+          flex-shrink: 1;
         }
         .sc-brand-logo {
           height: 38px;
@@ -456,6 +494,8 @@ export default function OnlineOrderingSystem() {
           border-radius: 99px;
           font-size: 11px;
           font-weight: 700;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .sc-status-dot {
           width: 7px;
@@ -468,6 +508,7 @@ export default function OnlineOrderingSystem() {
           display: flex;
           align-items: center;
           gap: 10px;
+          flex-shrink: 0;
         }
         .sc-btn-track {
           background: #F5F2EC;
@@ -482,6 +523,7 @@ export default function OnlineOrderingSystem() {
           align-items: center;
           gap: 6px;
           transition: all 0.15s;
+          white-space: nowrap;
         }
         .sc-btn-track:hover {
           background: #EAE5DC;
@@ -501,6 +543,7 @@ export default function OnlineOrderingSystem() {
           gap: 8px;
           transition: all 0.15s;
           box-shadow: 0 4px 12px rgba(183, 9, 34, 0.25);
+          white-space: nowrap;
         }
         .sc-btn-cart:hover {
           background: #820516;
@@ -819,11 +862,14 @@ export default function OnlineOrderingSystem() {
           inset: 0;
           background: rgba(27, 23, 21, 0.7);
           backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           z-index: 1000;
           display: flex;
           align-items: center;
           justify-content: center;
           padding: 20px;
+          overscroll-behavior: contain;
+          touch-action: none;
         }
         .sc-modal-card {
           background: #FFFFFF;
@@ -832,6 +878,9 @@ export default function OnlineOrderingSystem() {
           max-width: 540px;
           max-height: 90vh;
           overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
           box-shadow: 0 20px 50px rgba(0,0,0,0.2);
           display: flex;
           flex-direction: column;
@@ -1144,6 +1193,93 @@ export default function OnlineOrderingSystem() {
             display: none;
           }
         }
+
+        @media (max-width: 640px) {
+          .sc-topbar-inner {
+            padding: 10px 14px;
+            gap: 8px;
+          }
+          .sc-brand-link {
+            gap: 6px;
+            min-width: 0;
+            flex-shrink: 1;
+          }
+          .sc-brand-logo {
+            height: 28px;
+            max-width: 105px;
+          }
+          /* Oculta o pill "Aberto agora" no header em celular para dar total espaço e evitar qualquer colisão */
+          .sc-status-pill {
+            display: none !important;
+          }
+          .sc-topbar-actions {
+            gap: 6px;
+            flex-shrink: 0;
+          }
+          .sc-btn-track {
+            padding: 7px 11px;
+            font-size: 12px;
+            gap: 5px;
+            white-space: nowrap;
+          }
+          .sc-btn-track svg {
+            width: 14px;
+            height: 14px;
+          }
+          .sc-btn-cart {
+            padding: 7px 13px;
+            font-size: 12px;
+            gap: 6px;
+            white-space: nowrap;
+          }
+          .sc-btn-cart svg {
+            width: 14px;
+            height: 14px;
+          }
+          .sc-cart-badge {
+            font-size: 10px;
+            padding: 1px 6px;
+          }
+
+          /* Modais em celular */
+          .sc-modal-backdrop {
+            padding: 12px;
+          }
+          .sc-modal-card {
+            max-height: 92vh;
+            border-radius: 18px;
+          }
+          .sc-prod-modal-img {
+            height: 180px;
+          }
+          .sc-prod-modal-body {
+            padding: 18px 16px;
+          }
+          .sc-modal-footer {
+            padding: 14px 16px;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .sc-topbar-inner {
+            padding: 8px 10px;
+            gap: 6px;
+          }
+          .sc-brand-logo {
+            height: 24px;
+            max-width: 85px;
+          }
+          .sc-btn-track {
+            padding: 6px 8px;
+            font-size: 11px;
+            gap: 3px;
+          }
+          .sc-btn-cart {
+            padding: 6px 9px;
+            font-size: 11px;
+            gap: 4px;
+          }
+        }
       `}</style>
 
       <div className="sc-app">
@@ -1273,7 +1409,7 @@ export default function OnlineOrderingSystem() {
         </main>
 
         {/* BARRA FLUTUANTE DA SACOLA */}
-        {cartItemCount > 0 && (
+        {cartItemCount > 0 && !activeProduct && !showCartModal && !showTrackingModal && (
           <div className="sc-floating-bar" onClick={() => setShowCartModal(true)}>
             <div className="sc-floating-left">
               <span className="sc-floating-badge">{cartItemCount}</span>
@@ -1285,7 +1421,13 @@ export default function OnlineOrderingSystem() {
 
         {/* MODAL DE DETALHES DO ITEM (ESTILO IFOOD) */}
         {activeProduct && (
-          <div className="sc-modal-backdrop" onClick={closeProductDetail}>
+          <div
+            className="sc-modal-backdrop"
+            onClick={closeProductDetail}
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
+          >
             <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
               <div style={{ position: "relative" }}>
                 <img src={activeProduct.image || "/balde-tiras.jpeg"} alt={activeProduct.name} className="sc-prod-modal-img" />
@@ -1433,7 +1575,13 @@ export default function OnlineOrderingSystem() {
 
         {/* MODAL DA SACOLA E CHECKOUT */}
         {showCartModal && (
-          <div className="sc-modal-backdrop" onClick={() => setShowCartModal(false)}>
+          <div
+            className="sc-modal-backdrop"
+            onClick={() => setShowCartModal(false)}
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
+          >
             <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
                 <h3 style={{ fontSize: 20, fontWeight: 900 }}>Finalizar Pedido</h3>
@@ -1887,7 +2035,13 @@ export default function OnlineOrderingSystem() {
 
         {/* MODAL DE ACOMPANHAR PEDIDO (PAINEL DO CLIENTE AO VIVO) */}
         {showTrackingModal && (
-          <div className="sc-modal-backdrop" onClick={() => setShowTrackingModal(false)}>
+          <div
+            className="sc-modal-backdrop"
+            onClick={() => setShowTrackingModal(false)}
+            onTouchMove={(e) => {
+              if (e.target === e.currentTarget) e.preventDefault();
+            }}
+          >
             <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
                 <h3 style={{ fontSize: 20, fontWeight: 900 }}>Acompanhar Pedido</h3>
