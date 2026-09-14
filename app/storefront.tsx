@@ -1,4 +1,5 @@
 const MAPS_URL = "https://maps.app.goo.gl/f6Rk7JtTgcCMzCSr9";
+const ORDER_URL = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev";
 const IFOOD_URL =
   "https://www.ifood.com.br/delivery/florianopolis-sc/smack-chicken-frango-frito-no-balde-estreito/93484d61-4553-4caf-b136-d1a0f5e73ecf?utm_medium=share";
 const INSTAGRAM_URL = "https://www.instagram.com/smack.chicken";
@@ -95,14 +96,14 @@ export default function Storefront() {
             <InstagramIcon />
             <span>@smack.chicken</span>
           </a>
-          <a className="sc-order sc-cta-pulse" href={IFOOD_URL} target="_blank" rel="noreferrer">
-            Pedir no iFood <span className="sc-cta-arrow">→</span>
+          <a className="sc-order sc-cta-pulse" href={ORDER_URL}>
+            Fazer Pedido Online <span className="sc-cta-arrow">→</span>
           </a>
         </div>
       </header>
 
-      <a href={IFOOD_URL} target="_blank" rel="noreferrer" className="sc-sticky-cta sc-cta-pulse">
-        Peça agora no iFood <span className="sc-cta-arrow">→</span>
+      <a href={ORDER_URL} className="sc-sticky-cta sc-cta-pulse">
+        Fazer Pedido Online <span className="sc-cta-arrow">→</span>
       </a>
 
       <section className="sc-hero" id="inicio">
@@ -119,11 +120,11 @@ export default function Storefront() {
           </p>
           <div className="sc-hero-price">
             <b>Baldes a partir de R$ 26,99</b>
-            <span>peça pelo iFood</span>
+            <span>peça online pelo site</span>
           </div>
           <div className="sc-hero-actions">
-            <a className="sc-cta-pulse" href={IFOOD_URL} target="_blank" rel="noreferrer">
-              Peça no iFood <span className="sc-cta-arrow">→</span>
+            <a className="sc-cta-pulse" href={ORDER_URL}>
+              Fazer Pedido Online <span className="sc-cta-arrow">→</span>
             </a>
             <a className="ghost" href={MAPS_URL} target="_blank" rel="noreferrer">
               Como chegar
@@ -189,8 +190,8 @@ export default function Storefront() {
                 <span>Refeição completa por</span>
                 <b>R$ 29,90</b>
               </div>
-              <a href={IFOOD_URL} target="_blank" rel="noreferrer" className="sc-marmita-btn sc-cta-pulse">
-                Pedir Marmita no iFood <span className="sc-cta-arrow">→</span>
+              <a href={ORDER_URL} className="sc-marmita-btn sc-cta-pulse">
+                Pedir Marmita Online <span className="sc-cta-arrow">→</span>
               </a>
             </div>
           </article>
@@ -203,7 +204,7 @@ export default function Storefront() {
           <h2>
             Escolha o <em>seu</em> balde
           </h2>
-          <p>A gente frita na hora — você escolhe o tamanho e pede direto pelo iFood.</p>
+          <p>A gente frita na hora — você escolhe o tamanho e pede direto pelo site de pedidos online.</p>
         </div>
         <div className="sc-bucket-grid">
           {BUCKETS.map((bucket) => (
@@ -224,9 +225,9 @@ export default function Storefront() {
           ))}
         </div>
         <div className="sc-menu-cta">
-          <p>Combos, porções e bebidas também estão no cardápio completo do iFood.</p>
-          <a href={IFOOD_URL} target="_blank" rel="noreferrer">
-            Ver cardápio completo ↗
+          <p>Combos, porções e bebidas também estão no cardápio online.</p>
+          <a href={ORDER_URL}>
+            Fazer pedido online ↗
           </a>
         </div>
       </section>
@@ -257,9 +258,9 @@ export default function Storefront() {
           ))}
         </div>
         <div className="sc-menu-cta">
-          <p>Cardápio completo de lanches, combos e bebidas no iFood.</p>
-          <a href={IFOOD_URL} target="_blank" rel="noreferrer">
-            Ver cardápio completo ↗
+          <p>Cardápio completo de lanches, combos e bebidas no nosso site de pedidos.</p>
+          <a href={ORDER_URL}>
+            Fazer pedido online ↗
           </a>
         </div>
       </section>
