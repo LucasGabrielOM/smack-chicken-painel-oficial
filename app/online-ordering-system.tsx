@@ -60,7 +60,29 @@ type TrackedOrder = {
   items: Array<{ id: string; name: string; quantity: number; unitPriceCents: number }>;
 };
 
+function fmtOrderTime(dateStr?: string) {
+  if (!dateStr) return "--:--";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "--:--";
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtEstimatedTime(dateStr?: string, plusMinutes: number = 45) {
+  if (!dateStr) return "--:--";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "--:--";
+  const target = new Date(d.getTime() + plusMinutes * 60000);
+  return target.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function OnlineOrderingSystem() {
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(Date.now()), 10000);
+    return () => clearInterval(t);
+  }, []);
+
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -1602,9 +1624,49 @@ export default function OnlineOrderingSystem() {
                   <div style={{ fontSize: 16, fontWeight: 800, color: "#B70922", marginBottom: 16 }}>
                     Código: #{latestOrderCode}
                   </div>
-                  <p style={{ fontSize: 14, color: "#706965", lineHeight: 1.5, marginBottom: 24 }}>
+                  <p style={{ fontSize: 14, color: "#706965", lineHeight: 1.5, marginBottom: 16 }}>
                     Nossa cozinha já recebeu seu pedido. Você receberá atualizações em tempo real pelo WhatsApp!
                   </p>
+
+                  <div
+                    style={{
+                      background: "#FAF7F2",
+                      border: "1px solid #E6DFD6",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      marginBottom: 20,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      textAlign: "left",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: "50%",
+                        background: "#FFF0F2",
+                        color: "#B70922",
+                        display: "grid",
+                        placeItems: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#1B1715" }}>
+                        Tempo de Preparo e Entrega
+                      </div>
+                      <div style={{ fontSize: 13, color: "#B70922", fontWeight: 800 }}>
+                        Tempo médio: aprox. 45 minutos
+                      </div>
+                    </div>
+                  </div>
+
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <button
                       className="sc-btn-primary"
@@ -2088,6 +2150,12 @@ export default function OnlineOrderingSystem() {
                   const isCompleted = ord.status === "completed";
                   const isCancelled = ord.status === "cancelled";
 
+                  const createdAtMs = ord.createdAt ? new Date(ord.createdAt).getTime() : currentTime;
+                  const elapsedMs = Math.max(0, currentTime - createdAtMs);
+                  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+                  const remainingMinutes = Math.max(5, 45 - elapsedMinutes);
+                  const progressPercent = isCompleted ? 100 : isReady ? 85 : Math.min(85, Math.max(10, Math.round((elapsedMinutes / 45) * 100)));
+
                   return (
                     <div
                       key={ord.id}
@@ -2168,27 +2236,119 @@ export default function OnlineOrderingSystem() {
                           </div>
                         </div>
                       ) : (
-                        <div className="sc-stepper">
-                          <div className={`sc-step ${true ? "done" : ""}`}>
-                            <div className="sc-step-circle">✓</div>
-                            <div className="sc-step-label">Recebido</div>
+                        <>
+                          <div className="sc-stepper">
+                            <div className={`sc-step ${true ? "done" : ""}`}>
+                              <div className="sc-step-circle">✓</div>
+                              <div className="sc-step-label">Recebido</div>
+                            </div>
+
+                            <div className={`sc-step ${isPreparing ? "active" : isReady || isCompleted ? "done" : ""}`}>
+                              <div className="sc-step-circle">{isReady || isCompleted ? "✓" : "2"}</div>
+                              <div className="sc-step-label">Em Preparo</div>
+                            </div>
+
+                            <div className={`sc-step ${isReady ? "active" : isCompleted ? "done" : ""}`}>
+                              <div className="sc-step-circle">{isCompleted ? "✓" : "3"}</div>
+                              <div className="sc-step-label">Saiu / Pronto</div>
+                            </div>
+
+                            <div className={`sc-step ${isCompleted ? "done" : ""}`}>
+                              <div className="sc-step-circle">{isCompleted ? "✓" : "4"}</div>
+                              <div className="sc-step-label">Entregue</div>
+                            </div>
                           </div>
 
-                          <div className={`sc-step ${isPreparing ? "active" : isReady || isCompleted ? "done" : ""}`}>
-                            <div className="sc-step-circle">{isReady || isCompleted ? "✓" : "2"}</div>
-                            <div className="sc-step-label">Em Preparo</div>
+                          {/* CARD DO TIMER COM TEMPO DE PREPARO (MÉDIA 45 MIN) */}
+                          <div
+                            style={{
+                              background: "#FFFFFF",
+                              border: "1px solid #E6DFD6",
+                              borderRadius: 14,
+                              padding: "14px 16px",
+                              margin: "14px 0 16px",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div
+                                  style={{
+                                    width: 32,
+                                    height: 32,
+                                    borderRadius: "50%",
+                                    background: isCompleted ? "#EBF8F1" : isReady ? "#EFF6FF" : "#FFF0F2",
+                                    color: isCompleted ? "#138C56" : isReady ? "#1D4ED8" : "#B70922",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {isCompleted ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                  ) : (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                    </svg>
+                                  )}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 900, color: "#1B1715" }}>
+                                    {isCompleted
+                                      ? "Pedido Entregue"
+                                      : isReady
+                                      ? "Pedido Saiu para Entrega"
+                                      : "Tempo de Preparo Estimado"}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: "#706965" }}>
+                                    {isCompleted
+                                      ? "Aproveite seu frango crocante!"
+                                      : isReady
+                                      ? "Chegando no seu endereço"
+                                      : "Tempo médio da cozinha: 45 min"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 15, fontWeight: 900, color: isCompleted ? "#138C56" : isReady ? "#1D4ED8" : "#B70922" }}>
+                                  {isCompleted
+                                    ? "Concluído"
+                                    : isReady
+                                    ? "~10-15 min"
+                                    : remainingMinutes > 5
+                                    ? `~${remainingMinutes} min`
+                                    : "Quase pronto!"}
+                                </div>
+                                <div style={{ fontSize: 10, fontWeight: 800, color: "#706965", textTransform: "uppercase" }}>
+                                  {isCompleted ? "Finalizado" : isReady ? "Em trânsito" : `${elapsedMinutes} min decorridos`}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* BARRA DE PROGRESSO DO TEMPO DE PREPARO */}
+                            <div style={{ height: 6, background: "#F5F2EC", borderRadius: 99, overflow: "hidden", marginTop: 8 }}>
+                              <div
+                                style={{
+                                  height: "100%",
+                                  width: `${progressPercent}%`,
+                                  background: isCompleted
+                                    ? "#138C56"
+                                    : isReady
+                                    ? "linear-gradient(90deg, #1A7FE8, #138C56)"
+                                    : "linear-gradient(90deg, #B70922, #FFC814)",
+                                borderRadius: 99,
+                                transition: "width 0.4s ease",
+                              }}
+                            />
                           </div>
 
-                          <div className={`sc-step ${isReady ? "active" : isCompleted ? "done" : ""}`}>
-                            <div className="sc-step-circle">{isCompleted ? "✓" : "3"}</div>
-                            <div className="sc-step-label">Saiu / Pronto</div>
-                          </div>
-
-                          <div className={`sc-step ${isCompleted ? "done" : ""}`}>
-                            <div className="sc-step-circle">{isCompleted ? "✓" : "4"}</div>
-                            <div className="sc-step-label">Entregue</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#706965", marginTop: 6, fontWeight: 600 }}>
+                            <span>Pedido às: {fmtOrderTime(ord.createdAt)}</span>
+                            <span>Previsão: {fmtEstimatedTime(ord.createdAt, 45)}</span>
                           </div>
                         </div>
+                      </>
                       )}
 
                       {/* ITENS DO PEDIDO */}
