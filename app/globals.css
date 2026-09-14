@@ -682,18 +682,19 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
 .sc-facts span { display: block; padding-left: 14px; border-left: 1px solid var(--sc-line); color: var(--sc-muted); font-size: 11px; }
 .sc-facts b { display: block; color: var(--sc-ink); font-size: 13px; margin-bottom: 4px; font-weight: 600; }
 
-.sc-hero-circle-wrap {
+.sc-hero-stage {
   position: relative;
   width: 440px;
   height: 440px;
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  grid-template-areas: "concentric";
 }
 .sc-hero-circle-img {
-  width: 330px;
-  height: 330px;
+  grid-area: concentric;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
   overflow: hidden;
   position: relative;
@@ -706,14 +707,14 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
   object-fit: cover;
 }
 .sc-hero-text-ring {
-  position: absolute;
-  inset: -35px;
-  width: calc(100% + 70px);
-  height: calc(100% + 70px);
+  grid-area: concentric;
+  width: 440px;
+  height: 440px;
   pointer-events: none;
   z-index: 1;
+  transform-origin: 50% 50%;
+  transform-box: fill-box;
   animation: sc-spin-ring 35s linear infinite;
-  transform-origin: center center;
 }
 @keyframes sc-spin-ring {
   from { transform: rotate(0deg); }
@@ -726,13 +727,13 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
   pointer-events: none;
 }
-.sc-hero-icon.icon-top { top: 18px; left: 45px; transform: rotate(-15deg); }
+.sc-hero-icon.icon-top { top: 20px; left: 45px; transform: rotate(-15deg); }
 .sc-hero-icon.icon-bottom { bottom: 45px; right: 25px; transform: rotate(25deg); }
 
 .sc-hero-card {
   position: absolute;
-  left: -15px;
-  bottom: 25px;
+  left: -10px;
+  bottom: 20px;
   z-index: 10;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
@@ -749,9 +750,9 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
 .sc-hero-card-foot b { color: var(--sc-wine); font-size: 16px; font-family: "Fraunces", Georgia, serif; font-weight: 700; }
 
 @media (max-width: 768px) {
-  .sc-hero-circle-wrap {
-    width: 290px;
-    height: 290px;
+  .sc-hero-stage {
+    width: 300px;
+    height: 300px;
     margin: 24px auto 0;
   }
   .sc-hero-circle-img {
@@ -759,9 +760,8 @@ a:hover .sc-cta-arrow { transform: translateX(3px); }
     height: 220px;
   }
   .sc-hero-text-ring {
-    inset: -25px;
-    width: calc(100% + 50px);
-    height: calc(100% + 50px);
+    width: 300px;
+    height: 300px;
   }
   .sc-hero-card {
     left: 50%;

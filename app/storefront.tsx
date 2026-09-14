@@ -139,14 +139,18 @@ export default function Storefront() {
             </span>
           </div>
         </div>
-        <div className="sc-hero-circle-wrap">
+        <div className="sc-hero-stage">
+          <div className="sc-hero-circle-img">
+            <img src="/combo-mesa.jpeg" alt="Balde de frango crocante da SMACK CHICKEN" />
+          </div>
+
           <svg className="sc-hero-text-ring" viewBox="0 0 500 500">
             <path
               id="heroCirclePath"
-              d="M 250, 250 m -195, 0 a 195,195 0 1,1 390,0 a 195,195 0 1,1 -390,0"
+              d="M 250, 250 m -185, 0 a 185,185 0 1,1 370,0 a 185,185 0 1,1 -370,0"
               fill="none"
             />
-            <text fill="#b70922" opacity="0.65" fontSize="13" fontWeight="800" letterSpacing="4">
+            <text fill="#b70922" opacity="0.75" fontSize="13" fontWeight="800" letterSpacing="4.5">
               <textPath href="#heroCirclePath">
                 • SMACK CHICKEN • FRANGO CROCANTE • FEITO NA HORA • CROCANTE POR FORA
               </textPath>
@@ -155,10 +159,6 @@ export default function Storefront() {
 
           <div className="sc-hero-icon icon-top">🍗</div>
           <div className="sc-hero-icon icon-bottom">🍗</div>
-
-          <div className="sc-hero-circle-img">
-            <img src="/combo-mesa.jpeg" alt="Balde de frango crocante da SMACK CHICKEN" />
-          </div>
 
           <div className="sc-hero-card">
             <span className="sc-hero-card-tag">🔥 MAIS PEDIDO</span>
