@@ -9,16 +9,16 @@ export const dynamic = "force-dynamic";
 export default async function Home({ searchParams }: { searchParams: Promise<{ admin?: string; mode?: string }> }) {
   const params = await searchParams;
   const headerList = await headers();
-  const host = headerList.get("host") || "";
+  const host = (headerList.get("host") || headerList.get("x-forwarded-host") || "").toLowerCase();
 
   const isStorePanel = process.env.SMACK_MODE === "panel" || host.includes("painel");
   const isOnlineAdmin = params.admin !== undefined || params.mode === "admin" || host.includes("admin");
-  const isPedidosOnline = params.mode === "pedidos" || host.includes("pedidos") || host.includes("workers.dev");
+  const isVercelVitrine = (host.includes("vercel") && !host.includes("pedidos")) || params.mode === "vitrine";
 
   if (isStorePanel) return <StorePanel />;
   if (isOnlineAdmin) return <OnlineOrderManager />;
-  if (isPedidosOnline) return <OnlineOrderingSystem />;
+  if (isVercelVitrine) return <Storefront />;
 
-  // Vitrine oficial da loja no Vercel (https://smack-chicken.vercel.app)
-  return <Storefront />;
+  // Padrão para o Cloudflare Workers (https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev): Sistema de Pedidos Online
+  return <OnlineOrderingSystem />;
 }
