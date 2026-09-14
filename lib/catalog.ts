@@ -63,6 +63,10 @@ export const catalog: CatalogProduct[] = [
   { id: 50, name: "Fini Plutonita", description: "Bala de goma ácida que muda a cor da língua", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
   { id: 51, name: "Bala de Coração", description: "Bala de goma em formato de coração", priceCents: 400, category: "Doces", image: "/molho.jpeg" },
   { id: 52, name: "MARMITA SMACK 600g", description: "Uma refeição completa, saborosa e bem servida com 600g ao todo! Frango Smack: filé de sassami crocante e sequinho. Arroz branco soltinho, feijão carioca bem temperado, batata frita crocante. Acompanha salada.", priceCents: 2990, category: "Marmitas", image: "/marmita-smack.jpg", featured: true },
+  { id: 53, name: "Smack Original", description: "O clássico da casa: frango crocante em tirinhas, queijo, molho à escolha e pão brioche artesanal. Simples e absurdamente saboroso.", priceCents: 2990, category: "Lanches", image: "/lanche-original.jpeg", featured: true },
+  { id: 54, name: "Smack Kids + Batata Smile", description: "Opção especial para os pequenos: pão brioche, frango crocante por fora e macio por dentro, acompanhado de 150 g de batatas smile.", priceCents: 3290, category: "Lanches", image: "/lanche-kids.jpeg", featured: true },
+  { id: 55, name: "Smack Fresh", description: "Crocância e frescor no mesmo lanche: frango crocante em tirinhas, alface roxa, tomate fresco, cebola roxa, queijo e molho da sua escolha.", priceCents: 3990, category: "Lanches", image: "/lanche-fresh.jpeg", featured: true },
+  { id: 56, name: "Smack Power", description: "Lanche monstro: frango crocante em tirinhas, fatias de bacon super crocante, queijo cheddar derretido e cebola caramelizada.", priceCents: 4990, category: "Lanches", image: "/lanche-power.jpeg", featured: true },
 ];
 
 export const formatMoney = (cents: number) =>

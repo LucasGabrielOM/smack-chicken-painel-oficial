@@ -17,6 +17,46 @@ type NewOrder = {
 };
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const codeParam = searchParams.get("code")?.trim();
+  const phoneParam = searchParams.get("phone")?.trim();
+
+  // Public customer order tracking by order code or phone
+  if (codeParam || phoneParam) {
+    const cleanCode = codeParam ? (codeParam.startsWith("#") ? codeParam : `#${codeParam}`) : null;
+    const cleanPhone = phoneParam ? phoneParam.replace(/\D/g, "") : null;
+
+    let whereClause = "";
+    const params: string[] = [];
+    if (cleanCode && cleanPhone) {
+      params.push(cleanCode, `%${cleanPhone}%`);
+      whereClause = `(o.code = $1 OR o.notes LIKE $2)`;
+    } else if (cleanCode) {
+      params.push(cleanCode);
+      whereClause = `o.code = $1`;
+    } else if (cleanPhone) {
+      params.push(`%${cleanPhone}%`);
+      whereClause = `o.notes LIKE $1`;
+    }
+
+    const result = await query(
+      `SELECT o.id, o.code, o.customer_name AS "customerName", o.status,
+              o.payment_method AS "paymentMethod", o.cash_received_cents AS "cashReceivedCents",
+              o.total_cents AS "totalCents", o.discount_cents AS "discountCents", o.split_count AS "splitCount",
+              o.channel, o.notes, o.created_at AS "createdAt",
+              o.ready_at AS "readyAt", o.completed_at AS "completedAt",
+              COALESCE(json_agg(json_build_object(
+                'id', oi.id, 'productId', oi.product_id, 'name', oi.product_name,
+                'quantity', oi.quantity, 'unitPriceCents', oi.unit_price_cents
+              ) ORDER BY oi.id) FILTER (WHERE oi.id IS NOT NULL), '[]') AS items
+       FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id
+       WHERE ${whereClause}
+       GROUP BY o.id ORDER BY o.created_at DESC LIMIT 5`,
+      params
+    );
+    return NextResponse.json({ orders: result.rows });
+  }
+
   const auth = await requireUser(request);
   if (auth.response) return auth.response;
   const result = await query(
@@ -37,9 +77,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser(request);
-  if (auth.response) return auth.response;
-  const body = await request.json() as NewOrder;
+  const body = (await request.json()) as NewOrder;
+  const isOnlinePublic = body.channel === "SITE_ONLINE";
+
+  if (!isOnlinePublic) {
+    const auth = await requireUser(request);
+    if (auth.response) return auth.response;
+  }
+
   if (!body.customerName?.trim() || !body.paymentMethod || !body.items?.length) {
     return NextResponse.json({ error: "Cliente, pagamento e itens são obrigatórios" }, { status: 400 });
   }
