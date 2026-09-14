@@ -42,6 +42,11 @@ function statusLabel(s: Order["status"]) {
   const map = { preparing: "Em Preparo", ready: "Pronto / Em Rota", completed: "Entregue", cancelled: "Cancelado" };
   return map[s] || s;
 }
+
+function fmtCode(code: string) {
+  if (!code) return "";
+  return code.startsWith("#") ? code : `#${code}`;
+}
 // SVG Icons
 const IcoOrders = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>);
 const IcoQueue = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>);
@@ -214,7 +219,7 @@ export default function OnlineOrderManager() {
   const printOrder = (order: Order) => {
     const w = paperWidth === 58 ? 32 : 48;
     const sep = "-".repeat(w);
-    const lines = ["SMACK CHICKEN", `Pedido #${order.code}`, sep,
+    const lines = ["SMACK CHICKEN", `Pedido ${fmtCode(order.code)}`, sep,
       `Cliente: ${order.customerName}`, `Horario: ${fmtTime(order.createdAt)}`, `Canal: ${order.channel}`, sep,
       ...order.items.flatMap((i) => [`${i.quantity}x ${i.name}`, `   ${formatMoney(i.unitPriceCents * i.quantity)}`]),
       sep, ...(order.discountCents ? [`Desconto: -${formatMoney(order.discountCents)}`] : []),
@@ -353,7 +358,7 @@ function OrderCard({ order, accentColor, onSelect, onMove }: {
     <div className="ocard" onClick={() => onSelect(order)}>
       <div className="ocard-bar" style={{ background:accentColor }} />
       <div className="ocard-top">
-        <span className="ocard-code">#{order.code}</span>
+        <span className="ocard-code">{fmtCode(order.code)}</span>
         <span className="ocard-elapsed"><IcoClock /> {elapsed(order.createdAt)}</span>
       </div>
       <div className="ocard-customer">{order.customerName}</div>
@@ -420,7 +425,7 @@ function ExpRow({ order, nextLabel, nextStatus, onSelect, onMove }: {
   return (
     <div className="exp-row" onClick={() => onSelect(order)}>
       <div className="exp-row-top">
-        <span className="exp-row-code">#{order.code}</span>
+        <span className="exp-row-code">{fmtCode(order.code)}</span>
         <span className="exp-row-time"><IcoClock /> {elapsed(order.createdAt)}</span>
       </div>
       <div className="exp-row-customer">{order.customerName} — {formatMoney(order.totalCents)}</div>
@@ -598,7 +603,7 @@ function OrderDetailModal({ order, onClose, onMove, onPrint }: {
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div>
-            <div className="modal-title">Pedido #{order.code}</div>
+            <div className="modal-title">Pedido {fmtCode(order.code)}</div>
             <div style={{ marginTop:4 }}>
               <span className="sbadge" style={{ background:`${statusColor}18`, color:statusColor, borderColor:`${statusColor}40` }}>
                 <Dot color={statusColor} />{statusLabel(order.status)}
