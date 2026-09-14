@@ -197,13 +197,26 @@ export default function OnlineOrderManager() {
     return () => clearInterval(interval);
   }, [loadOrders]);
 
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+
   const updateOrderStatus = async (order: Order, newStatus: Order["status"]) => {
+    if (updatingOrderId === order.id) return;
+    if (order.status === newStatus) return;
+
+    if (newStatus === "cancelled") {
+      const confirmCancel = window.confirm(`Deseja realmente cancelar o pedido ${order.code} de ${order.customerName}?`);
+      if (!confirmCancel) return;
+    }
+
+    setUpdatingOrderId(order.id);
     try {
       await api(`/api/orders/${order.id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
       notify(`Pedido ${order.code} — ${statusLabel(newStatus)}`);
       await loadOrders();
     } catch (err) {
       notify(err instanceof Error ? err.message : "Falha ao atualizar pedido");
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 

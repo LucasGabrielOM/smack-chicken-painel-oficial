@@ -29,6 +29,11 @@ export type StoredOrder = {
 declare global {
   var __smackOrders: StoredOrder[] | undefined;
   var __smackOrderSeq: number | undefined;
+  var __smackNotificationHistory: Map<string, number> | undefined;
+}
+
+if (!globalThis.__smackNotificationHistory) {
+  globalThis.__smackNotificationHistory = new Map<string, number>();
 }
 
 function getInitialOrders(): StoredOrder[] {
@@ -280,6 +285,8 @@ export async function updateOrderStatus(
 
   if (!order) return null;
 
+  const isStatusChanging = Boolean(patch.status && patch.status !== order.status);
+
   if (patch.customerName?.trim()) {
     order.customerName = patch.customerName.trim();
   }
@@ -298,29 +305,39 @@ export async function updateOrderStatus(
       order.completedAt = new Date().toISOString();
     }
 
-    // Try to trigger Evolution API WhatsApp notification if phone exists
-    if (order.notes) {
-      try {
-        const phoneMatch = order.notes.match(/(?:Tel:|\b55\d{10,11}|\b\d{10,11}\b)/i);
-        if (phoneMatch) {
-          const phone = phoneMatch[0].replace(/\D/g, "");
-          if (phone.length >= 10) {
-            const { sendEvolutionText } = await import("./evolution");
-            let msg = "";
-            if (patch.status === "preparing") {
-              msg = `🍗 *Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* entrou em preparo na cozinha!`;
-            } else if (patch.status === "ready") {
-              msg = `🛵 *Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* ficou pronto e já saiu para entrega/retirada!`;
-            } else if (patch.status === "completed") {
-              msg = `🎉 *Smack Chicken*: Seu pedido *${order.code}* foi entregue! Agradecemos a preferência e bom apetite! 🍗✨`;
-            } else if (patch.status === "cancelled") {
-              msg = `⚠️ *Smack Chicken*: Seu pedido *${order.code}* foi cancelado. Se tiver dúvidas, fale conosco.`;
+    // Dispara notificacao por WhatsApp APENAS se o status mudou e sem disparos repetidos
+    if (order.notes && isStatusChanging) {
+      const dedupeKey = `${order.code || order.id}:${patch.status}`;
+      const history = globalThis.__smackNotificationHistory!;
+      const lastSent = history.get(dedupeKey) || 0;
+      const now = Date.now();
+
+      // Bloqueia envios duplicados no intervalo de 30 segundos
+      if (now - lastSent > 30000) {
+        history.set(dedupeKey, now);
+
+        try {
+          const phoneMatch = order.notes.match(/(?:Tel:|\b55\d{10,11}|\b\d{10,11}\b)/i);
+          if (phoneMatch) {
+            const phone = phoneMatch[0].replace(/\D/g, "");
+            if (phone.length >= 10) {
+              const { sendEvolutionText } = await import("./evolution");
+              let msg = "";
+              if (patch.status === "preparing") {
+                msg = `🍗 *Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* entrou em preparo na cozinha!`;
+              } else if (patch.status === "ready") {
+                msg = `🛵 *Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* ficou pronto e já saiu para entrega/retirada!`;
+              } else if (patch.status === "completed") {
+                msg = `🎉 *Smack Chicken*: Seu pedido *${order.code}* foi entregue! Agradecemos a preferência e bom apetite! 🍗✨`;
+              } else if (patch.status === "cancelled") {
+                msg = `⚠️ *Smack Chicken*: Seu pedido *${order.code}* foi cancelado. Se tiver dúvidas, fale conosco.`;
+              }
+              if (msg) await sendEvolutionText(phone, msg).catch(() => {});
             }
-            if (msg) await sendEvolutionText(phone, msg).catch(() => {});
           }
+        } catch (e) {
+          console.warn("Falha ao enviar WhatsApp:", e);
         }
-      } catch (e) {
-        console.warn("Falha ao enviar WhatsApp:", e);
       }
     }
   }

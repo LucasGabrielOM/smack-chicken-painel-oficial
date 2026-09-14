@@ -2086,13 +2086,14 @@ export default function OnlineOrderingSystem() {
                   const isPreparing = ord.status === "preparing";
                   const isReady = ord.status === "ready";
                   const isCompleted = ord.status === "completed";
+                  const isCancelled = ord.status === "cancelled";
 
                   return (
                     <div
                       key={ord.id}
                       style={{
                         background: "#FAF7F2",
-                        border: "1px solid #E6DFD6",
+                        border: isCancelled ? "1.5px solid #FCA5A5" : "1px solid #E6DFD6",
                         borderRadius: 16,
                         padding: 18,
                         marginBottom: 16,
@@ -2100,36 +2101,95 @@ export default function OnlineOrderingSystem() {
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                         <div>
-                          <div style={{ fontSize: 16, fontWeight: 900, color: "#1B1715" }}>Pedido {ord.code}</div>
-                          <div style={{ fontSize: 12, color: "#706965" }}>Cliente: {ord.customerName}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 16, fontWeight: 900, color: "#1B1715" }}>Pedido {ord.code}</span>
+                            {isCancelled ? (
+                              <span style={{ background: "#FEE2E2", color: "#9B1C1C", border: "1px solid #FCA5A5", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 99 }}>
+                                CANCELADO
+                              </span>
+                            ) : isCompleted ? (
+                              <span style={{ background: "#EBF8F1", color: "#138C56", border: "1px solid #C4EDD6", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 99 }}>
+                                ENTREGUE
+                              </span>
+                            ) : isReady ? (
+                              <span style={{ background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 99 }}>
+                                PRONTO / SAIU
+                              </span>
+                            ) : (
+                              <span style={{ background: "#FEF3C7", color: "#B45309", border: "1px solid #FDE68A", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 99 }}>
+                                EM PREPARO
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#706965", marginTop: 2 }}>Cliente: {ord.customerName}</div>
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: "#B70922" }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: isCancelled ? "#9C918D" : "#B70922", textDecoration: isCancelled ? "line-through" : "none" }}>
                           {formatMoney(ord.totalCents)}
                         </div>
                       </div>
 
-                      {/* STEPPER VISUAL */}
-                      <div className="sc-stepper">
-                        <div className={`sc-step ${true ? "done" : ""}`}>
-                          <div className="sc-step-circle">✓</div>
-                          <div className="sc-step-label">Recebido</div>
+                      {/* BLOCO DE CANCELADO OU STEPPER VISUAL */}
+                      {isCancelled ? (
+                        <div
+                          style={{
+                            background: "#FFF5F5",
+                            border: "1.5px solid #FCA5A5",
+                            borderRadius: 14,
+                            padding: "16px 18px",
+                            margin: "18px 0",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 14,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: "50%",
+                              background: "#9B1C1C",
+                              color: "#FFFFFF",
+                              display: "grid",
+                              placeItems: "center",
+                              fontWeight: 900,
+                              fontSize: 18,
+                              flexShrink: 0,
+                            }}
+                          >
+                            ✕
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 15, fontWeight: 900, color: "#9B1C1C", marginBottom: 4 }}>
+                              Pedido Cancelado
+                            </div>
+                            <div style={{ fontSize: 13, color: "#7F1D1D", lineHeight: 1.5 }}>
+                              Este pedido foi cancelado e não entrará em preparo na cozinha. Se você não solicitou este cancelamento ou tiver qualquer dúvida sobre reembolso, fale diretamente conosco pelo WhatsApp.
+                            </div>
+                          </div>
                         </div>
+                      ) : (
+                        <div className="sc-stepper">
+                          <div className={`sc-step ${true ? "done" : ""}`}>
+                            <div className="sc-step-circle">✓</div>
+                            <div className="sc-step-label">Recebido</div>
+                          </div>
 
-                        <div className={`sc-step ${isPreparing ? "active" : isReady || isCompleted ? "done" : ""}`}>
-                          <div className="sc-step-circle">{isReady || isCompleted ? "✓" : "2"}</div>
-                          <div className="sc-step-label">Em Preparo</div>
-                        </div>
+                          <div className={`sc-step ${isPreparing ? "active" : isReady || isCompleted ? "done" : ""}`}>
+                            <div className="sc-step-circle">{isReady || isCompleted ? "✓" : "2"}</div>
+                            <div className="sc-step-label">Em Preparo</div>
+                          </div>
 
-                        <div className={`sc-step ${isReady ? "active" : isCompleted ? "done" : ""}`}>
-                          <div className="sc-step-circle">{isCompleted ? "✓" : "3"}</div>
-                          <div className="sc-step-label">Saiu / Pronto</div>
-                        </div>
+                          <div className={`sc-step ${isReady ? "active" : isCompleted ? "done" : ""}`}>
+                            <div className="sc-step-circle">{isCompleted ? "✓" : "3"}</div>
+                            <div className="sc-step-label">Saiu / Pronto</div>
+                          </div>
 
-                        <div className={`sc-step ${isCompleted ? "done" : ""}`}>
-                          <div className="sc-step-circle">{isCompleted ? "✓" : "4"}</div>
-                          <div className="sc-step-label">Entregue</div>
+                          <div className={`sc-step ${isCompleted ? "done" : ""}`}>
+                            <div className="sc-step-circle">{isCompleted ? "✓" : "4"}</div>
+                            <div className="sc-step-label">Entregue</div>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* ITENS DO PEDIDO */}
                       <div style={{ borderTop: "1px solid #E6DFD6", paddingTop: 12, marginTop: 12 }}>
@@ -2144,13 +2204,19 @@ export default function OnlineOrderingSystem() {
 
                       {/* CONTATO WHATSAPP DA LOJA */}
                       <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid #E6DFD6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: 12, color: "#706965" }}>Dúvidas sobre o pedido?</span>
+                        <span style={{ fontSize: 12, color: "#706965" }}>
+                          {isCancelled ? "Dúvidas sobre o cancelamento?" : "Dúvidas sobre o pedido?"}
+                        </span>
                         <a
-                          href={`https://wa.me/5548988589088?text=${encodeURIComponent(`Olá, gostaria de saber sobre meu pedido ${ord.code}`)}`}
+                          href={`https://wa.me/5548988589088?text=${encodeURIComponent(
+                            isCancelled
+                              ? `Olá, gostaria de informações sobre o cancelamento do meu pedido ${ord.code}`
+                              : `Olá, gostaria de saber sobre meu pedido ${ord.code}`
+                          )}`}
                           target="_blank"
                           rel="noreferrer"
                           style={{
-                            background: "#138C56",
+                            background: isCancelled ? "#9B1C1C" : "#138C56",
                             color: "#FFFFFF",
                             textDecoration: "none",
                             fontSize: 12,
@@ -2162,7 +2228,8 @@ export default function OnlineOrderingSystem() {
                             gap: 6,
                           }}
                         >
-                          Falar no WhatsApp
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+                          <span>Falar no WhatsApp</span>
                         </a>
                       </div>
                     </div>
