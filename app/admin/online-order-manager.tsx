@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoney, catalog } from "../../lib/catalog";
 
-type View = "orders" | "expedicao" | "cardapio" | "relatorios" | "avaliacoes" | "settings";
+type View = "orders" | "expedicao" | "cardapio" | "relatorios" | "settings";
 
 type OrderItem = { id: string; productId: string; name: string; quantity: number; unitPriceCents: number };
 
@@ -230,12 +230,11 @@ export default function OnlineOrderManager() {
     { id: "expedicao",  label: "Expedicao",      Icon: IcoQueue    },
     { id: "cardapio",   label: "Cardapio",       Icon: IcoMenu     },
     { id: "relatorios", label: "Relatorios",     Icon: IcoChart    },
-    { id: "avaliacoes", label: "Avaliacoes",     Icon: IcoStar     },
     { id: "settings",   label: "Configuracoes",  Icon: IcoSettings },
   ];
   const viewLabels: Record<View, string> = {
     orders: "Pedidos", expedicao: "Expedicao", cardapio: "Cardapio",
-    relatorios: "Relatorios", avaliacoes: "Avaliacoes", settings: "Configuracoes"
+    relatorios: "Relatorios", settings: "Configuracoes"
   };
 
   return (
@@ -299,7 +298,6 @@ export default function OnlineOrderManager() {
             )}
             {view === "cardapio" && <CardapioView notify={notify} />}
             {view === "relatorios" && <RelatoriosView orders={orders} completedOrders={completedOrders} />}
-            {view === "avaliacoes" && <AvaliacoesView />}
             {view === "settings" && <SettingsView paperWidth={paperWidth} setPaperWidth={setPaperWidth} notify={notify} />}
           </main>
         </div>
@@ -540,41 +538,6 @@ function RelatoriosView({ orders, completedOrders }: { orders: Order[]; complete
           ))}
         </div>
       </div>
-    </>
-  );
-}
-
-/* AVALIACOES */
-function AvaliacoesView() {
-  const reviews = [
-    { id:1, author:"Gabriel S.", stars:5, date:"Hoje, 13h22", text:"Pedido chegou rapido, frango muito crocante! Ja e meu favorito." },
-    { id:2, author:"Mariana L.", stars:4, date:"Hoje, 11h05", text:"Muito bom, so achei que demorou um pouquinho. A qualidade compensa." },
-    { id:3, author:"Rafael P.", stars:5, date:"Ontem, 19h48", text:"Melhor frango da cidade, sem duvida. Voltarei sempre!" },
-    { id:4, author:"Camila R.", stars:3, date:"Ontem, 14h30", text:"Estava gostoso, mas faltou molho que pedi nas observacoes." },
-  ];
-  const avg = reviews.reduce((s, r) => s + r.stars, 0) / reviews.length;
-  return (
-    <>
-      <div className="sec-header">
-        <span className="sec-title">Avaliacoes dos Clientes</span>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:22, fontWeight:800 }}>{avg.toFixed(1)}</span>
-          <span style={{ color:"#ffc814", fontSize:18 }}>{"★".repeat(Math.round(avg))}</span>
-          <span style={{ fontSize:12, color:"#9c918d" }}>{reviews.length} avaliacoes</span>
-        </div>
-      </div>
-      {reviews.map((r) => (
-        <div key={r.id} className="rcard">
-          <div className="rcard-header">
-            <span className="rcard-author">{r.author}</span>
-            <span className="rcard-date">{r.date}</span>
-          </div>
-          <div style={{ display:"flex", gap:2, marginBottom:8 }}>
-            {[1,2,3,4,5].map((s) => <span key={s} style={{ color:s <= r.stars ? "#ffc814" : "#e6dfd6", fontSize:16 }}>★</span>)}
-          </div>
-          <div style={{ fontSize:13, color:"#4a4340", lineHeight:1.5 }}>{r.text}</div>
-        </div>
-      ))}
     </>
   );
 }
