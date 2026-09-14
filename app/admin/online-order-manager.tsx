@@ -59,11 +59,126 @@ const IcoSearch = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="n
 const IcoClose = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>);
 const IcoArrow = () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>);
 const IcoClock = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
-const IcoPrint = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>);
+const IcoWhatsApp = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+);
+const IcoAlert = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+);
+const IcoPrint = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+);
+
+type ParsedDetails = {
+  phone: string | null;
+  phoneFormatted: string | null;
+  deliveryType: string | null;
+  address: string | null;
+  paymentInfo: string | null;
+  orderKitchenNotes: string | null;
+  allKitchenNotes: string[];
+};
+
+function parseOrderDetails(order: Order): ParsedDetails {
+  const notes = order.notes || "";
+  const parts = notes.split("|").map((p) => p.trim()).filter(Boolean);
+
+  let phone: string | null = null;
+  let deliveryType: string | null = null;
+  let address: string | null = null;
+  let paymentInfo: string | null = null;
+  let orderKitchenNotes: string | null = null;
+  const otherParts: string[] = [];
+
+  for (const part of parts) {
+    if (/^whatsapp:\s*/i.test(part)) {
+      phone = part.replace(/^whatsapp:\s*/i, "").trim();
+    } else if (/^modalidade:\s*/i.test(part)) {
+      deliveryType = part.replace(/^modalidade:\s*/i, "").trim();
+    } else if (/^endereço:\s*/i.test(part) || /^endereco:\s*/i.test(part)) {
+      address = part.replace(/^endere[cç]o:\s*/i, "").trim();
+    } else if (/^pagamento:\s*/i.test(part)) {
+      paymentInfo = part.replace(/^pagamento:\s*/i, "").trim();
+    } else if (/^observa[cç][aã]o:\s*/i.test(part) || /^obs:\s*/i.test(part)) {
+      orderKitchenNotes = part.replace(/^(observa[cç][aã]o|obs):\s*/i, "").trim();
+    } else if (/^levar troco de:\s*/i.test(part)) {
+      paymentInfo = paymentInfo ? `${paymentInfo} (${part})` : part;
+    } else {
+      otherParts.push(part);
+    }
+  }
+
+  if (!orderKitchenNotes && otherParts.length > 0) {
+    orderKitchenNotes = otherParts.join(" | ");
+  }
+
+  const allKitchenNotes: string[] = [];
+  if (orderKitchenNotes) {
+    allKitchenNotes.push(orderKitchenNotes);
+  }
+
+  for (const it of order.items) {
+    const match = it.name.match(/(?:Obs|Observação|Observacao):\s*([^\]|]+)/i);
+    if (match && match[1]) {
+      const base = it.name.replace(/\s*\[.*\]$/, "").trim();
+      allKitchenNotes.push(`${it.quantity}x ${base}: ${match[1].trim()}`);
+    }
+  }
+
+  let phoneFormatted: string | null = null;
+  if (phone) {
+    const raw = phone.replace(/\D/g, "");
+    if (raw.length === 11) {
+      phoneFormatted = `(${raw.slice(0, 2)}) ${raw.slice(2, 7)}-${raw.slice(7)}`;
+    } else if (raw.length === 10) {
+      phoneFormatted = `(${raw.slice(0, 2)}) ${raw.slice(2, 6)}-${raw.slice(6)}`;
+    } else {
+      phoneFormatted = phone;
+    }
+  }
+
+  return {
+    phone,
+    phoneFormatted,
+    deliveryType,
+    address,
+    paymentInfo,
+    orderKitchenNotes,
+    allKitchenNotes,
+  };
+}
+
+function parseItemName(fullName: string) {
+  const match = fullName.match(/^(.*?)\s*\[(.*)\]$/);
+  if (!match) {
+    return { title: fullName, customs: [], itemObs: null };
+  }
+  const title = match[1].trim();
+  const rawParts = match[2].split("|").map((p) => p.trim()).filter(Boolean);
+  const customs: string[] = [];
+  let itemObs: string | null = null;
+
+  for (const p of rawParts) {
+    if (/^(?:obs|observa[cç][aã]o):\s*/i.test(p)) {
+      itemObs = p.replace(/^(?:obs|observa[cç][aã]o):\s*/i, "").trim();
+    } else {
+      customs.push(p);
+    }
+  }
+
+  return { title, customs, itemObs };
+}
+
 const Dot = ({ color }: { color: string }) => (<span style={{ display:"inline-block", width:8, height:8, borderRadius:"50%", background:color, flexShrink:0 }} />);
 
 const ADMIN_CSS = `
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.kitchen-alert{background:#fef2f2;border:1.5px solid #f87171;border-radius:8px;padding:12px 14px;margin:14px 0;display:flex;align-items:flex-start;gap:10px}
+.kitchen-alert-title{font-size:11px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.kitchen-alert-text{font-size:13.5px;font-weight:700;color:#b91c1c;line-height:1.4}
+.obs-pill{display:inline-flex;align-items:center;gap:4px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700}
+.whatsapp-btn{display:inline-flex;align-items:center;gap:5px;background:#138c56;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer;transition:background .15s}
+.whatsapp-btn:hover{background:#0f6e43}
 .adm-shell{display:flex;height:100vh;overflow:hidden;background:#f1ede8;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#1b1715}
 .adm-sidebar{width:220px;flex-shrink:0;background:#1d1917;display:flex;flex-direction:column;border-right:1px solid #2c2624}
 .adm-sidebar-logo{padding:18px 18px 14px;border-bottom:1px solid #2c2624;display:flex;flex-direction:column;align-items:flex-start}
@@ -232,14 +347,45 @@ export default function OnlineOrderManager() {
   const printOrder = (order: Order) => {
     const w = paperWidth === 58 ? 32 : 48;
     const sep = "-".repeat(w);
-    const lines = ["SMACK CHICKEN", `Pedido ${fmtCode(order.code)}`, sep,
-      `Cliente: ${order.customerName}`, `Horario: ${fmtTime(order.createdAt)}`, `Canal: ${order.channel}`, sep,
-      ...order.items.flatMap((i) => [`${i.quantity}x ${i.name}`, `   ${formatMoney(i.unitPriceCents * i.quantity)}`]),
-      sep, ...(order.discountCents ? [`Desconto: -${formatMoney(order.discountCents)}`] : []),
-      `TOTAL: ${formatMoney(order.totalCents)}`, `Pagamento: ${order.paymentMethod}`,
-      ...(order.notes ? [sep, `Obs: ${order.notes}`] : []), sep];
+    const parsed = parseOrderDetails(order);
+    const lines = [
+      "SMACK CHICKEN",
+      `Pedido ${fmtCode(order.code)}`,
+      sep,
+      `Cliente: ${order.customerName}`,
+      ...(parsed.phoneFormatted ? [`WhatsApp: ${parsed.phoneFormatted}`] : parsed.phone ? [`WhatsApp: ${parsed.phone}`] : []),
+      `Horario: ${fmtTime(order.createdAt)}`,
+      `Canal: ${order.channel}`,
+      ...(parsed.deliveryType ? [`Modalidade: ${parsed.deliveryType}`] : []),
+      ...(parsed.address ? [`Endereco: ${parsed.address}`] : []),
+      sep,
+      ...(parsed.allKitchenNotes.length > 0
+        ? [
+            "*** ATENCAO COZINHA ***",
+            ...parsed.allKitchenNotes.map((n) => `* ${n}`),
+            sep,
+          ]
+        : []),
+      "ITENS:",
+      ...order.items.flatMap((i) => {
+        const { title, customs, itemObs } = parseItemName(i.name);
+        const itemLines = [`${i.quantity}x ${title} - ${formatMoney(i.unitPriceCents * i.quantity)}`];
+        if (customs.length) itemLines.push(`   Adicionais: ${customs.join(", ")}`);
+        if (itemObs) itemLines.push(`   * OBS: ${itemObs}`);
+        return itemLines;
+      }),
+      sep,
+      ...(order.discountCents ? [`Desconto: -${formatMoney(order.discountCents)}`] : []),
+      `TOTAL: ${formatMoney(order.totalCents)}`,
+      `Pagamento: ${parsed.paymentInfo || order.paymentMethod}`,
+      sep,
+    ];
     const win = window.open("", "_blank", "width=400,height=600");
-    if (win) { win.document.write(`<pre style="font-family:monospace;font-size:13px;padding:12px">${lines.join("\n")}</pre>`); win.document.close(); win.print(); }
+    if (win) {
+      win.document.write(`<pre style="font-family:monospace;font-size:13px;padding:12px;white-space:pre-wrap;word-break:break-word;">${lines.join("\n")}</pre>`);
+      win.document.close();
+      win.print();
+    }
   };
 
   type NavDef = { id: View; label: string; Icon: () => React.ReactElement };
@@ -364,7 +510,11 @@ function OrderCard({ order, accentColor, onSelect, onMove }: {
   order: Order; accentColor: string;
   onSelect: (o: Order) => void; onMove: (o: Order, s: Order["status"]) => void;
 }) {
-  const preview = order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ");
+  const parsed = parseOrderDetails(order);
+  const preview = order.items.map((i) => {
+    const { title } = parseItemName(i.name);
+    return `${i.quantity}x ${title}`;
+  }).join(", ");
   const next = order.status === "preparing" ? "ready" : order.status === "ready" ? "completed" : null;
   const nextLbl = order.status === "preparing" ? "Pronto" : order.status === "ready" ? "Entregue" : null;
   return (
@@ -376,9 +526,19 @@ function OrderCard({ order, accentColor, onSelect, onMove }: {
       </div>
       <div className="ocard-customer">{order.customerName}</div>
       <div className="ocard-preview">{preview}</div>
+      {parsed.allKitchenNotes.length > 0 && (
+        <div style={{ marginTop:6, display:"flex", flexWrap:"wrap", gap:4 }}>
+          <span className="obs-pill" title={parsed.allKitchenNotes.join(" | ")}>
+            <IcoAlert /> {parsed.allKitchenNotes[0]}
+            {parsed.allKitchenNotes.length > 1 ? ` (+${parsed.allKitchenNotes.length - 1})` : ""}
+          </span>
+        </div>
+      )}
       <div className="ocard-footer">
         <span className="ocard-total">{formatMoney(order.totalCents)}</span>
-        <span className="ocard-channel">{order.channel}</span>
+        <span className="ocard-channel">
+          {parsed.deliveryType ? (parsed.deliveryType.toLowerCase().includes("entrega") ? "Entrega" : "Retirada") : order.channel}
+        </span>
       </div>
       {next && (
         <div style={{ marginTop:10, display:"flex", gap:6 }} onClick={(e) => e.stopPropagation()}>
@@ -435,13 +595,24 @@ function ExpRow({ order, nextLabel, nextStatus, onSelect, onMove }: {
   order: Order; nextLabel: string; nextStatus: Order["status"];
   onSelect: (o: Order) => void; onMove: (o: Order, s: Order["status"]) => void;
 }) {
+  const parsed = parseOrderDetails(order);
   return (
     <div className="exp-row" onClick={() => onSelect(order)}>
       <div className="exp-row-top">
         <span className="exp-row-code">{fmtCode(order.code)}</span>
         <span className="exp-row-time"><IcoClock /> {elapsed(order.createdAt)}</span>
       </div>
-      <div className="exp-row-customer">{order.customerName} — {formatMoney(order.totalCents)}</div>
+      <div className="exp-row-customer">
+        {order.customerName} — {formatMoney(order.totalCents)}
+        {parsed.deliveryType ? ` · ${parsed.deliveryType.toLowerCase().includes("entrega") ? "Entrega" : "Retirada"}` : ""}
+      </div>
+      {parsed.allKitchenNotes.length > 0 && (
+        <div style={{ marginTop:4, display:"flex", flexWrap:"wrap", gap:4 }}>
+          <span className="obs-pill">
+            <IcoAlert /> {parsed.allKitchenNotes.join(" | ")}
+          </span>
+        </div>
+      )}
       <div className="exp-row-actions" onClick={(e) => e.stopPropagation()}>
         <button className="btn-primary btn-sm" onClick={() => onMove(order, nextStatus)}>
           {nextLabel} <IcoArrow />
@@ -637,6 +808,16 @@ function OrderDetailModal({ order, onClose, onMove, onPrint }: {
   const statusColor = STATUS_COLOR[order.status];
   const next = order.status === "preparing" ? "ready" : order.status === "ready" ? "completed" : null;
   const nextLbl = order.status === "preparing" ? "Marcar como Pronto" : order.status === "ready" ? "Confirmar Entrega" : null;
+
+  const parsed = parseOrderDetails(order);
+  const cleanPhone = parsed.phone ? parsed.phone.replace(/\D/g, "") : null;
+  const whatsappNumber = cleanPhone ? (cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone) : null;
+  const whatsappLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+        `Olá ${order.customerName}, tudo bem? Falamos do Smack Chicken referente ao seu pedido ${fmtCode(order.code)}!`
+      )}`
+    : null;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -651,36 +832,142 @@ function OrderDetailModal({ order, onClose, onMove, onPrint }: {
           </div>
           <button className="adm-icon-btn" onClick={onClose}><IcoClose /></button>
         </div>
+
         <div className="modal-body">
-          <div className="msect-title">Informacoes do Pedido</div>
-          <div className="mrow"><span className="mrow-label">Cliente</span><span className="mrow-val">{order.customerName}</span></div>
-          <div className="mrow"><span className="mrow-label">Canal</span><span className="mrow-val">{order.channel}</span></div>
-          <div className="mrow"><span className="mrow-label">Horario</span><span className="mrow-val">{fmtTime(order.createdAt)} · {elapsed(order.createdAt)} atras</span></div>
-          <div className="mrow"><span className="mrow-label">Pagamento</span><span className="mrow-val">{order.paymentMethod}</span></div>
-          {order.cashReceivedCents !== undefined && order.cashReceivedCents > 0 && (
-            <div className="mrow"><span className="mrow-label">Troco para</span><span className="mrow-val">{formatMoney(order.cashReceivedCents)}</span></div>
-          )}
-          <div style={{ margin:"18px 0 12px" }} className="msect-title">Itens</div>
-          {order.items.map((item) => (
-            <div key={item.id} className="mrow">
-              <span className="mrow-label">{item.quantity}x {item.name}</span>
-              <span className="mrow-val">{formatMoney(item.unitPriceCents * item.quantity)}</span>
+          {/* ALERTA CRÍTICO PARA COZINHA */}
+          {parsed.allKitchenNotes.length > 0 && (
+            <div className="kitchen-alert">
+              <div style={{ color:"#b91c1c", marginTop:2, flexShrink:0 }}>
+                <IcoAlert />
+              </div>
+              <div style={{ flex:1 }}>
+                <div className="kitchen-alert-title">Atenção Cozinha — Observações</div>
+                {parsed.allKitchenNotes.map((note, idx) => (
+                  <div key={idx} className="kitchen-alert-text">
+                    {parsed.allKitchenNotes.length > 1 ? `• ${note}` : note}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-          {order.discountCents ? (
-            <div className="mrow"><span className="mrow-label">Desconto</span><span className="mrow-val" style={{ color:"#17a35c" }}>-{formatMoney(order.discountCents)}</span></div>
-          ) : null}
-          <div className="mrow" style={{ borderTop:"2px solid #e6dfd6", paddingTop:10, marginTop:2 }}>
-            <span style={{ fontWeight:700, fontSize:14 }}>Total</span>
-            <span style={{ fontWeight:800, fontSize:16 }}>{formatMoney(order.totalCents)}</span>
-          </div>
-          {order.notes && (
-            <>
-              <div style={{ margin:"18px 0 8px" }} className="msect-title">Observacoes</div>
-              <div style={{ background:"#fdf8ed", border:"1px solid #f0e8c8", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#5a4a20" }}>{order.notes}</div>
-            </>
           )}
+
+          {/* DADOS DO CLIENTE & CONTATO */}
+          <div className="msect-title">Cliente & Contato</div>
+          <div className="mrow">
+            <span className="mrow-label">Cliente</span>
+            <span className="mrow-val" style={{ fontWeight:700 }}>{order.customerName}</span>
+          </div>
+          {parsed.phone && (
+            <div className="mrow">
+              <span className="mrow-label">WhatsApp</span>
+              <span className="mrow-val" style={{ display:"inline-flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontWeight:600 }}>{parsed.phoneFormatted || parsed.phone}</span>
+                {whatsappLink && (
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="whatsapp-btn"
+                    title="Conversar no WhatsApp"
+                  >
+                    <IcoWhatsApp /> Conversar
+                  </a>
+                )}
+              </span>
+            </div>
+          )}
+          <div className="mrow">
+            <span className="mrow-label">Canal / Origem</span>
+            <span className="mrow-val">{order.channel}</span>
+          </div>
+          <div className="mrow">
+            <span className="mrow-label">Horário</span>
+            <span className="mrow-val">{fmtTime(order.createdAt)} · {elapsed(order.createdAt)} atrás</span>
+          </div>
+
+          {/* ENTREGA & PAGAMENTO */}
+          <div style={{ margin:"18px 0 8px" }} className="msect-title">Entrega & Pagamento</div>
+          <div className="mrow">
+            <span className="mrow-label">Modalidade</span>
+            <span className="mrow-val" style={{ fontWeight:700, color:parsed.deliveryType?.toLowerCase().includes("entrega") ? "#b70922" : "#1b1715" }}>
+              {parsed.deliveryType || "Balcão / Não especificado"}
+            </span>
+          </div>
+          {parsed.address ? (
+            <div className="mrow" style={{ alignItems:"flex-start" }}>
+              <span className="mrow-label">Endereço</span>
+              <span className="mrow-val" style={{ textAlign:"right", maxWidth:280, fontWeight:600, color:"#1b1715", wordBreak:"break-word" }}>
+                {parsed.address}
+              </span>
+            </div>
+          ) : parsed.deliveryType?.toLowerCase().includes("retirada") ? (
+            <div className="mrow">
+              <span className="mrow-label">Endereço</span>
+              <span className="mrow-val" style={{ color:"#7a6f69" }}>Retirada no Balcão da Loja</span>
+            </div>
+          ) : null}
+          <div className="mrow">
+            <span className="mrow-label">Forma de Pagamento</span>
+            <span className="mrow-val" style={{ fontWeight:600 }}>{parsed.paymentInfo || order.paymentMethod}</span>
+          </div>
+          {order.cashReceivedCents !== undefined && order.cashReceivedCents > 0 && (
+            <div className="mrow">
+              <span className="mrow-label">Troco para</span>
+              <span className="mrow-val" style={{ fontWeight:700, color:"#138c56" }}>{formatMoney(order.cashReceivedCents)}</span>
+            </div>
+          )}
+
+          {/* ITENS DETALHADOS */}
+          <div style={{ margin:"18px 0 8px" }} className="msect-title">Itens do Pedido</div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {order.items.map((item) => {
+              const { title, customs, itemObs } = parseItemName(item.name);
+              return (
+                <div key={item.id} style={{ background:"#faf7f2", border:"1px solid #e6dfd6", borderRadius:8, padding:"10px 12px" }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+                    <span style={{ fontWeight:700, fontSize:13.5, color:"#1b1715" }}>
+                      {item.quantity}x {title}
+                    </span>
+                    <span style={{ fontWeight:700, fontSize:13.5, color:"#1b1715", flexShrink:0 }}>
+                      {formatMoney(item.unitPriceCents * item.quantity)}
+                    </span>
+                  </div>
+                  {customs.length > 0 && (
+                    <div style={{ fontSize:12, color:"#7a6f69", marginTop:4, display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {customs.map((c, i) => (
+                        <span key={i} style={{ background:"#ede7df", padding:"1px 6px", borderRadius:4 }}>
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {itemObs && (
+                    <div style={{ marginTop:6 }}>
+                      <span className="obs-pill">
+                        <IcoAlert /> Obs: {itemObs}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* TOTAIS */}
+          <div style={{ marginTop:14 }}>
+            {order.discountCents ? (
+              <div className="mrow">
+                <span className="mrow-label">Desconto</span>
+                <span className="mrow-val" style={{ color:"#17a35c" }}>-{formatMoney(order.discountCents)}</span>
+              </div>
+            ) : null}
+            <div className="mrow" style={{ borderTop:"2px solid #e6dfd6", paddingTop:10, marginTop:4 }}>
+              <span style={{ fontWeight:700, fontSize:14 }}>Total do Pedido</span>
+              <span style={{ fontWeight:800, fontSize:17, color:"#b70922" }}>{formatMoney(order.totalCents)}</span>
+            </div>
+          </div>
         </div>
+
         <div className="modal-actions">
           {next && (
             <button className="btn-primary" onClick={() => { onMove(order, next); onClose(); }}>
@@ -691,7 +978,9 @@ function OrderDetailModal({ order, onClose, onMove, onPrint }: {
             <IcoPrint /> Imprimir
           </button>
           {order.status === "preparing" && (
-            <button className="btn-danger" onClick={() => { onMove(order, "cancelled"); onClose(); }}>Cancelar Pedido</button>
+            <button className="btn-danger" onClick={() => { onMove(order, "cancelled"); onClose(); }}>
+              Cancelar Pedido
+            </button>
           )}
         </div>
       </div>

@@ -102,6 +102,7 @@ export default function OnlineOrderingSystem() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryType, setDeliveryType] = useState<"ENTREGA" | "RETIRADA">("ENTREGA");
+  const [orderCustomerNotes, setOrderCustomerNotes] = useState("");
 
   // ViaCEP Address State
   const [cep, setCep] = useState("");
@@ -323,6 +324,7 @@ export default function OnlineOrderingSystem() {
       `Endereço: ${fullAddressText}`,
       `Pagamento: ${paymentDescription}`,
       ...(needsChange && changeValueCents > 0 ? [`Levar troco de: ${formatMoney(changeValueCents)}`] : []),
+      ...(orderCustomerNotes.trim() ? [`Observação: ${orderCustomerNotes.trim()}`] : []),
     ].join(" | ");
 
     setSubmitting(true);
@@ -361,6 +363,7 @@ export default function OnlineOrderingSystem() {
       const newCode = data.order?.code || "#1042";
       setLatestOrderCode(newCode);
       setCart([]);
+      setOrderCustomerNotes("");
       setShowCartModal(false);
       setTrackQuery(newCode);
       setShowTrackingModal(true);
@@ -2062,6 +2065,18 @@ export default function OnlineOrderingSystem() {
                       )}
                     </div>
                   )}
+
+                  {/* OBSERVAÇÕES GERAIS DO PEDIDO */}
+                  <div className="sc-field" style={{ marginTop: 20 }}>
+                    <label>Observações do Pedido (Opcional)</label>
+                    <textarea
+                      className="sc-input"
+                      style={{ height: 68, resize: "none", paddingTop: 8, fontSize: 13 }}
+                      placeholder="Ex: Não colocar cebola / Campainha não funciona / Chamar no portão..."
+                      value={orderCustomerNotes}
+                      onChange={(e) => setOrderCustomerNotes(e.target.value)}
+                    />
+                  </div>
 
                   {/* RESUMO DE VALORES */}
                   <div style={{ borderTop: "1px solid #E6DFD6", paddingTop: 16, marginTop: 20 }}>
