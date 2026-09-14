@@ -45,8 +45,36 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   if (!fields.length) return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
 
   values.push(id);
-  const result = await query(`UPDATE orders SET ${fields.join(",")} WHERE id=$${n} RETURNING id`, values);
+  const result = await query(`UPDATE orders SET ${fields.join(",")} WHERE id=$${n} RETURNING id, code, customer_name AS "customerName", status, notes`, values);
   if (!result.rowCount) return NextResponse.json({ error: "Pedido não encontrado" }, { status: 404 });
+
+  const updatedOrder = result.rows[0] as { id: string; code: string; customerName: string; status: string; notes: string | null };
+  if (body.status && updatedOrder.notes) {
+    try {
+      const notesStr = String(updatedOrder.notes);
+      const phoneMatch = notesStr.match(/(?:Tel:|\b55\d{10,11}|\b\d{10,11}\b)/i);
+      if (phoneMatch) {
+        const phone = phoneMatch[0].replace(/\D/g, "");
+        if (phone.length >= 10) {
+          const { sendEvolutionText } = await import("../../../../lib/evolution");
+          let msg = "";
+          if (body.status === "preparing") {
+            msg = `🍗 *Smack Chicken*: Olá, ${updatedOrder.customerName}! Seu pedido *${updatedOrder.code}* entrou em preparo na cozinha!`;
+          } else if (body.status === "ready") {
+            msg = `🛵 *Smack Chicken*: Olá, ${updatedOrder.customerName}! Seu pedido *${updatedOrder.code}* ficou pronto e já saiu para entrega/retirada!`;
+          } else if (body.status === "completed") {
+            msg = `🎉 *Smack Chicken*: Seu pedido *${updatedOrder.code}* foi entregue! Agradecemos a preferência e bom apetite! 🍗✨`;
+          } else if (body.status === "cancelled") {
+            msg = `⚠️ *Smack Chicken*: Seu pedido *${updatedOrder.code}* foi cancelado. Se tiver dúvidas, fale conosco.`;
+          }
+          if (msg) await sendEvolutionText(phone, msg).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn("Falha ao enviar notificacao WhatsApp:", e);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 
