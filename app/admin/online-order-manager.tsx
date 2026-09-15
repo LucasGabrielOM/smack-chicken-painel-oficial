@@ -194,14 +194,27 @@ const ADMIN_CSS = `
 .whatsapp-btn{display:inline-flex;align-items:center;gap:5px;background:#138c56;color:#fff;border:none;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;text-decoration:none;cursor:pointer;transition:background .15s}
 .whatsapp-btn:hover{background:#0f6e43}
 .adm-shell{display:flex;height:100vh;overflow:hidden;background:#f1ede8;font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#1b1715}
-.adm-sidebar{width:220px;flex-shrink:0;background:#1d1917;display:flex;flex-direction:column;border-right:1px solid #2c2624}
+.adm-sidebar{width:220px;flex-shrink:0;background:#1d1917;display:flex;flex-direction:column;border-right:1px solid #2c2624;position:relative;transition:width .22s cubic-bezier(0.4, 0, 0.2, 1)}
+.adm-sidebar.collapsed{width:68px}
+.adm-collapse-btn{position:absolute;right:-11px;top:22px;background:#2c2624;border:1px solid #4a403d;color:#e8e0db;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:20;transition:all .15s}
+.adm-collapse-btn:hover{background:#b70922;color:#fff;border-color:#b70922}
 .adm-sidebar-logo{padding:18px 18px 14px;border-bottom:1px solid #2c2624;display:flex;flex-direction:column;align-items:flex-start}
+.adm-sidebar.collapsed .adm-sidebar-logo{padding:16px 12px;align-items:center}
+.adm-sidebar.collapsed .adm-logo-full{display:none}
+.adm-sidebar.collapsed .adm-logo-mini{display:block}
+.adm-logo-mini{display:none;width:32px;height:32px;object-fit:contain}
+.adm-sidebar.collapsed .adm-logo-subtitle{display:none}
 .adm-sidebar-nav{flex:1;padding:10px 0;overflow-y:auto}
 .adm-nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:#9c918d;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:background .15s,color .15s}
+.adm-sidebar.collapsed .adm-nav-item{justify-content:center;padding:12px 0}
+.adm-sidebar.collapsed .adm-nav-item span{display:none}
 .adm-nav-item:hover{background:#2c2624;color:#e8e0db}
 .adm-nav-item.active{background:#b70922;color:#fff}
 .adm-sidebar-footer{padding:14px 18px;border-top:1px solid #2c2624}
+.adm-sidebar.collapsed .adm-sidebar-footer{padding:12px 8px;display:flex;justify-content:center}
 .adm-store-btn{display:flex;align-items:center;justify-content:space-between;gap:8px;background:none;border:1px solid #2c2624;border-radius:8px;padding:8px 12px;width:100%;cursor:pointer;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;transition:all .2s}
+.adm-sidebar.collapsed .adm-store-btn{padding:8px;justify-content:center;width:auto}
+.adm-sidebar.collapsed .adm-store-label{display:none}
 .adm-store-btn.open{border-color:#17a35c;color:#17a35c}
 .adm-store-btn.closed{border-color:#9b1c1c;color:#e05c5c}
 .adm-sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -255,13 +268,14 @@ const ADMIN_CSS = `
 .exp-row-time{font-size:11px;color:#9c918d;display:flex;align-items:center;gap:4px}
 .exp-row-customer{font-size:12px;color:#706965;margin-bottom:6px}
 .exp-row-actions{display:flex;gap:6px}
-.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.ccard{background:#fff;border-radius:10px;border:1px solid #e6dfd6;padding:14px;display:flex;align-items:flex-start;gap:12px}
-.ccard-img{width:52px;height:52px;border-radius:7px;object-fit:cover;background:#f1ede8;flex-shrink:0}
-.ccard-info{flex:1;min-width:0}
-.ccard-name{font-size:13px;font-weight:700;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ccard-price{font-size:12px;color:#706965;margin-bottom:8px}
-.ccard-toggle{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600}
+.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.ccard{background:#fff;border-radius:10px;border:1px solid #e6dfd6;padding:14px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:box-shadow .15s}
+.ccard:hover{box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.ccard-img{width:62px;height:62px;border-radius:8px;object-fit:cover;background:#f1ede8;flex-shrink:0;border:1px solid #f1ede8}
+.ccard-info{flex:1;min-width:0;display:flex;flex-direction:column}
+.ccard-name{font-size:13.5px;font-weight:700;margin-bottom:3px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+.ccard-price{font-size:12.5px;font-weight:700;color:#b70922;margin-bottom:6px}
+.ccard-toggle{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600}
 .tpill{width:32px;height:17px;border-radius:99px;position:relative;cursor:pointer;border:none;transition:background .2s;flex-shrink:0}
 .tpill-thumb{width:13px;height:13px;border-radius:50%;background:#fff;position:absolute;top:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 .metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
@@ -305,7 +319,7 @@ const ADMIN_CSS = `
 .cat-pill{border:1px solid #e6dfd6;background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:#706965;cursor:pointer;white-space:nowrap;transition:all .15s}
 .cat-pill.active{background:#b70922;color:#fff;border-color:#b70922}
 .ccard-desc{font-size:11px;color:#9c918d;margin-bottom:8px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.ccard-actions{display:flex;align-items:center;gap:6px;margin-top:10px}
+.ccard-actions{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:8px;flex-wrap:wrap}
 .form-grp{margin-bottom:14px}
 .form-lbl{display:block;font-size:12px;font-weight:700;color:#1b1715;margin-bottom:5px}
 .form-ctrl{width:100%;border:1px solid #e6dfd6;background:#faf8f6;border-radius:7px;padding:8px 10px;font-size:13px;color:#1b1715;outline:none;box-sizing:border-box}
@@ -328,6 +342,24 @@ export default function OnlineOrderManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [paperWidth, setPaperWidth] = useState<58 | 80>(58);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("smack_adm_sidebar_collapsed");
+      if (saved === "true") setSidebarCollapsed(true);
+    } catch {}
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("smack_adm_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const notify = (msg: string) => { setToast(msg); window.setTimeout(() => setToast(""), 4000); };
 
@@ -422,44 +454,82 @@ export default function OnlineOrderManager() {
 
   type NavDef = { id: View; label: string; Icon: () => React.ReactElement };
   const navItems: NavDef[] = [
-    { id: "orders",     label: "Pedidos",       Icon: IcoOrders   },
-    { id: "expedicao",  label: "Expedicao",      Icon: IcoQueue    },
-    { id: "cardapio",   label: "Cardapio",       Icon: IcoMenu     },
-    { id: "delivery",   label: "Taxas Entrega", Icon: IcoTruck    },
-    { id: "relatorios", label: "Relatorios",     Icon: IcoChart    },
-    { id: "settings",   label: "Configuracoes",  Icon: IcoSettings },
+    { id: "orders",     label: "Pedidos",          Icon: IcoOrders   },
+    { id: "expedicao",  label: "Expedição",        Icon: IcoQueue    },
+    { id: "cardapio",   label: "Cardápio",         Icon: IcoMenu     },
+    { id: "delivery",   label: "Taxas de Entrega", Icon: IcoTruck    },
+    { id: "relatorios", label: "Relatórios",       Icon: IcoChart    },
+    { id: "settings",   label: "Configurações",    Icon: IcoSettings },
   ];
   const viewLabels: Record<View, string> = {
-    orders: "Pedidos", expedicao: "Expedicao", cardapio: "Cardapio & Produtos",
-    delivery: "Taxas de Entrega & Raio", relatorios: "Relatorios", settings: "Configuracoes"
+    orders: "Pedidos", expedicao: "Expedição", cardapio: "Cardápio & Produtos",
+    delivery: "Taxas de Entrega & Raio", relatorios: "Relatórios", settings: "Configurações"
   };
 
   return (
     <>
       <style>{ADMIN_CSS}</style>
       <div className="adm-shell">
-        <aside className="adm-sidebar">
+        <aside className={`adm-sidebar${sidebarCollapsed ? " collapsed" : ""}`}>
+          <button
+            type="button"
+            className="adm-collapse-btn"
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: sidebarCollapsed ? "rotate(180deg)" : "none", transition: "transform .2s" }}
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
           <div className="adm-sidebar-logo">
             <img
+              className="adm-logo-full"
               src="/smack-chicken-logo-white.png"
               alt="Smack Chicken"
               style={{ height: "26px", width: "auto", objectFit: "contain" }}
               onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-logo.png"; }}
             />
-            <span style={{ fontSize: "9px", color: "#ffc814", letterSpacing: "2px", textTransform: "uppercase", fontWeight: 700, marginTop: "4px" }}>
+            <img
+              className="adm-logo-mini"
+              src="/smack-chicken-mark.png"
+              alt="Smack Chicken"
+              style={{ height: "30px", width: "30px", objectFit: "contain" }}
+            />
+            <span className="adm-logo-subtitle" style={{ fontSize: "9px", color: "#ffc814", letterSpacing: "2px", textTransform: "uppercase", fontWeight: 700, marginTop: "4px" }}>
               Gestão Online
             </span>
           </div>
           <nav className="adm-sidebar-nav">
             {navItems.map(({ id, label, Icon }) => (
-              <button key={id} className={`adm-nav-item${view === id ? " active" : ""}`} onClick={() => setView(id)}>
+              <button
+                key={id}
+                type="button"
+                className={`adm-nav-item${view === id ? " active" : ""}`}
+                onClick={() => setView(id)}
+                title={sidebarCollapsed ? label : undefined}
+              >
                 <Icon /><span>{label}</span>
               </button>
             ))}
           </nav>
           <div className="adm-sidebar-footer">
-            <button className={`adm-store-btn${storeOpen ? " open" : " closed"}`}
-              onClick={() => { setStoreOpen((v) => !v); notify(storeOpen ? "Loja fechada para novos pedidos." : "Loja aberta para pedidos."); }}>
+            <button
+              type="button"
+              className={`adm-store-btn${storeOpen ? " open" : " closed"}`}
+              onClick={() => { setStoreOpen((v) => !v); notify(storeOpen ? "Loja fechada para novos pedidos." : "Loja aberta para pedidos."); }}
+              title={sidebarCollapsed ? (storeOpen ? "Loja Aberta" : "Loja Fechada") : undefined}
+            >
               <span className={`adm-sdot${storeOpen ? " open" : " closed"}`} />
               <span className="adm-store-label">{storeOpen ? "Loja Aberta" : "Loja Fechada"}</span>
             </button>
@@ -1113,12 +1183,17 @@ function CardapioView({
                 onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-mark.png"; }}
               />
               <div className="ccard-info">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                  <div className="ccard-name" title={product.name}>{product.name}</div>
-                  <span style={{ fontSize: 10, background: "#f1ede8", padding: "1px 6px", borderRadius: 4, color: "#706965", fontWeight: 700 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, background: "#f1ede8", padding: "2px 7px", borderRadius: 4, color: "#706965", fontWeight: 700, letterSpacing: "0.3px", textTransform: "uppercase" }}>
                     {product.category}
                   </span>
+                  {product.featured && (
+                    <span style={{ fontSize: 10, background: "#fef2f2", color: "#b70922", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                      ★ Destaque
+                    </span>
+                  )}
                 </div>
+                <div className="ccard-name" title={product.name}>{product.name}</div>
                 <div className="ccard-price">{formatMoney(product.priceCents)}</div>
                 {product.description && (
                   <div className="ccard-desc" title={product.description}>{product.description}</div>
@@ -1126,10 +1201,11 @@ function CardapioView({
                 <div className="ccard-actions">
                   <div className="ccard-toggle">
                     <button
+                      type="button"
                       className="tpill"
                       style={{ background: off ? "#e6dfd6" : "#17a35c" }}
                       onClick={() => handleToggleActive(product.id)}
-                      title={off ? "Clique para ativar" : "Clique para pausar"}
+                      title={off ? "Clique para ativar no cardápio" : "Clique para pausar"}
                     >
                       <div className="tpill-thumb" style={{ left: off ? 2 : 17 }} />
                     </button>
@@ -1138,21 +1214,24 @@ function CardapioView({
                     </span>
                   </div>
 
-                  <button
-                    className="btn-secondary btn-sm"
-                    style={{ marginLeft: "auto" }}
-                    onClick={() => setEditingProduct(product)}
-                    title="Editar produto"
-                  >
-                    <IcoEdit /> Editar
-                  </button>
-                  <button
-                    className="btn-danger btn-sm"
-                    onClick={() => handleDeleteProduct(product.id, product.name)}
-                    title="Excluir produto"
-                  >
-                    <IcoTrash />
-                  </button>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={() => setEditingProduct(product)}
+                      title="Editar dados e foto"
+                    >
+                      <IcoEdit /> Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger btn-sm"
+                      onClick={() => handleDeleteProduct(product.id, product.name)}
+                      title="Excluir produto"
+                    >
+                      <IcoTrash />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

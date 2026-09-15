@@ -33,6 +33,35 @@ const RECOMMENDED_UPSELLS = [
   { id: "upsell-guarana-lata", name: "Guaraná Pureza / Antarctica 350ml", priceCents: 600 },
 ];
 
+// Opções de acompanhamentos inclusos nos combos (grátis)
+const COMBO_SIDE_OPTIONS = [
+  { id: "side-batata-250", name: "Batata Frita 250g (M) Crocante", desc: "Batata palito crocante e sequinha" },
+  { id: "side-polenta-250", name: "Polenta Frita 250g (M) Crocante", desc: "Polenta frita artesanal super crocante" },
+];
+
+const COMBO_KIDS_SIDE_OPTIONS = [
+  { id: "side-batata-smile", name: "Batata Smile 150g Divertida", desc: "Batatas smile crocantes por fora e macias por dentro" },
+  { id: "side-batata-frita-150", name: "Batata Frita 150g Tradicional", desc: "Batata palito crocante" },
+];
+
+// Opções de refrigerantes / bebidas inclusas nos combos (grátis)
+const COMBO_DRINK_CANS = [
+  { id: "refri-coca-lata", name: "Coca-Cola Lata 350ml Gelada" },
+  { id: "refri-coca-zero-lata", name: "Coca-Cola Zero Lata 350ml Gelada" },
+  { id: "refri-guarana-lata", name: "Guaraná Antarctica Lata 350ml Gelada" },
+  { id: "refri-guarana-zero-lata", name: "Guaraná Antarctica Zero Lata 350ml Gelada" },
+  { id: "refri-sprite-lata", name: "Sprite Lata 350ml Gelada" },
+  { id: "refri-agua-sem-gas", name: "Água Mineral sem Gás 500ml" },
+];
+
+const COMBO_DRINK_BOTTLES = [
+  { id: "refri-coca-15l", name: "Coca-Cola Original 1,5L Gelada" },
+  { id: "refri-coca-zero-15l", name: "Coca-Cola Zero 1,5L Gelada" },
+  { id: "refri-guarana-1l", name: "Guaraná Pureza 1L Gelada" },
+  { id: "refri-coca-lata", name: "Coca-Cola Lata 350ml Gelada" },
+  { id: "refri-guarana-lata", name: "Guaraná Antarctica Lata 350ml Gelada" },
+];
+
 type CustomizationItem = {
   id: string;
   name: string;
@@ -43,6 +72,8 @@ type CartItem = {
   cartItemId: string;
   product: CatalogProduct;
   quantity: number;
+  selectedSide?: string;
+  selectedDrink?: string;
   freeSauces: string[];
   extraSauces: CustomizationItem[];
   upsells: CustomizationItem[];
@@ -123,6 +154,8 @@ export default function OnlineOrderingSystem() {
   // Modal de Detalhes do Produto (iFood Style)
   const [activeProduct, setActiveProduct] = useState<CatalogProduct | null>(null);
   const [detailQuantity, setDetailQuantity] = useState(1);
+  const [selectedComboSide, setSelectedComboSide] = useState<string>("");
+  const [selectedComboDrink, setSelectedComboDrink] = useState<string>("");
   const [selectedFreeSauces, setSelectedFreeSauces] = useState<string[]>([]);
   const [selectedExtraSauces, setSelectedExtraSauces] = useState<CustomizationItem[]>([]);
   const [selectedUpsells, setSelectedUpsells] = useState<CustomizationItem[]>([]);
@@ -167,6 +200,39 @@ export default function OnlineOrderingSystem() {
     return cat === "baldes" || cat === "combos" || cat === "lanches";
   }, [activeProduct]);
 
+  // Identifica se o produto é um combo com acompanhamento e bebida inclusos
+  const isComboProduct = useMemo(() => {
+    if (!activeProduct) return false;
+    const cat = (activeProduct.category || "").toLowerCase();
+    const txt = ((activeProduct.name || "") + " " + (activeProduct.description || "")).toLowerCase();
+    return (
+      cat === "combos" ||
+      txt.includes("combo") ||
+      txt.includes("acompanhamento") ||
+      txt.includes("batata frita ou polenta") ||
+      txt.includes("refrigerante")
+    );
+  }, [activeProduct]);
+
+  const isKidsProduct = useMemo(() => {
+    if (!activeProduct) return false;
+    return (activeProduct.name || "").toLowerCase().includes("kids");
+  }, [activeProduct]);
+
+  const isLargeDrinkCombo = useMemo(() => {
+    if (!activeProduct) return false;
+    const txt = ((activeProduct.name || "") + " " + (activeProduct.description || "")).toLowerCase();
+    return txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa") || txt.includes("família") || txt.includes("galera");
+  }, [activeProduct]);
+
+  const currentComboSideOptions = useMemo(() => {
+    return isKidsProduct ? COMBO_KIDS_SIDE_OPTIONS : COMBO_SIDE_OPTIONS;
+  }, [isKidsProduct]);
+
+  const currentComboDrinkOptions = useMemo(() => {
+    return isLargeDrinkCombo ? COMBO_DRINK_BOTTLES : COMBO_DRINK_CANS;
+  }, [isLargeDrinkCombo]);
+
   // Abertura do Modal de Detalhes
   const openProductDetail = (product: CatalogProduct) => {
     setActiveProduct(product);
@@ -175,6 +241,19 @@ export default function OnlineOrderingSystem() {
     setSelectedExtraSauces([]);
     setSelectedUpsells([]);
     setDetailNotes("");
+
+    const cat = (product.category || "").toLowerCase();
+    const txt = ((product.name || "") + " " + (product.description || "")).toLowerCase();
+    const isCombo = cat === "combos" || txt.includes("combo") || txt.includes("acompanhamento") || txt.includes("refrigerante");
+    if (isCombo) {
+      const isKids = (product.name || "").toLowerCase().includes("kids");
+      setSelectedComboSide(isKids ? COMBO_KIDS_SIDE_OPTIONS[0].name : COMBO_SIDE_OPTIONS[0].name);
+      const isLarge = txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa") || txt.includes("família") || txt.includes("galera");
+      setSelectedComboDrink(isLarge ? COMBO_DRINK_BOTTLES[0].name : COMBO_DRINK_CANS[0].name);
+    } else {
+      setSelectedComboSide("");
+      setSelectedComboDrink("");
+    }
   };
 
   const closeProductDetail = () => {
@@ -224,12 +303,25 @@ export default function OnlineOrderingSystem() {
   const handleAddConfiguredItemToCart = () => {
     if (!activeProduct) return;
 
+    if (isComboProduct) {
+      if (!selectedComboSide) {
+        alert("Por favor, selecione seu acompanhamento grátis (Batata ou Polenta).");
+        return;
+      }
+      if (!selectedComboDrink) {
+        alert("Por favor, selecione sua bebida/refrigerante grátis.");
+        return;
+      }
+    }
+
     const extrasKey = [
+      selectedComboSide ? `side:${selectedComboSide}` : "",
+      selectedComboDrink ? `drink:${selectedComboDrink}` : "",
       ...selectedFreeSauces.map((s) => `free:${s}`),
       ...selectedExtraSauces.map((s) => `extra:${s.id}`),
       ...selectedUpsells.map((u) => `up:${u.id}`),
       detailNotes.trim(),
-    ].join("|");
+    ].filter(Boolean).join("|");
 
     const cartItemId = `${activeProduct.id}-${extrasKey}`;
 
@@ -249,6 +341,8 @@ export default function OnlineOrderingSystem() {
           cartItemId,
           product: activeProduct,
           quantity: detailQuantity,
+          selectedSide: selectedComboSide || undefined,
+          selectedDrink: selectedComboDrink || undefined,
           freeSauces: selectedFreeSauces,
           extraSauces: selectedExtraSauces,
           upsells: selectedUpsells,
@@ -398,9 +492,11 @@ export default function OnlineOrderingSystem() {
           notes: orderNotes,
           items: cart.map((item) => {
             const customParts = [
+              item.selectedSide ? `Acompanhamento: ${item.selectedSide}` : null,
+              item.selectedDrink ? `Bebida: ${item.selectedDrink}` : null,
               item.freeSauces.length > 0 ? `Molhos Grátis: ${item.freeSauces.join(", ")}` : null,
               item.extraSauces.length > 0 ? `Molhos Extras: ${item.extraSauces.map((s) => s.name).join(", ")}` : null,
-              item.upsells.length > 0 ? `Acompanhamentos: ${item.upsells.map((u) => u.name).join(", ")}` : null,
+              item.upsells.length > 0 ? `Adicionais: ${item.upsells.map((u) => u.name).join(", ")}` : null,
               item.notes ? `Obs: ${item.notes}` : null,
             ].filter(Boolean);
 
@@ -984,12 +1080,24 @@ export default function OnlineOrderingSystem() {
           display: flex;
           flex-direction: column;
           position: relative;
+          scrollbar-width: thin;
+          scrollbar-color: #D3C9BC transparent;
+        }
+        .sc-modal-card::-webkit-scrollbar {
+          width: 6px;
+        }
+        .sc-modal-card::-webkit-scrollbar-thumb {
+          background-color: #D3C9BC;
+          border-radius: 6px;
+        }
+        .sc-modal-card::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         /* Modal do Produto (iFood Style) */
         .sc-prod-modal-img {
           width: 100%;
-          height: 220px;
+          height: 230px;
           object-fit: cover;
           background: #F5F2EC;
         }
@@ -997,19 +1105,27 @@ export default function OnlineOrderingSystem() {
           position: absolute;
           top: 14px;
           right: 14px;
-          background: #FFFFFF;
-          border: 1px solid #E6DFD6;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          border: 1px solid rgba(230, 223, 214, 0.9);
           color: #1B1715;
-          width: 34px;
-          height: 34px;
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           display: grid;
           place-items: center;
           cursor: pointer;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10;
+          transition: transform 0.15s, background 0.15s;
+        }
+        .sc-prod-modal-close:hover {
+          transform: scale(1.08);
+          background: #FFFFFF;
         }
         .sc-prod-modal-body {
-          padding: 24px;
+          padding: 24px 24px 32px;
           flex: 1;
         }
         .sc-prod-title {
@@ -1584,6 +1700,102 @@ export default function OnlineOrderingSystem() {
                 <div className="sc-prod-price">{formatMoney(activeProduct.priceCents)}</div>
                 <p className="sc-prod-desc">{activeProduct.description}</p>
 
+                {/* ESCOLHA DE ACOMPANHAMENTO E BEBIDA PARA COMBOS */}
+                {isComboProduct && (
+                  <div style={{ marginBottom: 24 }}>
+                    {/* ACOMPANHAMENTO */}
+                    <div style={{ marginBottom: 20 }}>
+                      <div className="sc-section-label">
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          🍟 Escolha o seu Acompanhamento
+                        </span>
+                        <span style={{ fontSize: 11, background: "#E6F4EA", color: "#137333", padding: "2px 8px", borderRadius: 12, fontWeight: 800 }}>
+                          1 Incluso (Grátis)
+                        </span>
+                      </div>
+                      <div className="sc-section-sub">Selecione uma opção inclusa no seu combo sem custo adicional:</div>
+
+                      <div className="sc-opt-list" style={{ marginBottom: 0 }}>
+                        {currentComboSideOptions.map((side) => {
+                          const isSelected = selectedComboSide === side.name;
+                          return (
+                            <div
+                              key={side.id}
+                              className={`sc-opt-row ${isSelected ? "selected" : ""}`}
+                              onClick={() => setSelectedComboSide(side.name)}
+                              style={{
+                                borderColor: isSelected ? "#B70922" : "#E6DFD6",
+                                background: isSelected ? "#FFF9FA" : "#FAF7F2",
+                              }}
+                            >
+                              <div className="sc-opt-left">
+                                <input
+                                  type="radio"
+                                  name="combo-side-choice"
+                                  checked={isSelected}
+                                  onChange={() => setSelectedComboSide(side.name)}
+                                  style={{ accentColor: "#B70922", width: 18, height: 18 }}
+                                />
+                                <div>
+                                  <div style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? "#B70922" : "#1B1715" }}>
+                                    {side.name}
+                                  </div>
+                                  {side.desc && <div style={{ fontSize: 11, color: "#706965", marginTop: 2 }}>{side.desc}</div>}
+                                </div>
+                              </div>
+                              <span className="sc-opt-price" style={{ color: "#138C56", fontWeight: 800 }}>Grátis</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* REFRIGERANTE / BEBIDA */}
+                    <div>
+                      <div className="sc-section-label">
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          🥤 Escolha a Bebida / Refrigerante
+                        </span>
+                        <span style={{ fontSize: 11, background: "#E6F4EA", color: "#137333", padding: "2px 8px", borderRadius: 12, fontWeight: 800 }}>
+                          1 Incluso (Grátis)
+                        </span>
+                      </div>
+                      <div className="sc-section-sub">Selecione o refrigerante ou bebida gelada de sua preferência:</div>
+
+                      <div className="sc-opt-list" style={{ marginBottom: 0 }}>
+                        {currentComboDrinkOptions.map((drink) => {
+                          const isSelected = selectedComboDrink === drink.name;
+                          return (
+                            <div
+                              key={drink.id}
+                              className={`sc-opt-row ${isSelected ? "selected" : ""}`}
+                              onClick={() => setSelectedComboDrink(drink.name)}
+                              style={{
+                                borderColor: isSelected ? "#B70922" : "#E6DFD6",
+                                background: isSelected ? "#FFF9FA" : "#FAF7F2",
+                              }}
+                            >
+                              <div className="sc-opt-left">
+                                <input
+                                  type="radio"
+                                  name="combo-drink-choice"
+                                  checked={isSelected}
+                                  onChange={() => setSelectedComboDrink(drink.name)}
+                                  style={{ accentColor: "#B70922", width: 18, height: 18 }}
+                                />
+                                <span style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? "#B70922" : "#1B1715" }}>
+                                  {drink.name}
+                                </span>
+                              </div>
+                              <span className="sc-opt-price" style={{ color: "#138C56", fontWeight: 800 }}>Grátis</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* REGRA DOS 2 MOLHOS GRÁTIS */}
                 {productHasFreeSauces && (
                   <div>
@@ -1840,6 +2052,16 @@ export default function OnlineOrderingSystem() {
                               <div style={{ fontSize: 14, fontWeight: 800, color: "#1B1715" }}>
                                 {item.quantity}x {item.product.name}
                               </div>
+                              {item.selectedSide && (
+                                <div style={{ fontSize: 11, color: "#B70922", fontWeight: 700, marginTop: 2 }}>
+                                  🍟 Acompanhamento: {item.selectedSide}
+                                </div>
+                              )}
+                              {item.selectedDrink && (
+                                <div style={{ fontSize: 11, color: "#1B1715", fontWeight: 700, marginTop: 2 }}>
+                                  🥤 Bebida: {item.selectedDrink}
+                                </div>
+                              )}
                               {item.freeSauces.length > 0 && (
                                 <div style={{ fontSize: 11, color: "#138C56", fontWeight: 600, marginTop: 2 }}>
                                   Molhos grátis: {item.freeSauces.join(", ")}
