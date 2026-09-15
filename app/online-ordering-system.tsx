@@ -45,21 +45,16 @@ const COMBO_KIDS_SIDE_OPTIONS = [
 ];
 
 // Opções de refrigerantes / bebidas inclusas nos combos (grátis)
-const COMBO_DRINK_CANS = [
-  { id: "refri-coca-lata", name: "Coca-Cola Lata 350ml Gelada" },
-  { id: "refri-coca-zero-lata", name: "Coca-Cola Zero Lata 350ml Gelada" },
-  { id: "refri-guarana-lata", name: "Guaraná Antarctica Lata 350ml Gelada" },
-  { id: "refri-guarana-zero-lata", name: "Guaraná Antarctica Zero Lata 350ml Gelada" },
-  { id: "refri-sprite-lata", name: "Sprite Lata 350ml Gelada" },
-  { id: "refri-agua-sem-gas", name: "Água Mineral sem Gás 500ml" },
+const COMBO_DRINK_STANDARD = [
+  { id: "refri-coca-600", name: "Coca-Cola 600ml Gelada", desc: "Garrafa 600ml gelada" },
+  { id: "refri-pureza-1l", name: "Guaraná Pureza 1 Litro Gelado", desc: "Garrafa 1 Litro gelada tradicional de SC" },
 ];
 
 const COMBO_DRINK_BOTTLES = [
-  { id: "refri-coca-15l", name: "Coca-Cola Original 1,5L Gelada" },
-  { id: "refri-coca-zero-15l", name: "Coca-Cola Zero 1,5L Gelada" },
-  { id: "refri-guarana-1l", name: "Guaraná Pureza 1L Gelada" },
-  { id: "refri-coca-lata", name: "Coca-Cola Lata 350ml Gelada" },
-  { id: "refri-guarana-lata", name: "Guaraná Antarctica Lata 350ml Gelada" },
+  { id: "refri-coca-600", name: "Coca-Cola 600ml Gelada", desc: "Garrafa 600ml gelada" },
+  { id: "refri-pureza-1l", name: "Guaraná Pureza 1 Litro Gelado", desc: "Garrafa 1 Litro gelada tradicional de SC" },
+  { id: "refri-coca-15l", name: "Coca-Cola Original 1,5L Gelada", desc: "Garrafa 1,5L gelada" },
+  { id: "refri-coca-zero-15l", name: "Coca-Cola Zero 1,5L Gelada", desc: "Garrafa 1,5L zero açúcar gelada" },
 ];
 
 type CustomizationItem = {
@@ -222,7 +217,7 @@ export default function OnlineOrderingSystem() {
   const isLargeDrinkCombo = useMemo(() => {
     if (!activeProduct) return false;
     const txt = ((activeProduct.name || "") + " " + (activeProduct.description || "")).toLowerCase();
-    return txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa") || txt.includes("família") || txt.includes("galera");
+    return txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa");
   }, [activeProduct]);
 
   const currentComboSideOptions = useMemo(() => {
@@ -230,7 +225,7 @@ export default function OnlineOrderingSystem() {
   }, [isKidsProduct]);
 
   const currentComboDrinkOptions = useMemo(() => {
-    return isLargeDrinkCombo ? COMBO_DRINK_BOTTLES : COMBO_DRINK_CANS;
+    return isLargeDrinkCombo ? COMBO_DRINK_BOTTLES : COMBO_DRINK_STANDARD;
   }, [isLargeDrinkCombo]);
 
   // Abertura do Modal de Detalhes
@@ -248,8 +243,8 @@ export default function OnlineOrderingSystem() {
     if (isCombo) {
       const isKids = (product.name || "").toLowerCase().includes("kids");
       setSelectedComboSide(isKids ? COMBO_KIDS_SIDE_OPTIONS[0].name : COMBO_SIDE_OPTIONS[0].name);
-      const isLarge = txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa") || txt.includes("família") || txt.includes("galera");
-      setSelectedComboDrink(isLarge ? COMBO_DRINK_BOTTLES[0].name : COMBO_DRINK_CANS[0].name);
+      const isLarge = txt.includes("1,5") || txt.includes("1.5") || txt.includes("garrafa");
+      setSelectedComboDrink(isLarge ? COMBO_DRINK_BOTTLES[0].name : COMBO_DRINK_STANDARD[0].name);
     } else {
       setSelectedComboSide("");
       setSelectedComboDrink("");
@@ -1783,9 +1778,12 @@ export default function OnlineOrderingSystem() {
                                   onChange={() => setSelectedComboDrink(drink.name)}
                                   style={{ accentColor: "#B70922", width: 18, height: 18 }}
                                 />
-                                <span style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? "#B70922" : "#1B1715" }}>
-                                  {drink.name}
-                                </span>
+                                <div>
+                                  <div style={{ fontWeight: isSelected ? 800 : 700, color: isSelected ? "#B70922" : "#1B1715" }}>
+                                    {drink.name}
+                                  </div>
+                                  {drink.desc && <div style={{ fontSize: 11, color: "#706965", marginTop: 2 }}>{drink.desc}</div>}
+                                </div>
                               </div>
                               <span className="sc-opt-price" style={{ color: "#138C56", fontWeight: 800 }}>Grátis</span>
                             </div>
