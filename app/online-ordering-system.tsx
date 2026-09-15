@@ -297,7 +297,7 @@ export default function OnlineOrderingSystem() {
         if (result.city) setCityState(`${result.city} - ${result.state}`);
         setDeliveryInfo(result);
         if (!result.isWithinRadius) {
-          setCepError(result.error || "Endereço fora do raio de entrega de 5 km da loja.");
+          setCepError(result.error || `Endereço fora do raio de entrega de ${MAX_DELIVERY_RADIUS_KM} km da loja.`);
         }
       }
     } catch {
@@ -317,10 +317,10 @@ export default function OnlineOrderingSystem() {
     let fullAddressText = "Retirada no Balcão (Rua Fúlvio Aducci, 1074)";
     if (deliveryType === "ENTREGA") {
       if (!cep.trim() || cep.replace(/\D/g, "").length !== 8) {
-        return alert("Por favor, informe seu CEP para calcular a entrega e confirmar se seu endereço está dentro do raio de atendimento de 5 km.");
+        return alert(`Por favor, informe seu CEP para calcular a entrega e confirmar se seu endereço está dentro do raio de atendimento de ${MAX_DELIVERY_RADIUS_KM} km.`);
       }
       if (deliveryInfo && !deliveryInfo.isWithinRadius) {
-        return alert(`Desculpe, seu endereço está a ${deliveryInfo.distanceKm?.toFixed(1) || ""} km da loja, fora do nosso raio de entrega de 5 km. Por favor, selecione "Retirar na Loja" para concluir seu pedido!`);
+        return alert(`Desculpe, seu endereço está a ${deliveryInfo.distanceKm?.toFixed(1) || ""} km da loja, fora do nosso raio de entrega de ${MAX_DELIVERY_RADIUS_KM} km. Por favor, selecione "Retirar na Loja" para concluir seu pedido!`);
       }
       if (!street.trim()) return alert("Por favor, informe o nome da Rua para a entrega.");
       if (!number.trim()) return alert("Por favor, informe o Número da residência.");
@@ -1910,11 +1910,11 @@ export default function OnlineOrderingSystem() {
                             }}
                           >
                             <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>
-                              ⚠️ Endereço fora do raio de entrega de 5 km
+                              ⚠️ Endereço fora do raio de entrega de {MAX_DELIVERY_RADIUS_KM} km
                             </div>
                             <div style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.4 }}>
                               Seu endereço está a aproximadamente <b>{deliveryInfo.distanceKm?.toFixed(1)} km</b> da nossa loja (Rua Fúlvio Aducci, 1074 — Estreito).
-                              Nosso raio máximo de entrega é de 5 km.
+                              Nosso raio máximo de entrega é de {MAX_DELIVERY_RADIUS_KM} km.
                             </div>
                             <button
                               type="button"
@@ -2217,7 +2217,7 @@ export default function OnlineOrderingSystem() {
                       {submitting
                         ? "Enviando seu pedido..."
                         : deliveryType === "ENTREGA" && deliveryInfo?.isWithinRadius === false
-                        ? "Fora do raio de 5 km • Escolha Retirada"
+                        ? `Fora do raio de ${MAX_DELIVERY_RADIUS_KM} km • Escolha Retirada`
                         : `Confirmar Pedido • ${formatMoney(totalCents)}`}
                     </button>
                   </div>

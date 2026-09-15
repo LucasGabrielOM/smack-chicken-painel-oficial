@@ -8,7 +8,7 @@ export const STORE_COORDINATES = {
   cep: "88075-000",
 } as const;
 
-export const MAX_DELIVERY_RADIUS_KM = 5.0;
+export const MAX_DELIVERY_RADIUS_KM = 6.0;
 
 export interface DeliveryTier {
   maxKm: number;
@@ -28,6 +28,8 @@ export const DELIVERY_TIERS: DeliveryTier[] = [
   { maxKm: 4.0, timeMinutes: 52, feeCents: 899, feeFormatted: "R$ 8,99" },
   { maxKm: 4.5, timeMinutes: 54, feeCents: 999, feeFormatted: "R$ 9,99" },
   { maxKm: 5.0, timeMinutes: 55, feeCents: 1099, feeFormatted: "R$ 10,99" },
+  { maxKm: 5.5, timeMinutes: 58, feeCents: 1199, feeFormatted: "R$ 11,99" },
+  { maxKm: 6.0, timeMinutes: 60, feeCents: 1299, feeFormatted: "R$ 12,99" },
 ];
 
 /**
@@ -263,6 +265,6 @@ export async function fetchCepDeliveryInfo(rawCep: string): Promise<CepDeliveryR
     tier,
     error: isWithinRadius
       ? undefined
-      : `O endereço informado fica a cerca de ${distanceKm.toFixed(1)} km da loja, fora do nosso raio de entrega de 5 km. Escolha "Retirar na Loja".`,
+      : `O endereço informado fica a cerca de ${distanceKm.toFixed(1)} km da loja, fora do nosso raio de entrega de ${MAX_DELIVERY_RADIUS_KM.toFixed(0)} km. Escolha "Retirar na Loja".`,
   };
 }
