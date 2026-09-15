@@ -1824,10 +1824,10 @@ export default function OnlineOrderingSystem() {
               <div className="sc-feat-header">
                 <div className="sc-feat-title-wrap">
                   <div className="sc-feat-title">
-                    <span>🔥</span> Os Mais Pedidos do Estreito
+                    Os Mais Pedidos da Casa
                   </div>
                   <span className="sc-feat-sub">
-                    Os campeões de vendas da casa · Peça rápido e receba quentinho
+                    Os campeões de vendas para pedir rápido e receber quentinho
                   </span>
                 </div>
                 <div className="sc-feat-nav">
@@ -1862,7 +1862,7 @@ export default function OnlineOrderingSystem() {
                     <div className="sc-feat-img-wrap">
                       <img src={product.image || "/balde-tiras.jpeg"} alt={product.name} />
                       <span className="sc-feat-badge">
-                        {idx === 0 ? "🔥 #1 Mais Vendido" : idx === 1 ? "⭐ Favorito" : "🔥 Mais Pedido"}
+                        {idx === 0 ? "Mais Vendido" : "Destaque"}
                       </span>
                     </div>
                     <div className="sc-feat-body">
@@ -2004,7 +2004,7 @@ export default function OnlineOrderingSystem() {
                     <div style={{ marginBottom: 20 }}>
                       <div className="sc-section-label">
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          🍟 Escolha o seu Acompanhamento
+                          Escolha o seu Acompanhamento
                         </span>
                         <span style={{ fontSize: 11, background: "#E6F4EA", color: "#137333", padding: "2px 8px", borderRadius: 12, fontWeight: 800 }}>
                           1 Incluso (Grátis)
@@ -2051,7 +2051,7 @@ export default function OnlineOrderingSystem() {
                     <div>
                       <div className="sc-section-label">
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          🥤 Escolha a Bebida / Refrigerante
+                          Escolha a Bebida / Refrigerante
                         </span>
                         <span style={{ fontSize: 11, background: "#E6F4EA", color: "#137333", padding: "2px 8px", borderRadius: 12, fontWeight: 800 }}>
                           1 Incluso (Grátis)
@@ -2354,12 +2354,12 @@ export default function OnlineOrderingSystem() {
                               </div>
                               {item.selectedSide && (
                                 <div style={{ fontSize: 11, color: "#B70922", fontWeight: 700, marginTop: 2 }}>
-                                  🍟 Acompanhamento: {item.selectedSide}
+                                  Acompanhamento: {item.selectedSide}
                                 </div>
                               )}
                               {item.selectedDrink && (
                                 <div style={{ fontSize: 11, color: "#1B1715", fontWeight: 700, marginTop: 2 }}>
-                                  🥤 Bebida: {item.selectedDrink}
+                                  Bebida: {item.selectedDrink}
                                 </div>
                               )}
                               {item.freeSauces.length > 0 && (
@@ -2502,15 +2502,15 @@ export default function OnlineOrderingSystem() {
                           >
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
                               <span style={{ fontSize: 13, fontWeight: 800, color: "#166534" }}>
-                                ✅ Entrega disponível!
+                                Entrega disponível para seu endereço
                               </span>
                               <span style={{ fontSize: 13, fontWeight: 900, color: "#B70922" }}>
                                 Taxa: {deliveryInfo.tier.feeFormatted}
                               </span>
                             </div>
                             <div style={{ fontSize: 12, color: "#374151", display: "flex", gap: 14, flexWrap: "wrap", marginTop: 4 }}>
-                              <span>📍 Distância: <b>~{deliveryInfo.distanceKm?.toFixed(1)} km</b></span>
-                              <span>⏱️ Tempo estimado: <b>~{deliveryInfo.tier.timeMinutes} min</b></span>
+                              <span>Distância: <b>~{deliveryInfo.distanceKm?.toFixed(1)} km</b></span>
+                              <span>Tempo estimado: <b>~{deliveryInfo.tier.timeMinutes} min</b></span>
                             </div>
                           </div>
                         )}
@@ -2527,7 +2527,7 @@ export default function OnlineOrderingSystem() {
                             }}
                           >
                             <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>
-                              ⚠️ Endereço fora do raio de entrega de {effectiveMaxRadius} km
+                              Endereço fora do raio de entrega de {effectiveMaxRadius} km
                             </div>
                             <div style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.4 }}>
                               Seu endereço está a aproximadamente <b>{deliveryInfo.distanceKm?.toFixed(1)} km</b> da nossa loja (Rua Fúlvio Aducci, 1074 — Estreito).

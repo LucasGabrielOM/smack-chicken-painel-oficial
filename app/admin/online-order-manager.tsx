@@ -947,7 +947,7 @@ function ProductModal({
                       marginBottom: 6,
                     }}
                   >
-                    <span>{imageLoading ? "Otimizando foto..." : "📁 Escolher Foto (PC / Celular)"}</span>
+                    <span>{imageLoading ? "Otimizando foto..." : "Escolher Foto (PC / Celular)"}</span>
                     <input
                       type="file"
                       accept="image/*"
