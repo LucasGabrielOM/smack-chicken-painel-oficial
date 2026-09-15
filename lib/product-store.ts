@@ -79,11 +79,50 @@ export async function loadProductsStore(): Promise<CatalogProduct[]> {
           featured: Boolean(r.featured),
         }));
 
-        // Mesclar com o catálogo em memória caso falte algum
+        // Mesclar com o catálogo em memória garantindo integridade dos IDs e preços
         const map = new Map<number, CatalogProduct>();
         for (const item of getInitialCatalog()) map.set(item.id, item);
-        for (const item of dbItems) map.set(item.id, item);
-        const merged = Array.from(map.values());
+        for (const item of dbItems) {
+          if (item.category === "Doces" || [47, 48, 49, 50, 51].includes(item.id)) continue;
+          if (item.id === 56 && item.name.toLowerCase().includes("original")) continue;
+          if (item.id === 57 && item.name.toLowerCase().includes("power")) continue;
+          if (item.id === 58) continue;
+          map.set(item.id, item);
+        }
+        const merged = Array.from(map.values())
+          .filter((p) => p.category !== "Doces" && ![47, 48, 49, 50, 51].includes(p.id))
+          .filter((p) => !(p.id !== 53 && p.name.trim().toLowerCase() === "smack original"))
+          .filter((p) => !(p.id !== 56 && p.name.trim().toLowerCase() === "smack power"));
+
+        for (const p of merged) {
+          if (p.id === 53 || p.name.trim().toLowerCase() === "smack original") {
+            p.id = 53;
+            p.name = "Smack Original";
+            p.priceCents = 2990;
+            p.category = "Lanches";
+          } else if (p.id === 56 || p.name.trim().toLowerCase() === "smack power") {
+            p.id = 56;
+            p.name = "Smack Power";
+            p.priceCents = 4990;
+            p.category = "Lanches";
+          } else if (p.id === 54 || p.name.trim().toLowerCase().includes("smack kids")) {
+            p.id = 54;
+            p.name = "Smack Kids + Batata Smile";
+            p.priceCents = 3290;
+            p.category = "Lanches";
+          } else if (p.id === 55 || p.name.trim().toLowerCase() === "smack fresh") {
+            p.id = 55;
+            p.name = "Smack Fresh";
+            p.priceCents = 3990;
+            p.category = "Lanches";
+          } else if (p.id === 52 || p.name.trim().toLowerCase().includes("marmita")) {
+            p.id = 52;
+            p.name = "MARMITA SMACK 600g";
+            p.priceCents = 2990;
+            p.category = "Marmitas";
+          }
+        }
+
         globalThis.__smackProducts = merged;
         return merged;
       }

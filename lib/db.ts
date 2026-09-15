@@ -105,19 +105,44 @@ export async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS orders_created_at_idx ON orders(created_at DESC);
         CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
         CREATE INDEX IF NOT EXISTS finance_entry_date_idx ON finance_entries(entry_date DESC);
+
+        -- Remove foreign key de order_items para não travar atualizações de catálogo
+        ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_fkey;
+
+        -- Limpa doces excluídos do cardápio e IDs corrompidos do banco antigo
+        DELETE FROM products WHERE category = 'Doces' OR id IN (47, 48, 49, 50, 51);
+        DELETE FROM products WHERE id IN (57, 58) AND (name ILIKE 'Smack %' OR name ILIKE '%Marmita%');
+        DELETE FROM products WHERE id = 56 AND (name ILIKE '%Original%' OR price_cents != 4990);
+        DELETE FROM products WHERE id = 52 AND name ILIKE '%Fresh%';
+        DELETE FROM products WHERE id = 55 AND name ILIKE '%Smile%';
+        DELETE FROM products WHERE id IN (53, 54) AND name ILIKE '%Cebola%';
       `);
 
-      // Semente inicial: só cria a linha se ela ainda não existir. A partir daí
-      // o banco é a fonte de verdade — edições feitas na tela Cardápio não são
-      // mais sobrescritas a cada reinício do servidor.
+      // Sincroniza produtos canônicos do catálogo garantindo integridade de preços e IDs
       for (const product of catalog) {
         await db.query(
-          `INSERT INTO products (id,name,description,price_cents,category,image,featured)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)
-           ON CONFLICT (id) DO NOTHING`,
+          `INSERT INTO products (id, name, description, price_cents, category, image, active, featured)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             description = EXCLUDED.description,
+             price_cents = EXCLUDED.price_cents,
+             category = EXCLUDED.category,
+             image = EXCLUDED.image,
+             active = TRUE,
+             featured = EXCLUDED.featured`,
           [product.id, product.name, product.description, product.priceCents, product.category, product.image, Boolean(product.featured)],
         );
       }
+
+      // Garante explicitamente os valores canônicos dos lanches e marmita
+      await db.query(`
+        UPDATE products SET price_cents = 2990, name = 'Smack Original', category = 'Lanches', active = TRUE WHERE id = 53;
+        UPDATE products SET price_cents = 3290, name = 'Smack Kids + Batata Smile', category = 'Lanches', active = TRUE WHERE id = 54;
+        UPDATE products SET price_cents = 3990, name = 'Smack Fresh', category = 'Lanches', active = TRUE WHERE id = 55;
+        UPDATE products SET price_cents = 4990, name = 'Smack Power', category = 'Lanches', active = TRUE WHERE id = 56;
+        UPDATE products SET price_cents = 2990, name = 'MARMITA SMACK 600g', category = 'Marmitas', active = TRUE WHERE id = 52;
+      `);
     })().catch((error) => {
       globalThis.smackSchemaReady = undefined;
       throw error;

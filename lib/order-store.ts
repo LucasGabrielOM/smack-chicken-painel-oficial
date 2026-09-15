@@ -190,8 +190,14 @@ export async function createOrder(input: NewOrderInput): Promise<StoredOrder> {
   if (!input.paymentMethod) throw new Error("Forma de pagamento é obrigatória");
   if (!input.items || input.items.length === 0) throw new Error("Nenhum item informado");
 
-  // Lookup products in catalog for fallback prices and names
+  // Lookup products in catalog & product store for fallback prices and names
   const catalogMap = new Map(catalog.map((p) => [p.id, p]));
+  let currentProducts = catalog;
+  try {
+    const { loadProductsStore } = await import("./product-store");
+    currentProducts = await loadProductsStore();
+  } catch {}
+  const productStoreMap = new Map(currentProducts.map((p) => [p.id, p]));
 
   let itemsTotalCents = 0;
   const processedItems: StoredOrderItem[] = [];
@@ -200,14 +206,14 @@ export async function createOrder(input: NewOrderInput): Promise<StoredOrder> {
     const it = input.items[i];
     const pid = Number(it.productId);
     const qty = Math.max(1, Math.round(Number(it.quantity) || 1));
-    const catProd = catalogMap.get(pid);
+    const prod = productStoreMap.get(pid) || catalogMap.get(pid);
 
     const unitPrice =
       it.unitPriceCents !== undefined && Number(it.unitPriceCents) >= 0
         ? Math.round(Number(it.unitPriceCents))
-        : catProd?.priceCents || 0;
+        : prod?.priceCents || 0;
 
-    const itemName = it.name?.trim() || catProd?.name || `Produto #${pid}`;
+    const itemName = it.name?.trim() || prod?.name || `Produto #${pid}`;
 
     itemsTotalCents += unitPrice * qty;
 

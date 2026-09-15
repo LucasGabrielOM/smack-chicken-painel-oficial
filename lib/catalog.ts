@@ -62,6 +62,9 @@ export const catalog: CatalogProduct[] = [
   { id: 54, name: "Smack Kids + Batata Smile", description: "Opção especial para os pequenos: pão brioche, frango crocante por fora e macio por dentro, acompanhado de 150 g de batatas smile.", priceCents: 3290, category: "Lanches", image: "/lanche-kids.jpeg", featured: true },
   { id: 55, name: "Smack Fresh", description: "Crocância e frescor no mesmo lanche: frango crocante em tirinhas, alface roxa, tomate fresco, cebola roxa, queijo e molho da sua escolha.", priceCents: 3990, category: "Lanches", image: "/lanche-fresh.jpeg", featured: true },
   { id: 56, name: "Smack Power", description: "Lanche monstro: frango crocante em tirinhas, fatias de bacon super crocante, queijo cheddar derretido e cebola caramelizada.", priceCents: 4990, category: "Lanches", image: "/lanche-power.jpeg", featured: true },
+  { id: 101, name: "Combo Smack 1kg de Coxinha da Asa + Acompanhamento + refrigerante", description: "1kg de coxinhas crocantes + acompanhamento + refrigerante", priceCents: 8499, category: "Combos", image: "/combo-mesa.jpeg", featured: true },
+  { id: 102, name: "Anéis de Cebola Crocantes 250g", description: "Porção de 250 g de anéis de cebola crocantes", priceCents: 1999, category: "Porções", image: "/batata-frita.jpeg" },
+  { id: 103, name: "Anéis de Cebola Crocantes 350g", description: "Porção de 350 g de anéis de cebola crocantes", priceCents: 2499, category: "Porções", image: "/batata-frita.jpeg" },
 ];
 
 export const formatMoney = (cents: number) =>

@@ -565,7 +565,12 @@ function PointOfSale({ products, paperWidth, onCreated, notify }: { products: Pr
           notes,
           discountCents,
           splitCount: splitPeople,
-          items: cart.map((item) => ({ productId: item.id, quantity: item.quantity })),
+          items: cart.map((item) => ({
+            productId: item.id,
+            quantity: item.quantity,
+            name: item.name,
+            unitPriceCents: item.priceCents,
+          })),
         }),
       });
       const createdOrder: Order = {
@@ -1217,13 +1222,13 @@ function printOrder(order: Order, paperWidth: 58 | 80) {
     .order-code{display:block;margin:0 0 3mm;font-size:${paperWidth === 58 ? 27 : 32}px;line-height:1.1;font-weight:900;letter-spacing:1px}
     .customer{display:block;font-size:${paperWidth === 58 ? 16 : 19}px;line-height:1.25;font-weight:900;text-transform:uppercase;overflow-wrap:anywhere}
     .items-title{margin:4mm 0 1mm;padding:2mm 0;border-block:1px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 14 : 16}px;font-weight:900;letter-spacing:.5px}
-    ul{margin:0 0 4mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 9 : 11}mm 1fr;align-items:start;gap:2mm;padding:2mm 0;border-bottom:1px solid #000;font-size:${paperWidth === 58 ? 14 : 16}px;line-height:1.35}
-    li b{font-size:${paperWidth === 58 ? 15 : 17}px;font-weight:900}li strong{font-weight:900}.notes{margin:3mm 0;padding:2mm;border:1px solid #000;font-size:${paperWidth === 58 ? 12 : 14}px;line-height:1.35}
+    ul{margin:0 0 4mm;padding:0;list-style:none}li{display:grid;grid-template-columns:${paperWidth === 58 ? 8 : 10}mm 1fr auto;align-items:start;gap:2mm;padding:2mm 0;border-bottom:1px solid #000;font-size:${paperWidth === 58 ? 14 : 16}px;line-height:1.35}
+    li b{font-size:${paperWidth === 58 ? 15 : 17}px;font-weight:900}li strong{font-weight:900}li span{font-weight:900;text-align:right}.notes{margin:3mm 0;padding:2mm;border:1px solid #000;font-size:${paperWidth === 58 ? 12 : 14}px;line-height:1.35}
     .meta{margin-top:4mm;padding-top:3mm;border-top:1px dashed #000}.meta p{margin:2mm 0;font-size:${paperWidth === 58 ? 12 : 14}px}.total{display:block;margin:3mm 0;font-size:${paperWidth === 58 ? 18 : 22}px;line-height:1.2}
     .split-line{margin:3mm 0;padding:2mm;border:1px solid #000;text-align:center;font-size:${paperWidth === 58 ? 12 : 14}px;font-weight:900;line-height:1.35}
     .footer{margin-top:4mm;padding-top:2mm;border-top:1px dashed #000;text-align:center;font-size:${paperWidth === 58 ? 10 : 11}px}.cut-space{height:6mm}
     @media print{@page{size:${paperWidth}mm auto;margin:0}html,body,.receipt{width:${paperWidth}mm!important;margin:0!important}.receipt{break-inside:avoid}}
-  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p>${order.discountCents ? `<p>Subtotal: <b>${formatMoney(order.totalCents + order.discountCents)}</b></p><p>Desconto: <b>−${formatMoney(order.discountCents)}</b></p>` : ""}<strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong>${order.splitCount && order.splitCount > 1 ? `<p class="split-line">DIVIDIDO EM ${order.splitCount}x<br>${formatMoney(Math.ceil(order.totalCents / order.splitCount))} CADA</p>` : ""}<p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
+  </style></head><body><main class="receipt"><h1 class="brand center">SMACK CHICKEN</h1><p class="address center">Rua Fúlvio Aducci, 1074 · Estreito</p><section class="identity"><span class="identity-label">NÚMERO DO PEDIDO</span><strong class="order-code">${escapeReceipt(order.code)}</strong><span class="identity-label">NOME DO CLIENTE</span><strong class="customer">${escapeReceipt(order.customerName)}</strong></section><h2 class="items-title">ITENS DO PEDIDO</h2><ul>${order.items.map((item) => `<li><b>${item.quantity}x</b><strong>${escapeReceipt(item.name)}</strong><span>${formatMoney(item.unitPriceCents * item.quantity)}</span></li>`).join("")}</ul>${order.notes ? `<p class="notes"><b>OBSERVAÇÃO</b><br>${escapeReceipt(order.notes)}</p>` : ""}<div class="meta"><p>Pagamento: <b>${escapeReceipt(order.paymentMethod)}</b></p>${order.discountCents ? `<p>Subtotal: <b>${formatMoney(order.totalCents + order.discountCents)}</b></p><p>Desconto: <b>−${formatMoney(order.discountCents)}</b></p>` : ""}<strong class="total">TOTAL: ${formatMoney(order.totalCents)}</strong>${order.splitCount && order.splitCount > 1 ? `<p class="split-line">DIVIDIDO EM ${order.splitCount}x<br>${formatMoney(Math.ceil(order.totalCents / order.splitCount))} CADA</p>` : ""}<p>${new Date(order.createdAt).toLocaleString("pt-BR")}</p></div><footer class="footer">Pedido para produção · SMACK CHICKEN</footer><div class="cut-space"></div></main></body></html>`;
 
   const iframe = document.createElement("iframe");
   iframe.setAttribute("aria-hidden", "true");
