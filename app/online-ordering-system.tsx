@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { catalog, formatMoney, CatalogProduct } from "../lib/catalog";
 import { fetchCepDeliveryInfo, CepDeliveryResult, MAX_DELIVERY_RADIUS_KM } from "../lib/delivery";
 import type { DeliverySettings } from "../lib/product-store";
@@ -630,6 +630,22 @@ export default function OnlineOrderingSystem() {
     return list;
   }, [activeProducts, selectedCategory, searchQuery]);
 
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const scrollCarousel = (direction: "left" | "right") => {
+    if (!carouselRef.current) return;
+    const scrollAmount = direction === "left" ? -280 : 280;
+    carouselRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+  };
+
+  const featuredProducts = useMemo(() => {
+    // Filtra produtos marcados com destaque no admin (featured === true)
+    const featured = activeProducts.filter((p) => Boolean(p.featured));
+    if (featured.length > 0) return featured;
+    // Fallback: primeiros 6 itens do cardápio ativo
+    return activeProducts.slice(0, 6);
+  }, [activeProducts]);
+
   return (
     <>
       <style>{`
@@ -910,6 +926,209 @@ export default function OnlineOrderingSystem() {
           background: #B70922;
           border-color: #B70922;
           color: #FFFFFF;
+        }
+
+        /* Carrossel de Destaques / Mais Pedidos */
+        .sc-feat-section {
+          margin-bottom: 34px;
+        }
+        .sc-feat-header {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          margin-bottom: 14px;
+          padding: 0 4px;
+        }
+        .sc-feat-title-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+        .sc-feat-title {
+          font-size: 19px;
+          font-weight: 900;
+          color: #1B1715;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          letter-spacing: -0.3px;
+        }
+        .sc-feat-sub {
+          font-size: 12.5px;
+          color: #706965;
+          font-weight: 500;
+        }
+        .sc-feat-nav {
+          display: flex;
+          gap: 6px;
+        }
+        .sc-feat-arrow {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1px solid #E6DFD6;
+          background: #FFFFFF;
+          color: #1B1715;
+          font-size: 18px;
+          font-weight: 700;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: all 0.15s;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .sc-feat-arrow:hover {
+          background: #B70922;
+          color: #FFFFFF;
+          border-color: #B70922;
+        }
+        .sc-feat-carousel {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          padding: 4px 4px 18px;
+          margin: 0 -4px;
+          scrollbar-width: none;
+        }
+        .sc-feat-carousel::-webkit-scrollbar {
+          display: none;
+        }
+        .sc-feat-card {
+          scroll-snap-align: start;
+          flex: 0 0 255px;
+          background: #FFFFFF;
+          border: 1.5px solid #E6DFD6;
+          border-radius: 16px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          cursor: pointer;
+          transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+          position: relative;
+        }
+        .sc-feat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.09);
+          border-color: #B70922;
+        }
+        .sc-feat-img-wrap {
+          height: 145px;
+          width: 100%;
+          background: #F5F2EC;
+          overflow: hidden;
+          position: relative;
+        }
+        .sc-feat-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+        .sc-feat-card:hover .sc-feat-img-wrap img {
+          transform: scale(1.05);
+        }
+        .sc-feat-badge {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          background: #B70922;
+          color: #FFFFFF;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-size: 10.5px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          box-shadow: 0 2px 8px rgba(183,9,34,0.35);
+          letter-spacing: 0.2px;
+          z-index: 2;
+        }
+        .sc-feat-body {
+          padding: 12px 14px 14px;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+        .sc-feat-cat {
+          font-size: 9.5px;
+          font-weight: 800;
+          color: #706965;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        }
+        .sc-feat-name {
+          font-size: 14px;
+          font-weight: 800;
+          color: #1B1715;
+          line-height: 1.25;
+          margin-bottom: 4px;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 35px;
+        }
+        .sc-feat-desc {
+          font-size: 11px;
+          color: #706965;
+          line-height: 1.3;
+          margin-bottom: 12px;
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .sc-feat-foot {
+          margin-top: auto;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding-top: 8px;
+          border-top: 1px solid #F5F2EC;
+        }
+        .sc-feat-price {
+          font-size: 15px;
+          font-weight: 900;
+          color: #B70922;
+        }
+        .sc-feat-btn {
+          background: #B70922;
+          color: #FFFFFF;
+          border: none;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 11.5px;
+          font-weight: 800;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: background 0.15s, transform 0.15s;
+        }
+        .sc-feat-btn:hover {
+          background: #820516;
+          transform: scale(1.03);
+        }
+        @media (max-width: 600px) {
+          .sc-feat-card {
+            flex: 0 0 240px;
+          }
+          .sc-feat-nav {
+            display: none;
+          }
+          .sc-feat-title {
+            font-size: 17px;
+          }
+          .sc-feat-carousel {
+            padding-right: 16px;
+          }
         }
 
         /* Products Grid */
@@ -1597,6 +1816,89 @@ export default function OnlineOrderingSystem() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* CARROSSEL DE MAIS PEDIDOS / DESTAQUES */}
+          {selectedCategory === "Todos" && !searchQuery.trim() && featuredProducts.length > 0 && (
+            <section className="sc-feat-section">
+              <div className="sc-feat-header">
+                <div className="sc-feat-title-wrap">
+                  <div className="sc-feat-title">
+                    <span>🔥</span> Os Mais Pedidos do Estreito
+                  </div>
+                  <span className="sc-feat-sub">
+                    Os campeões de vendas da casa · Peça rápido e receba quentinho
+                  </span>
+                </div>
+                <div className="sc-feat-nav">
+                  <button
+                    type="button"
+                    className="sc-feat-arrow"
+                    onClick={() => scrollCarousel("left")}
+                    title="Anterior"
+                    aria-label="Anterior"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="sc-feat-arrow"
+                    onClick={() => scrollCarousel("right")}
+                    title="Próximo"
+                    aria-label="Próximo"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+
+              <div className="sc-feat-carousel" ref={carouselRef}>
+                {featuredProducts.map((product, idx) => (
+                  <div
+                    key={product.id}
+                    className="sc-feat-card"
+                    onClick={() => openProductDetail(product)}
+                  >
+                    <div className="sc-feat-img-wrap">
+                      <img src={product.image || "/balde-tiras.jpeg"} alt={product.name} />
+                      <span className="sc-feat-badge">
+                        {idx === 0 ? "🔥 #1 Mais Vendido" : idx === 1 ? "⭐ Favorito" : "🔥 Mais Pedido"}
+                      </span>
+                    </div>
+                    <div className="sc-feat-body">
+                      <span className="sc-feat-cat">{product.category}</span>
+                      <h4 className="sc-feat-name" title={product.name}>{product.name}</h4>
+                      {product.description && (
+                        <p className="sc-feat-desc" title={product.description}>{product.description}</p>
+                      )}
+                      <div className="sc-feat-foot">
+                        <span className="sc-feat-price">{formatMoney(product.priceCents)}</span>
+                        <button
+                          type="button"
+                          className="sc-feat-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openProductDetail(product);
+                          }}
+                        >
+                          <span>+</span> Pedir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* TÍTULO DA SEÇÃO DO CARDÁPIO */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, color: "#1B1715" }}>
+              {selectedCategory === "Todos" ? "Cardápio Completo" : selectedCategory}
+            </h3>
+            <span style={{ fontSize: 12, color: "#706965", fontWeight: 600 }}>
+              {filteredProducts.length} {filteredProducts.length === 1 ? "item" : "itens"}
+            </span>
           </div>
 
           <div className="sc-grid">
