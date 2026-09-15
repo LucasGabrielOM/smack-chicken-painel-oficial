@@ -747,6 +747,21 @@ function Orders({ orders, onPrint, onCancel, onDelete, onPayment }: { orders: Or
   </div>;
 }
 
+function getFirstDayOfMonthIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}
+
+function getTodayIso(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function Finance({ entries, dashboard, onCreated, onDeleted, theme }: { entries: FinanceEntry[]; dashboard: DashboardData | null; onCreated: () => Promise<void>; onDeleted: (id: string) => Promise<void>; theme: "dark" | "light" }) {
   const chart = chartTheme(theme);
   const axisMoney = (value: number) => { const v = Number(value) / 100; return v >= 1000 ? `R$${(v / 1000).toFixed(1)}k` : `R$${v}`; };
@@ -755,12 +770,64 @@ function Finance({ entries, dashboard, onCreated, onDeleted, theme }: { entries:
   const [category, setCategory] = useState("Fornecedores");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const income = entries.filter((entry) => entry.entryType === "income").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
-  const expense = entries.filter((entry) => entry.entryType === "expense").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
-  const sales = Number(dashboard?.days.reduce((sum, item) => sum + Number(item.value), 0) || 0);
+  const [date, setDate] = useState(getTodayIso());
+
+  // Filtro de período com data inicial e data final (padrão: Mês Atual)
+  const firstDayIso = getFirstDayOfMonthIso();
+  const todayIso = getTodayIso();
+  const [startDate, setStartDate] = useState(firstDayIso);
+  const [endDate, setEndDate] = useState(todayIso);
+  const [financeDash, setFinanceDash] = useState<DashboardData | null>(null);
+
+  const fetchFinanceData = useCallback(async (start: string, end: string) => {
+    try {
+      const data = await api<DashboardData>(`/api/dashboard?startDate=${start}&endDate=${end}&mode=finance`);
+      if (data) setFinanceDash(data);
+    } catch (e) {
+      console.error("Erro ao carregar dados do financeiro:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFinanceData(startDate, endDate);
+  }, [fetchFinanceData, startDate, endDate]);
+
+  const activeDash = financeDash || dashboard;
+
+  const past30Iso = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+  const past14Iso = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10);
+  const isCurrentMonth = startDate === firstDayIso && endDate === todayIso;
+  const isLast30 = startDate === past30Iso && endDate === todayIso;
+  const isLast14 = startDate === past14Iso && endDate === todayIso;
+
+  let periodLabel = "Mês Atual";
+  if (isCurrentMonth) {
+    periodLabel = "Mês Atual";
+  } else if (isLast30) {
+    periodLabel = "Últimos 30 dias";
+  } else if (isLast14) {
+    periodLabel = "Últimos 14 dias";
+  } else {
+    const p1 = startDate.split("-");
+    const p2 = endDate.split("-");
+    periodLabel = p1.length === 3 && p2.length === 3 ? `${p1[2]}/${p1[1]} a ${p2[2]}/${p2[1]}` : "Período personalizado";
+  }
+
+  // Vendas do período selecionado
+  const periodOrdersCount = activeDash?.summary?.orders ?? (activeDash?.days?.reduce((sum, item) => sum + Number(item.orders), 0) || 0);
+  const sales = activeDash?.summary?.revenue ? Number(activeDash.summary.revenue) : Number(activeDash?.days?.reduce((sum, item) => sum + Number(item.value), 0) || 0);
+
+  // Lançamentos manuais no período selecionado
+  const periodEntries = entries.filter((entry) => {
+    if (!entry.entryDate) return true;
+    const d = entry.entryDate.slice(0, 10);
+    return d >= startDate && d <= endDate;
+  });
+  const income = periodEntries.filter((entry) => entry.entryType === "income").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
+  const expense = periodEntries.filter((entry) => entry.entryType === "expense").reduce((sum, entry) => sum + Number(entry.amountCents), 0);
   const net = sales + income - expense;
-  const cashflow = (dashboard?.days || []).map((item) => {
+
+  const cashflow = (activeDash?.days || []).map((item) => {
     const str = String(item.day);
     let dayNum = "";
     let monthNum = "";
@@ -781,29 +848,157 @@ function Finance({ entries, dashboard, onCreated, onDeleted, theme }: { entries:
       vendas: Number(item.value),
     };
   });
-  const expenseCategories = Object.entries(entries.filter((entry) => entry.entryType === "expense").reduce<Record<string, number>>((groups, entry) => {
+
+  const expenseCategories = Object.entries(periodEntries.filter((entry) => entry.entryType === "expense").reduce<Record<string, number>>((groups, entry) => {
     groups[entry.category] = (groups[entry.category] || 0) + Number(entry.amountCents);
     return groups;
   }, {})).map(([name, value]) => ({ name, value }));
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     await api("/api/finance", { method: "POST", body: JSON.stringify({ entryType: type, category, description, amountCents: Math.round(Number(amount.replace(",", ".")) * 100), entryDate: date }) });
-    setDescription(""); setAmount(""); setOpen(false); await onCreated();
+    setDescription(""); setAmount(""); setOpen(false);
+    await onCreated();
+    await fetchFinanceData(startDate, endDate);
   };
   const remove = async (entry: FinanceEntry) => {
     if (!window.confirm(`Excluir o lançamento “${entry.description}” de ${formatMoney(entry.amountCents)}?`)) return;
     await onDeleted(entry.id);
+    await fetchFinanceData(startDate, endDate);
   };
+
   return <div className="panel-page finance-page">
     <PageTitle eyebrow="GESTÃO FINANCEIRA" title="Saúde financeira da loja" subtitle="Vendas do caixa, entradas, despesas e saldo em uma visão executiva." action={<div className="finance-actions"><span className="live-pill"><i /> AO VIVO</span><button className="panel-primary" onClick={() => setOpen(true)}>+ Novo lançamento</button></div>} />
+
+    {/* SELETOR DE CALENDÁRIO COM DATA INICIAL E FINAL */}
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "12px",
+        alignItems: "center",
+        justifyContent: "space-between",
+        margin: "16px 0 22px 0",
+        padding: "14px 18px",
+        borderRadius: "14px",
+        background: "var(--p-surface-card)",
+        border: "1px solid var(--p-border)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <span style={{ fontWeight: 800, fontSize: "13px", color: "var(--p-text-dim)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          📅 Filtrar Período:
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "12px", color: "var(--p-text-dim)", fontWeight: 600 }}>De:</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            style={{
+              padding: "7px 10px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              background: "var(--p-surface-2)",
+              color: "var(--p-text)",
+              border: "1px solid var(--p-border)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "12px", color: "var(--p-text-dim)", fontWeight: 600 }}>Até:</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            style={{
+              padding: "7px 10px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              background: "var(--p-surface-2)",
+              color: "var(--p-text)",
+              border: "1px solid var(--p-border)",
+              outline: "none",
+              cursor: "pointer",
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() => {
+            setStartDate(firstDayIso);
+            setEndDate(todayIso);
+          }}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: isCurrentMonth ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)",
+            color: isCurrentMonth ? "#fff" : "var(--p-text-dim)",
+            border: isCurrentMonth ? "1px solid transparent" : "1px solid var(--p-border)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Mês Atual
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setStartDate(past30Iso);
+            setEndDate(todayIso);
+          }}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: isLast30 ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)",
+            color: isLast30 ? "#fff" : "var(--p-text-dim)",
+            border: isLast30 ? "1px solid transparent" : "1px solid var(--p-border)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Últimos 30 dias
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setStartDate(past14Iso);
+            setEndDate(todayIso);
+          }}
+          style={{
+            padding: "6px 14px",
+            borderRadius: "999px",
+            background: isLast14 ? "linear-gradient(135deg, #ff4d70, #c8102e)" : "var(--p-surface-2)",
+            color: isLast14 ? "#fff" : "var(--p-text-dim)",
+            border: isLast14 ? "1px solid transparent" : "1px solid var(--p-border)",
+            fontWeight: 700,
+            fontSize: "12px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          Últimos 14 dias
+        </button>
+      </div>
+    </div>
+
     <div className="finance-summary">
-      <Metric label="Vendas · 14 dias" value={formatMoney(sales)} note={`${dashboard?.days.reduce((sum, item) => sum + Number(item.orders), 0) || 0} pedidos no período`} tone="green" />
+      <Metric label={`Vendas · ${periodLabel}`} value={formatMoney(sales)} note={`${periodOrdersCount} pedido${periodOrdersCount === 1 ? "" : "s"} no período`} tone="green" />
       <Metric label="Outras entradas" value={formatMoney(income)} note="Aportes e ajustes manuais" tone="green" />
       <Metric label="Despesas registradas" value={formatMoney(expense)} note="Custos operacionais" tone="red" />
       <Metric label="Resultado estimado" value={formatMoney(net)} note="Vendas + entradas − despesas" tone={net >= 0 ? "green" : "red"} />
     </div>
     <section className="finance-charts">
-      <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>Últimos 14 dias</small></header>
+      <article className="panel-card finance-flow chart-card"><header><div><span>FLUXO DE CAIXA</span><h3>Faturamento diário</h3></div><small>{periodLabel}</small></header>
         <ResponsiveContainer width="100%" height={280}><AreaChart data={cashflow} margin={{ top: 20, right: 6, left: -18, bottom: 0 }}><defs><linearGradient id="financeFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chart.accent2} stopOpacity=".4" /><stop offset="100%" stopColor={chart.accent2} stopOpacity="0" /></linearGradient></defs><CartesianGrid strokeDasharray="3 6" vertical={false} stroke={chart.grid} /><XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: chart.tick }} /><YAxis axisLine={false} tickLine={false} width={44} tick={{ fontSize: 9, fill: chart.tick }} tickFormatter={axisMoney} /><Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={chart.tooltipStyle} cursor={{ stroke: chart.grid, strokeWidth: 1 }} /><Area type="monotone" dataKey="vendas" name="Vendas" stroke={chart.accent2} strokeWidth={3} fill="url(#financeFill)" animationDuration={1100} activeDot={{ r: 5, strokeWidth: 2, stroke: chart.tooltipStyle.background as string, fill: chart.accent2 }} /></AreaChart></ResponsiveContainer>
       </article>
       <article className="panel-card finance-categories"><header><div><span>DESPESAS</span><h3>Por categoria</h3></div></header>
