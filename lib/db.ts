@@ -9,10 +9,16 @@ declare global {
 function getPool() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) return null;
+  const isNeonOrRemote =
+    connectionString.includes("neon.tech") ||
+    connectionString.includes("sslmode=require") ||
+    process.env.PGSSLMODE === "require" ||
+    process.env.NODE_ENV === "production";
+
   globalThis.smackPool ??= new Pool({
     connectionString,
     max: 8,
-    ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
+    ssl: isNeonOrRemote ? { rejectUnauthorized: false } : undefined,
   });
   return globalThis.smackPool;
 }

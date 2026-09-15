@@ -68,44 +68,6 @@ function getKv(): {
   return null;
 }
 
-const CF_ORDERS_URL = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders";
-
-async function fetchCloudflareOrders(): Promise<StoredOrder[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(CF_ORDERS_URL, {
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (!res.ok) return [];
-    const data = (await res.json()) as { orders?: StoredOrder[] };
-    return data.orders || [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function mergeOrders(primaryList: StoredOrder[], secondaryList: StoredOrder[]): StoredOrder[] {
-  const map = new Map<string, StoredOrder>();
-
-  for (const o of secondaryList) {
-    const key = (o.code || o.id || "").toLowerCase();
-    if (key) map.set(key, o);
-  }
-
-  for (const o of primaryList) {
-    const key = (o.code || o.id || "").toLowerCase();
-    if (key) map.set(key, o);
-  }
-
-  return Array.from(map.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-}
-
 async function loadOrdersStore(): Promise<StoredOrder[]> {
   const kv = getKv();
   if (kv) {
@@ -129,8 +91,7 @@ async function loadOrdersStore(): Promise<StoredOrder[]> {
     return globalThis.__smackOrders || [];
   }
 
-  // Ambiente fora do Cloudflare Workers (ex: Render / Node.js)
-  let dbOrders: StoredOrder[] = [];
+  // Ambiente da Loja Interna com Neon PostgreSQL (Render / Node.js)
   if (process.env.DATABASE_URL) {
     try {
       const { query } = await import("./db");
@@ -158,8 +119,8 @@ async function loadOrdersStore(): Promise<StoredOrder[]> {
         ORDER BY o.created_at DESC
       `);
 
-      if (res.rows && res.rows.length > 0) {
-        dbOrders = res.rows.map((r: any) => ({
+      if (res.rows) {
+        const dbOrders: StoredOrder[] = res.rows.map((r: any) => ({
           id: String(r.id),
           code: r.code || `#${r.id}`,
           customerName: r.customerName || "Cliente",
@@ -176,23 +137,18 @@ async function loadOrdersStore(): Promise<StoredOrder[]> {
           completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
           items: Array.isArray(r.items) ? r.items : JSON.parse(r.items || "[]"),
         }));
+        globalThis.__smackOrders = dbOrders;
+        return dbOrders;
       }
     } catch (e) {
-      console.warn("Could not load orders from Postgres:", e);
+      console.error("Erro ao carregar pedidos do Neon PostgreSQL:", e);
     }
   }
 
-  // Busca pedidos online do Cloudflare Workers para sincronização com a vitrine/pedidos
-  const cfOrders = await fetchCloudflareOrders();
-
-  const combined = mergeOrders(cfOrders, dbOrders);
-
-  if (globalThis.__smackOrders && globalThis.__smackOrders.length > 0) {
-    globalThis.__smackOrders = mergeOrders(globalThis.__smackOrders, combined);
-  } else {
-    globalThis.__smackOrders = combined;
+  if (!globalThis.__smackOrders) {
+    globalThis.__smackOrders = getInitialOrders();
+    globalThis.__smackOrderSeq = 1041;
   }
-
   return globalThis.__smackOrders;
 }
 
@@ -457,17 +413,6 @@ export async function updateOrderStatus(
     } catch {}
   }
 
-  // Se estiver rodando fora do Cloudflare Workers (ex: Render), propaga a atualização para o Cloudflare
-  if (!getKv()) {
-    try {
-      fetch(`https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders/${encodeURIComponent(order.id || order.code)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      }).catch(() => {});
-    } catch {}
-  }
-
   return order;
 }
 
@@ -491,14 +436,6 @@ export async function deleteOrder(idOrCode: string): Promise<boolean> {
     try {
       const { query } = await import("./db");
       await query("DELETE FROM orders WHERE code=$1 OR id=$2", [removed.code, removed.id]);
-    } catch {}
-  }
-
-  if (!getKv() && removed) {
-    try {
-      fetch(`https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders/${encodeURIComponent(removed.id || removed.code)}`, {
-        method: "DELETE",
-      }).catch(() => {});
     } catch {}
   }
 
