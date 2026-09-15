@@ -13,10 +13,10 @@ const BUCKETS = [
 ];
 
 const LANCHES = [
-  { name: "Smack Kids + Batata Smile", note: "Opção especial para os pequenos: pão brioche, frango crocante por fora e macio por dentro, com 150 g de batata smile.", price: "R$ 32,90", image: "/lanche-kids.jpeg" },
-  { name: "Smack Fresh", note: "Crocância e frescor no mesmo lanche: frango crocante em tirinhas, alface roxa, tomate, cebola roxa, queijo e molho à escolha.", price: "R$ 39,90", image: "/lanche-fresh.jpeg" },
-  { name: "Smack Original", note: "O clássico da casa: frango crocante em tirinhas, queijo, molho à escolha e pão brioche. Simples e saboroso.", price: "R$ 29,90", image: "/lanche-original.jpeg" },
-  { name: "Smack Power", note: "Frango crocante em tirinhas, bacon crocante, queijo cheddar ou mussarela e cebola caramelizada.", price: "R$ 49,90", image: "/lanche-power.jpeg" },
+  { name: "Smack Kids + Batata Smile", note: "Opção especial para os pequenos: pão brioche, frango crocante por fora e macio por dentro, com 150 g de batata smile.", price: "R$ 24,99", image: "/lanche-kids.jpeg" },
+  { name: "Smack Fresh", note: "Crocância e frescor no mesmo lanche: frango crocante em tirinhas, alface roxa, tomate, cebola roxa, queijo e molho à escolha.", price: "R$ 29,90", image: "/lanche-fresh.jpeg" },
+  { name: "Smack Original", note: "O clássico da casa: frango crocante em tirinhas, queijo, molho à escolha e pão brioche. Simples e saboroso.", price: "R$ 19,99", image: "/lanche-original.jpeg" },
+  { name: "Smack Power", note: "Frango crocante em tirinhas, bacon crocante, queijo cheddar ou mussarela e cebola caramelizada.", price: "R$ 39,99", image: "/lanche-power.jpeg" },
 ];
 
 const reasons = [

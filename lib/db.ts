@@ -135,13 +135,17 @@ export async function ensureSchema() {
         );
       }
 
-      // Garante explicitamente os valores canônicos dos lanches e marmita
+      // Garante explicitamente os valores reais da loja
       await db.query(`
-        UPDATE products SET price_cents = 2990, name = 'Smack Original', category = 'Lanches', active = TRUE WHERE id = 53;
-        UPDATE products SET price_cents = 3290, name = 'Smack Kids + Batata Smile', category = 'Lanches', active = TRUE WHERE id = 54;
-        UPDATE products SET price_cents = 3990, name = 'Smack Fresh', category = 'Lanches', active = TRUE WHERE id = 55;
-        UPDATE products SET price_cents = 4990, name = 'Smack Power', category = 'Lanches', active = TRUE WHERE id = 56;
-        UPDATE products SET price_cents = 2990, name = 'MARMITA SMACK 600g', category = 'Marmitas', active = TRUE WHERE id = 52;
+        UPDATE products SET price_cents = 1999, name = 'Smack Original', category = 'Lanches', active = TRUE WHERE id = 53;
+        UPDATE products SET price_cents = 2499, name = 'Smack Kids + Batata Smile', category = 'Lanches', active = TRUE WHERE id = 54;
+        UPDATE products SET price_cents = 2990, name = 'Smack Fresh', category = 'Lanches', active = TRUE WHERE id = 55;
+        UPDATE products SET price_cents = 3999, name = 'Smack Power', category = 'Lanches', active = TRUE WHERE id = 56;
+        UPDATE products SET price_cents = 2390, name = 'MARMITA SMACK 600g', category = 'Marmitas', active = TRUE WHERE id = 52;
+        UPDATE products SET price_cents = 7999, name = 'Balde G 800 g — Tiras Crocantes', category = 'Baldes', active = TRUE WHERE id = 3;
+        UPDATE products SET price_cents = 8499, name = 'Balde G 800 g — Coxinha da Asa', category = 'Baldes', active = TRUE WHERE id = 19;
+        UPDATE products SET price_cents = 2499, name = 'Anéis de Cebola Crocantes 250g', category = 'Porções', active = TRUE WHERE id = 102;
+        UPDATE products SET price_cents = 2999, name = 'Anéis de Cebola Crocantes 350g', category = 'Porções', active = TRUE WHERE id = 103;
       `);
     })().catch((error) => {
       globalThis.smackSchemaReady = undefined;

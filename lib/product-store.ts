@@ -98,28 +98,36 @@ export async function loadProductsStore(): Promise<CatalogProduct[]> {
           if (p.id === 53 || p.name.trim().toLowerCase() === "smack original") {
             p.id = 53;
             p.name = "Smack Original";
-            p.priceCents = 2990;
+            p.priceCents = 1999;
             p.category = "Lanches";
           } else if (p.id === 56 || p.name.trim().toLowerCase() === "smack power") {
             p.id = 56;
             p.name = "Smack Power";
-            p.priceCents = 4990;
+            p.priceCents = 3999;
             p.category = "Lanches";
           } else if (p.id === 54 || p.name.trim().toLowerCase().includes("smack kids")) {
             p.id = 54;
             p.name = "Smack Kids + Batata Smile";
-            p.priceCents = 3290;
+            p.priceCents = 2499;
             p.category = "Lanches";
           } else if (p.id === 55 || p.name.trim().toLowerCase() === "smack fresh") {
             p.id = 55;
             p.name = "Smack Fresh";
-            p.priceCents = 3990;
+            p.priceCents = 2990;
             p.category = "Lanches";
           } else if (p.id === 52 || p.name.trim().toLowerCase().includes("marmita")) {
             p.id = 52;
             p.name = "MARMITA SMACK 600g";
-            p.priceCents = 2990;
+            p.priceCents = 2390;
             p.category = "Marmitas";
+          } else if (p.id === 3) {
+            p.priceCents = 7999;
+          } else if (p.id === 19) {
+            p.priceCents = 8499;
+          } else if (p.id === 102) {
+            p.priceCents = 2499;
+          } else if (p.id === 103) {
+            p.priceCents = 2999;
           }
         }
 
