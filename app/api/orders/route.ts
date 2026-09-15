@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       channel: body.channel || "SITE_ONLINE",
       notes: body.notes,
       discountCents: body.discountCents,
+      deliveryFeeCents: body.deliveryFeeCents,
       splitCount: body.splitCount,
       items: body.items,
     });

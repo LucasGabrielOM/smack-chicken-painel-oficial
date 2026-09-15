@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { catalog, formatMoney, CatalogProduct } from "../lib/catalog";
+import { fetchCepDeliveryInfo, CepDeliveryResult, MAX_DELIVERY_RADIUS_KM } from "../lib/delivery";
 
 // Molhos grátis da casa (até 2 grátis por lanche/balde/combo)
 const FREE_SAUCE_OPTIONS = [
@@ -113,6 +114,7 @@ export default function OnlineOrderingSystem() {
   const [complement, setComplement] = useState("");
   const [loadingCep, setLoadingCep] = useState(false);
   const [cepError, setCepError] = useState("");
+  const [deliveryInfo, setDeliveryInfo] = useState<CepDeliveryResult | null>(null);
 
   // Forma de Pagamento & Troco
   const [paymentMethod, setPaymentMethod] = useState<"PIX" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "DINHEIRO">("PIX");
@@ -254,7 +256,11 @@ export default function OnlineOrderingSystem() {
     () => cart.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0),
     [cart]
   );
-  const deliveryFeeCents = deliveryType === "ENTREGA" ? 500 : 0;
+  const deliveryFeeCents = useMemo(() => {
+    if (deliveryType === "RETIRADA") return 0;
+    if (deliveryInfo?.tier) return deliveryInfo.tier.feeCents;
+    return 499;
+  }, [deliveryType, deliveryInfo]);
   const totalCents = subtotalCents + deliveryFeeCents;
 
   // Troco calculado
@@ -265,32 +271,38 @@ export default function OnlineOrderingSystem() {
     return givenCents > totalCents ? givenCents - totalCents : 0;
   }, [paymentMethod, needsChange, changeForAmount, totalCents]);
 
-  // Consulta por CEP via ViaCEP
+  // Consulta e cálculo dinâmico de taxa e tempo por CEP (raio até 5 km)
   const handleFetchCep = async (inputCep: string) => {
-    const cleanCep = inputCep.replace(/D/g, "");
+    const cleanCep = inputCep.replace(/\D/g, "");
     setCep(cleanCep);
     setCepError("");
 
     if (cleanCep.length !== 8) {
+      setDeliveryInfo(null);
       if (cleanCep.length > 0 && cleanCep.length < 8) {
-        setCepError("Digite os 8 números do CEP");
+        setCepError("Digite os 8 números do CEP para calcular taxa e tempo.");
       }
       return;
     }
 
     setLoadingCep(true);
     try {
-      const res = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-      const data = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
-      if (data.erro || !data.logradouro) {
-        setCepError("CEP não encontrado. Preencha o endereço abaixo.");
+      const result = await fetchCepDeliveryInfo(cleanCep);
+      if (!result.success) {
+        setCepError(result.error || "CEP não encontrado. Preencha o endereço abaixo.");
+        setDeliveryInfo(null);
       } else {
-        setStreet(data.logradouro || "");
-        setNeighborhood(data.bairro || "");
-        setCityState(`${data.localidade || "Florianópolis"} - ${data.uf || "SC"}`);
+        if (result.street) setStreet(result.street);
+        if (result.neighborhood) setNeighborhood(result.neighborhood);
+        if (result.city) setCityState(`${result.city} - ${result.state}`);
+        setDeliveryInfo(result);
+        if (!result.isWithinRadius) {
+          setCepError(result.error || "Endereço fora do raio de entrega de 5 km da loja.");
+        }
       }
     } catch {
-      setCepError("Não foi possível buscar o CEP automaticamente.");
+      setCepError("Não foi possível calcular o CEP automaticamente.");
+      setDeliveryInfo(null);
     } finally {
       setLoadingCep(false);
     }
@@ -304,6 +316,12 @@ export default function OnlineOrderingSystem() {
 
     let fullAddressText = "Retirada no Balcão (Rua Fúlvio Aducci, 1074)";
     if (deliveryType === "ENTREGA") {
+      if (!cep.trim() || cep.replace(/\D/g, "").length !== 8) {
+        return alert("Por favor, informe seu CEP para calcular a entrega e confirmar se seu endereço está dentro do raio de atendimento de 5 km.");
+      }
+      if (deliveryInfo && !deliveryInfo.isWithinRadius) {
+        return alert(`Desculpe, seu endereço está a ${deliveryInfo.distanceKm?.toFixed(1) || ""} km da loja, fora do nosso raio de entrega de 5 km. Por favor, selecione "Retirar na Loja" para concluir seu pedido!`);
+      }
       if (!street.trim()) return alert("Por favor, informe o nome da Rua para a entrega.");
       if (!number.trim()) return alert("Por favor, informe o Número da residência.");
       fullAddressText = `CEP: ${cep || "N/A"} - ${street.trim()}, Nº ${number.trim()}${complement.trim() ? ` (${complement.trim()})` : ""} - Bairro: ${neighborhood.trim() || "Estreito"}, ${cityState || "Florianópolis - SC"}`;
@@ -318,9 +336,15 @@ export default function OnlineOrderingSystem() {
         : "Dinheiro (Não precisa de troco)";
     }
 
+    const deliveryNote =
+      deliveryType === "ENTREGA" && deliveryInfo?.tier
+        ? `Taxa de Entrega: ${deliveryInfo.tier.feeFormatted} (~${deliveryInfo.distanceKm?.toFixed(1)} km · ${deliveryInfo.tier.timeMinutes} min)`
+        : null;
+
     const orderNotes = [
       `WhatsApp: ${customerPhone.trim()}`,
       `Modalidade: ${deliveryType === "ENTREGA" ? "Entrega em Domicílio" : "Retirada na Loja"}`,
+      ...(deliveryNote ? [deliveryNote] : []),
       `Endereço: ${fullAddressText}`,
       `Pagamento: ${paymentDescription}`,
       ...(needsChange && changeValueCents > 0 ? [`Levar troco de: ${formatMoney(changeValueCents)}`] : []),
@@ -336,6 +360,7 @@ export default function OnlineOrderingSystem() {
           customerName: customerName.trim(),
           paymentMethod: paymentDescription,
           channel: "SITE_ONLINE",
+          deliveryFeeCents: deliveryType === "ENTREGA" ? deliveryFeeCents : 0,
           notes: orderNotes,
           items: cart.map((item) => {
             const customParts = [
@@ -1799,7 +1824,9 @@ export default function OnlineOrderingSystem() {
                       className={`sc-type-btn ${deliveryType === "ENTREGA" ? "active" : ""}`}
                       onClick={() => setDeliveryType("ENTREGA")}
                     >
-                      Entrega em Casa (+R$ 5,00)
+                      {deliveryInfo?.tier
+                        ? `Entrega em Casa (+${deliveryInfo.tier.feeFormatted})`
+                        : "Entrega em Casa (a partir de R$ 4,99)"}
                     </button>
                     <button
                       type="button"
@@ -1818,13 +1845,13 @@ export default function OnlineOrderingSystem() {
                       </div>
 
                       <div className="sc-field">
-                        <label>CEP (Busca automática)</label>
+                        <label>CEP (Cálculo automático de taxa e distância)</label>
                         <div style={{ display: "flex", gap: 8 }}>
                           <input
                             type="text"
                             maxLength={9}
                             className="sc-input"
-                            placeholder="88070-010"
+                            placeholder="88075-000"
                             value={cep}
                             onChange={(e) => handleFetchCep(e.target.value)}
                           />
@@ -1834,10 +1861,80 @@ export default function OnlineOrderingSystem() {
                             style={{ whiteSpace: "nowrap" }}
                             onClick={() => handleFetchCep(cep)}
                           >
-                            {loadingCep ? "Buscando..." : "Buscar CEP"}
+                            {loadingCep ? "Calculando..." : "Calcular Taxa"}
                           </button>
                         </div>
                         {cepError && <div style={{ fontSize: 11, color: "#B70922", marginTop: 4 }}>{cepError}</div>}
+
+                        {loadingCep && (
+                          <div style={{ fontSize: 12, color: "#B70922", marginTop: 6, fontWeight: 600 }}>
+                            ⏳ Localizando CEP e calculando distância da loja...
+                          </div>
+                        )}
+
+                        {deliveryInfo && deliveryInfo.isWithinRadius && deliveryInfo.tier && (
+                          <div
+                            style={{
+                              background: "#F0FDF4",
+                              border: "1px solid #BBF7D0",
+                              borderRadius: 10,
+                              padding: "10px 14px",
+                              marginTop: 10,
+                              marginBottom: 4,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: "#166534" }}>
+                                ✅ Entrega disponível!
+                              </span>
+                              <span style={{ fontSize: 13, fontWeight: 900, color: "#B70922" }}>
+                                Taxa: {deliveryInfo.tier.feeFormatted}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "#374151", display: "flex", gap: 14, flexWrap: "wrap", marginTop: 4 }}>
+                              <span>📍 Distância: <b>~{deliveryInfo.distanceKm?.toFixed(1)} km</b></span>
+                              <span>⏱️ Tempo estimado: <b>~{deliveryInfo.tier.timeMinutes} min</b></span>
+                            </div>
+                          </div>
+                        )}
+
+                        {deliveryInfo && !deliveryInfo.isWithinRadius && (
+                          <div
+                            style={{
+                              background: "#FEF2F2",
+                              border: "1px solid #FECACA",
+                              borderRadius: 10,
+                              padding: "12px 14px",
+                              marginTop: 10,
+                              marginBottom: 4,
+                            }}
+                          >
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>
+                              ⚠️ Endereço fora do raio de entrega de 5 km
+                            </div>
+                            <div style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.4 }}>
+                              Seu endereço está a aproximadamente <b>{deliveryInfo.distanceKm?.toFixed(1)} km</b> da nossa loja (Rua Fúlvio Aducci, 1074 — Estreito).
+                              Nosso raio máximo de entrega é de 5 km.
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryType("RETIRADA")}
+                              style={{
+                                marginTop: 8,
+                                padding: "7px 12px",
+                                background: "#B70922",
+                                color: "#FFFFFF",
+                                borderRadius: 8,
+                                border: "none",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Mudar para Retirar na Loja (Grátis)
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <div className="sc-field">
@@ -2086,8 +2183,19 @@ export default function OnlineOrderingSystem() {
                     </div>
                     {deliveryType === "ENTREGA" && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#706965", marginBottom: 6 }}>
-                        <span>Taxa de entrega (Estreito):</span>
-                        <span>{formatMoney(deliveryFeeCents)}</span>
+                        <span>
+                          Taxa de entrega
+                          {deliveryInfo?.tier
+                            ? ` (~${deliveryInfo.distanceKm?.toFixed(1)} km · ${deliveryInfo.tier.timeMinutes} min)`
+                            : " (calculada pelo CEP)"}:
+                        </span>
+                        <span style={{ fontWeight: 700, color: "#1B1715" }}>{formatMoney(deliveryFeeCents)}</span>
+                      </div>
+                    )}
+                    {deliveryType === "RETIRADA" && (
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#166534", marginBottom: 6 }}>
+                        <span>Retirada no balcão:</span>
+                        <span style={{ fontWeight: 700 }}>Grátis</span>
                       </div>
                     )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 900, color: "#B70922", marginTop: 8, marginBottom: 20 }}>
@@ -2097,11 +2205,20 @@ export default function OnlineOrderingSystem() {
 
                     <button
                       type="submit"
-                      disabled={submitting || cart.length === 0}
+                      disabled={submitting || cart.length === 0 || (deliveryType === "ENTREGA" && deliveryInfo?.isWithinRadius === false)}
                       className="sc-btn-primary"
-                      style={{ width: "100%", padding: "16px" }}
+                      style={{
+                        width: "100%",
+                        padding: "16px",
+                        background: (deliveryType === "ENTREGA" && deliveryInfo?.isWithinRadius === false) ? "#9CA3AF" : undefined,
+                        cursor: (deliveryType === "ENTREGA" && deliveryInfo?.isWithinRadius === false) ? "not-allowed" : "pointer",
+                      }}
                     >
-                      {submitting ? "Enviando seu pedido..." : `Confirmar Pedido • ${formatMoney(totalCents)}`}
+                      {submitting
+                        ? "Enviando seu pedido..."
+                        : deliveryType === "ENTREGA" && deliveryInfo?.isWithinRadius === false
+                        ? "Fora do raio de 5 km • Escolha Retirada"
+                        : `Confirmar Pedido • ${formatMoney(totalCents)}`}
                     </button>
                   </div>
                 </form>

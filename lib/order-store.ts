@@ -17,6 +17,7 @@ export type StoredOrder = {
   cashReceivedCents?: number | null;
   totalCents: number;
   discountCents: number;
+  deliveryFeeCents?: number;
   splitCount: number;
   channel: string;
   notes: string | null;
@@ -171,6 +172,7 @@ export type NewOrderInput = {
   channel?: string;
   notes?: string;
   discountCents?: number;
+  deliveryFeeCents?: number;
   splitCount?: number;
   items: Array<{
     productId: number | string;
@@ -218,8 +220,9 @@ export async function createOrder(input: NewOrderInput): Promise<StoredOrder> {
     });
   }
 
-  const discountCents = Math.min(Math.max(0, Math.round(Number(input.discountCents) || 0)), itemsTotalCents);
-  const totalCents = itemsTotalCents - discountCents;
+  const deliveryFeeCents = Math.max(0, Math.round(Number(input.deliveryFeeCents) || 0));
+  const discountCents = Math.min(Math.max(0, Math.round(Number(input.discountCents) || 0)), itemsTotalCents + deliveryFeeCents);
+  const totalCents = itemsTotalCents + deliveryFeeCents - discountCents;
   const splitCount = Math.min(20, Math.max(1, Math.round(Number(input.splitCount) || 1)));
 
   // Generate sequential code e.g. #1042
@@ -244,6 +247,7 @@ export async function createOrder(input: NewOrderInput): Promise<StoredOrder> {
     cashReceivedCents: input.cashReceivedCents || null,
     totalCents,
     discountCents,
+    deliveryFeeCents: deliveryFeeCents > 0 ? deliveryFeeCents : undefined,
     splitCount,
     channel: input.channel || "Balcão",
     notes: input.notes?.trim() || null,
