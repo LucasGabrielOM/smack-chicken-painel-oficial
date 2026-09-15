@@ -476,7 +476,7 @@ export default function OnlineOrderingSystem() {
   }, [activeProduct, showCartModal, showTrackingModal]);
 
 
-  const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos", "Doces"];
+  const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos"];
 
   const filteredProducts = useMemo(() => {
     let list = catalog;
@@ -1344,6 +1344,18 @@ export default function OnlineOrderingSystem() {
             </a>
 
             <div className="sc-topbar-actions">
+              <a
+                href="https://wa.me/5548988786741?text=Ol%C3%A1%2C%20gostaria%20de%20tirar%20uma%20d%C3%BAvida%20sobre%20os%20pedidos%20da%20Smack%20Chicken!"
+                target="_blank"
+                rel="noreferrer"
+                className="sc-btn-track"
+                style={{ textDecoration: "none", color: "#138C56", borderColor: "#A7F3D0", background: "#F0FDF4" }}
+                title="Tirar dúvidas no WhatsApp (48) 98878-6741"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/></svg>
+                <span>Dúvidas</span>
+              </a>
+
               <button className="sc-btn-track" onClick={() => setShowTrackingModal(true)}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 <span>Acompanhar</span>
@@ -1457,6 +1469,40 @@ export default function OnlineOrderingSystem() {
             ))}
           </div>
         </main>
+
+        {/* RODAPÉ INFORMATIVO COM CONTATO DA LOJA */}
+        <footer
+          style={{
+            textAlign: "center",
+            padding: "36px 16px 80px",
+            borderTop: "1px solid #E6DFD6",
+            marginTop: 40,
+            background: "#FAF7F2",
+          }}
+        >
+          <div style={{ maxWidth: 600, margin: "0 auto" }}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#1B1715", marginBottom: 6 }}>
+              SMACK CHICKEN
+            </div>
+            <div style={{ fontSize: 13, color: "#706965", marginBottom: 12, lineHeight: 1.4 }}>
+              Rua Fúlvio Aducci, 1074 — Estreito, Florianópolis - SC
+            </div>
+            <div style={{ fontSize: 13, color: "#706965", marginBottom: 16 }}>
+              Dúvidas sobre pedidos ou cardápio?{" "}
+              <a
+                href="https://wa.me/5548988786741?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20os%20pedidos%20da%20Smack%20Chicken"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "#138C56", fontWeight: 800, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+              >
+                <span>WhatsApp: (48) 98878-6741</span>
+              </a>
+            </div>
+            <div style={{ fontSize: 11, color: "#9c918d" }}>
+              © {new Date().getFullYear()} Smack Chicken · Todos os direitos reservados.
+            </div>
+          </div>
+        </footer>
 
         {/* BARRA FLUTUANTE DA SACOLA */}
         {cartItemCount > 0 && !activeProduct && !showCartModal && !showTrackingModal && (
@@ -2500,7 +2546,7 @@ export default function OnlineOrderingSystem() {
                           {isCancelled ? "Dúvidas sobre o cancelamento?" : "Dúvidas sobre o pedido?"}
                         </span>
                         <a
-                          href={`https://wa.me/5548988589088?text=${encodeURIComponent(
+                          href={`https://wa.me/5548988786741?text=${encodeURIComponent(
                             isCancelled
                               ? `Olá, gostaria de informações sobre o cancelamento do meu pedido ${ord.code}`
                               : `Olá, gostaria de saber sobre meu pedido ${ord.code}`
