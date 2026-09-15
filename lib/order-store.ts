@@ -68,6 +68,44 @@ function getKv(): {
   return null;
 }
 
+const CF_ORDERS_URL = "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders";
+
+async function fetchCloudflareOrders(): Promise<StoredOrder[]> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(CF_ORDERS_URL, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { orders?: StoredOrder[] };
+    return data.orders || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function mergeOrders(primaryList: StoredOrder[], secondaryList: StoredOrder[]): StoredOrder[] {
+  const map = new Map<string, StoredOrder>();
+
+  for (const o of secondaryList) {
+    const key = (o.code || o.id || "").toLowerCase();
+    if (key) map.set(key, o);
+  }
+
+  for (const o of primaryList) {
+    const key = (o.code || o.id || "").toLowerCase();
+    if (key) map.set(key, o);
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
 async function loadOrdersStore(): Promise<StoredOrder[]> {
   const kv = getKv();
   if (kv) {
@@ -80,7 +118,6 @@ async function loadOrdersStore(): Promise<StoredOrder[]> {
           return parsed;
         }
       } else {
-        // Se ainda não foi gravado no KV, grava os dados iniciais
         const initial = getInitialOrders();
         globalThis.__smackOrders = initial;
         await kv.put("orders_list", JSON.stringify(initial));
@@ -89,11 +126,73 @@ async function loadOrdersStore(): Promise<StoredOrder[]> {
     } catch (e) {
       console.warn("KV get error:", e);
     }
+    return globalThis.__smackOrders || [];
   }
-  if (!globalThis.__smackOrders) {
-    globalThis.__smackOrders = getInitialOrders();
-    globalThis.__smackOrderSeq = 1041;
+
+  // Ambiente fora do Cloudflare Workers (ex: Render / Node.js)
+  let dbOrders: StoredOrder[] = [];
+  if (process.env.DATABASE_URL) {
+    try {
+      const { query } = await import("./db");
+      const res = await query<any>(`
+        SELECT o.id, o.code, o.customer_name AS "customerName", o.status,
+               o.payment_method AS "paymentMethod", o.cash_received_cents AS "cashReceivedCents",
+               o.total_cents AS "totalCents", o.discount_cents AS "discountCents",
+               o.split_count AS "splitCount", o.channel, o.notes,
+               o.created_at AS "createdAt", o.ready_at AS "readyAt", o.completed_at AS "completedAt",
+               COALESCE(
+                 json_agg(
+                   json_build_object(
+                     'id', oi.id,
+                     'productId', oi.product_id,
+                     'name', oi.product_name,
+                     'quantity', oi.quantity,
+                     'unitPriceCents', oi.unit_price_cents
+                   )
+                 ) FILTER (WHERE oi.id IS NOT NULL),
+                 '[]'
+               ) AS items
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+      `);
+
+      if (res.rows && res.rows.length > 0) {
+        dbOrders = res.rows.map((r: any) => ({
+          id: String(r.id),
+          code: r.code || `#${r.id}`,
+          customerName: r.customerName || "Cliente",
+          status: r.status || "preparing",
+          paymentMethod: r.paymentMethod || "Dinheiro",
+          cashReceivedCents: r.cashReceivedCents ?? null,
+          totalCents: Number(r.totalCents) || 0,
+          discountCents: Number(r.discountCents) || 0,
+          splitCount: Number(r.splitCount) || 1,
+          channel: r.channel || "Balcão",
+          notes: r.notes ?? null,
+          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+          readyAt: r.readyAt ? new Date(r.readyAt).toISOString() : null,
+          completedAt: r.completedAt ? new Date(r.completedAt).toISOString() : null,
+          items: Array.isArray(r.items) ? r.items : JSON.parse(r.items || "[]"),
+        }));
+      }
+    } catch (e) {
+      console.warn("Could not load orders from Postgres:", e);
+    }
   }
+
+  // Busca pedidos online do Cloudflare Workers para sincronização com a vitrine/pedidos
+  const cfOrders = await fetchCloudflareOrders();
+
+  const combined = mergeOrders(cfOrders, dbOrders);
+
+  if (globalThis.__smackOrders && globalThis.__smackOrders.length > 0) {
+    globalThis.__smackOrders = mergeOrders(globalThis.__smackOrders, combined);
+  } else {
+    globalThis.__smackOrders = combined;
+  }
+
   return globalThis.__smackOrders;
 }
 
@@ -358,6 +457,17 @@ export async function updateOrderStatus(
     } catch {}
   }
 
+  // Se estiver rodando fora do Cloudflare Workers (ex: Render), propaga a atualização para o Cloudflare
+  if (!getKv()) {
+    try {
+      fetch(`https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders/${encodeURIComponent(order.id || order.code)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      }).catch(() => {});
+    } catch {}
+  }
+
   return order;
 }
 
@@ -381,6 +491,14 @@ export async function deleteOrder(idOrCode: string): Promise<boolean> {
     try {
       const { query } = await import("./db");
       await query("DELETE FROM orders WHERE code=$1 OR id=$2", [removed.code, removed.id]);
+    } catch {}
+  }
+
+  if (!getKv() && removed) {
+    try {
+      fetch(`https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/api/orders/${encodeURIComponent(removed.id || removed.code)}`, {
+        method: "DELETE",
+      }).catch(() => {});
     } catch {}
   }
 
