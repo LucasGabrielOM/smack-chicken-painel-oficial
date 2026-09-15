@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { catalog, formatMoney, CatalogProduct } from "../lib/catalog";
 import { fetchCepDeliveryInfo, CepDeliveryResult, MAX_DELIVERY_RADIUS_KM } from "../lib/delivery";
+import type { DeliverySettings } from "../lib/product-store";
 
 // Molhos grátis da casa (até 2 grátis por lanche/balde/combo)
 const FREE_SAUCE_OPTIONS = [
@@ -78,10 +79,38 @@ function fmtEstimatedTime(dateStr?: string, plusMinutes: number = 45) {
 
 export default function OnlineOrderingSystem() {
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [liveProducts, setLiveProducts] = useState<CatalogProduct[]>(catalog);
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySettings | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(Date.now()), 10000);
     return () => clearInterval(t);
+  }, []);
+
+  // Sincronização em tempo real de produtos e taxas de entrega com o Painel de Administração
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/products")
+      .then((res) => res.json())
+      .then((data: any) => {
+        if (isMounted && Array.isArray(data?.products) && data.products.length > 0) {
+          setLiveProducts(data.products);
+        }
+      })
+      .catch((err) => console.warn("Erro ao buscar produtos atualizados:", err));
+
+    fetch("/api/delivery-settings")
+      .then((res) => res.json())
+      .then((data: any) => {
+        if (isMounted && data?.settings) {
+          setDeliverySettings(data.settings);
+        }
+      })
+      .catch((err) => console.warn("Erro ao buscar taxas de entrega atualizadas:", err));
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
@@ -256,11 +285,16 @@ export default function OnlineOrderingSystem() {
     () => cart.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0),
     [cart]
   );
+  const effectiveMaxRadius = deliverySettings?.maxRadiusKm || MAX_DELIVERY_RADIUS_KM;
+
   const deliveryFeeCents = useMemo(() => {
     if (deliveryType === "RETIRADA") return 0;
     if (deliveryInfo?.tier) return deliveryInfo.tier.feeCents;
+    if (deliverySettings?.tiers && deliverySettings.tiers.length > 0) {
+      return deliverySettings.tiers[0].feeCents;
+    }
     return 499;
-  }, [deliveryType, deliveryInfo]);
+  }, [deliveryType, deliveryInfo, deliverySettings]);
   const totalCents = subtotalCents + deliveryFeeCents;
 
   // Troco calculado
@@ -271,7 +305,7 @@ export default function OnlineOrderingSystem() {
     return givenCents > totalCents ? givenCents - totalCents : 0;
   }, [paymentMethod, needsChange, changeForAmount, totalCents]);
 
-  // Consulta e cálculo dinâmico de taxa e tempo por CEP (raio até 5 km)
+  // Consulta e cálculo dinâmico de taxa e tempo por CEP
   const handleFetchCep = async (inputCep: string) => {
     const cleanCep = inputCep.replace(/\D/g, "");
     setCep(cleanCep);
@@ -287,7 +321,7 @@ export default function OnlineOrderingSystem() {
 
     setLoadingCep(true);
     try {
-      const result = await fetchCepDeliveryInfo(cleanCep);
+      const result = await fetchCepDeliveryInfo(cleanCep, deliverySettings || undefined);
       if (!result.success) {
         setCepError(result.error || "CEP não encontrado. Preencha o endereço abaixo.");
         setDeliveryInfo(null);
@@ -297,7 +331,7 @@ export default function OnlineOrderingSystem() {
         if (result.city) setCityState(`${result.city} - ${result.state}`);
         setDeliveryInfo(result);
         if (!result.isWithinRadius) {
-          setCepError(result.error || `Endereço fora do raio de entrega de ${MAX_DELIVERY_RADIUS_KM} km da loja.`);
+          setCepError(result.error || `Endereço fora do raio de entrega de ${effectiveMaxRadius} km da loja.`);
         }
       }
     } catch {
@@ -317,10 +351,10 @@ export default function OnlineOrderingSystem() {
     let fullAddressText = "Retirada no Balcão (Rua Fúlvio Aducci, 1074)";
     if (deliveryType === "ENTREGA") {
       if (!cep.trim() || cep.replace(/\D/g, "").length !== 8) {
-        return alert(`Por favor, informe seu CEP para calcular a entrega e confirmar se seu endereço está dentro do raio de atendimento de ${MAX_DELIVERY_RADIUS_KM} km.`);
+        return alert(`Por favor, informe seu CEP para calcular a entrega e confirmar se seu endereço está dentro do raio de atendimento de ${effectiveMaxRadius} km.`);
       }
       if (deliveryInfo && !deliveryInfo.isWithinRadius) {
-        return alert(`Desculpe, seu endereço está a ${deliveryInfo.distanceKm?.toFixed(1) || ""} km da loja, fora do nosso raio de entrega de ${MAX_DELIVERY_RADIUS_KM} km. Por favor, selecione "Retirar na Loja" para concluir seu pedido!`);
+        return alert(`Desculpe, seu endereço está a ${deliveryInfo.distanceKm?.toFixed(1) || ""} km da loja, fora do nosso raio de entrega de ${effectiveMaxRadius} km. Por favor, selecione "Retirar na Loja" para concluir seu pedido!`);
       }
       if (!street.trim()) return alert("Por favor, informe o nome da Rua para a entrega.");
       if (!number.trim()) return alert("Por favor, informe o Número da residência.");
@@ -476,19 +510,34 @@ export default function OnlineOrderingSystem() {
   }, [activeProduct, showCartModal, showTrackingModal]);
 
 
-  const categories = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos"];
+  const activeProducts = useMemo(() => {
+    return liveProducts.filter((p) => p.active !== false);
+  }, [liveProducts]);
+
+  const categories = useMemo(() => {
+    const defaultCats = ["Todos", "Baldes", "Combos", "Lanches", "Marmitas", "Porções", "Bebidas", "Molhos"];
+    const seen = new Set<string>(defaultCats);
+    activeProducts.forEach((p) => {
+      if (p.category) seen.add(p.category);
+    });
+    return Array.from(seen);
+  }, [activeProducts]);
 
   const filteredProducts = useMemo(() => {
-    let list = catalog;
+    let list = activeProducts;
     if (selectedCategory !== "Todos") {
       list = list.filter((p) => p.category === selectedCategory);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q))
+      );
     }
     return list;
-  }, [selectedCategory, searchQuery]);
+  }, [activeProducts, selectedCategory, searchQuery]);
 
   return (
     <>
@@ -1956,11 +2005,11 @@ export default function OnlineOrderingSystem() {
                             }}
                           >
                             <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>
-                              ⚠️ Endereço fora do raio de entrega de {MAX_DELIVERY_RADIUS_KM} km
+                              ⚠️ Endereço fora do raio de entrega de {effectiveMaxRadius} km
                             </div>
                             <div style={{ fontSize: 12, color: "#7F1D1D", lineHeight: 1.4 }}>
                               Seu endereço está a aproximadamente <b>{deliveryInfo.distanceKm?.toFixed(1)} km</b> da nossa loja (Rua Fúlvio Aducci, 1074 — Estreito).
-                              Nosso raio máximo de entrega é de {MAX_DELIVERY_RADIUS_KM} km.
+                              Nosso raio máximo de entrega é de {effectiveMaxRadius} km.
                             </div>
                             <button
                               type="button"

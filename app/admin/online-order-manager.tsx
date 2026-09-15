@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { formatMoney, catalog } from "../../lib/catalog";
+import { formatMoney, catalog, CatalogProduct } from "../../lib/catalog";
+import type { DeliverySettings, SaveProductInput } from "../../lib/product-store";
+import type { DeliveryTier } from "../../lib/delivery";
 
-type View = "orders" | "expedicao" | "cardapio" | "relatorios" | "settings";
+type View = "orders" | "expedicao" | "cardapio" | "delivery" | "relatorios" | "settings";
 
 type OrderItem = { id: string; productId: string; name: string; quantity: number; unitPriceCents: number };
 
@@ -67,6 +69,18 @@ const IcoAlert = () => (
 );
 const IcoPrint = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+);
+const IcoTruck = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+);
+const IcoEdit = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+);
+const IcoTrash = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+);
+const IcoPlus = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 );
 
 type ParsedDetails = {
@@ -284,6 +298,24 @@ const ADMIN_CSS = `
 .empty-st{text-align:center;padding:40px 20px;color:#9c918d;font-size:13px}
 .sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .sec-title{font-size:16px;font-weight:800;color:#1b1715}
+.cat-top-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.cat-search{border:1px solid #e6dfd6;background:#fff;border-radius:7px;padding:7px 12px;font-size:13px;width:240px;outline:none}
+.cat-search:focus{border-color:#b70922}
+.cat-pill-bar{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:16px}
+.cat-pill{border:1px solid #e6dfd6;background:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;color:#706965;cursor:pointer;white-space:nowrap;transition:all .15s}
+.cat-pill.active{background:#b70922;color:#fff;border-color:#b70922}
+.ccard-desc{font-size:11px;color:#9c918d;margin-bottom:8px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ccard-actions{display:flex;align-items:center;gap:6px;margin-top:10px}
+.form-grp{margin-bottom:14px}
+.form-lbl{display:block;font-size:12px;font-weight:700;color:#1b1715;margin-bottom:5px}
+.form-ctrl{width:100%;border:1px solid #e6dfd6;background:#faf8f6;border-radius:7px;padding:8px 10px;font-size:13px;color:#1b1715;outline:none;box-sizing:border-box}
+.form-ctrl:focus{border-color:#b70922;background:#fff}
+.form-textarea{min-height:75px;resize:vertical}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.img-preview{width:80px;height:80px;border-radius:8px;object-fit:cover;background:#f1ede8;border:1px solid #e6dfd6;flex-shrink:0}
+.delivery-table{width:100%;border-collapse:collapse;margin-top:12px}
+.delivery-table th{background:#faf8f6;padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#706965;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e6dfd6}
+.delivery-table td{padding:10px 12px;border-bottom:1px solid #f1ede8;font-size:13px}
 @media(max-width:900px){.kanban-grid{grid-template-columns:1fr}.exp-grid{grid-template-columns:1fr}.metrics-grid{grid-template-columns:repeat(2,1fr)}.adm-sidebar{width:56px}.adm-nav-item span,.adm-logo-text,.adm-store-label{display:none}}
 `;
 
@@ -393,12 +425,13 @@ export default function OnlineOrderManager() {
     { id: "orders",     label: "Pedidos",       Icon: IcoOrders   },
     { id: "expedicao",  label: "Expedicao",      Icon: IcoQueue    },
     { id: "cardapio",   label: "Cardapio",       Icon: IcoMenu     },
+    { id: "delivery",   label: "Taxas Entrega", Icon: IcoTruck    },
     { id: "relatorios", label: "Relatorios",     Icon: IcoChart    },
     { id: "settings",   label: "Configuracoes",  Icon: IcoSettings },
   ];
   const viewLabels: Record<View, string> = {
-    orders: "Pedidos", expedicao: "Expedicao", cardapio: "Cardapio",
-    relatorios: "Relatorios", settings: "Configuracoes"
+    orders: "Pedidos", expedicao: "Expedicao", cardapio: "Cardapio & Produtos",
+    delivery: "Taxas de Entrega & Raio", relatorios: "Relatorios", settings: "Configuracoes"
   };
 
   return (
@@ -460,7 +493,8 @@ export default function OnlineOrderManager() {
                 onSelect={setSelectedOrder} onMove={updateOrderStatus}
               />
             )}
-            {view === "cardapio" && <CardapioView notify={notify} />}
+            {view === "cardapio" && <CardapioView notify={notify} onOpenDelivery={() => setView("delivery")} />}
+            {view === "delivery" && <DeliverySettingsView notify={notify} />}
             {view === "relatorios" && <RelatoriosView orders={orders} completedOrders={completedOrders} />}
             {view === "settings" && <SettingsView paperWidth={paperWidth} setPaperWidth={setPaperWidth} notify={notify} onClear={loadOrders} />}
           </main>
@@ -625,50 +659,745 @@ function ExpRow({ order, nextLabel, nextStatus, onSelect, onMove }: {
   );
 }
 
+/* PRODUCT MODAL (CRIAR E EDITAR) */
+function ProductModal({
+  product,
+  categories,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  product: CatalogProduct | "new";
+  categories: string[];
+  onClose: () => void;
+  onSave: (data: SaveProductInput) => Promise<void>;
+  onDelete?: (id: number | string, name: string) => Promise<void>;
+}) {
+  const isNew = product === "new";
+  const [name, setName] = useState(isNew ? "" : product.name);
+  const [category, setCategory] = useState(isNew ? (categories[0] || "Lanches") : product.category);
+  const [customCat, setCustomCat] = useState("");
+  const [isCustomCat, setIsCustomCat] = useState(false);
+  const [priceStr, setPriceStr] = useState(
+    isNew ? "" : (product.priceCents / 100).toFixed(2).replace(".", ",")
+  );
+  const [description, setDescription] = useState(isNew ? "" : (product.description || ""));
+  const [image, setImage] = useState(isNew ? "" : (product.image || ""));
+  const [active, setActive] = useState(isNew ? true : product.active !== false);
+  const [featured, setFeatured] = useState(isNew ? false : Boolean(product.featured));
+  const [saving, setSaving] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
+
+  // Otimização automática e compressão de imagem no navegador
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImageLoading(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 600;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", 0.82);
+            setImage(compressed);
+          } else {
+            setImage(dataUrl);
+          }
+        } catch {
+          setImage(dataUrl);
+        } finally {
+          setImageLoading(false);
+        }
+      };
+      img.onerror = () => {
+        setImageLoading(false);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return alert("Por favor, digite o nome do produto.");
+    const finalCat = isCustomCat ? customCat.trim() : category.trim();
+    if (!finalCat) return alert("Por favor, selecione ou digite uma categoria.");
+
+    // Parse preço
+    const cleanPrice = priceStr.replace(/[^\d.,]/g, "").replace(",", ".");
+    const numPrice = parseFloat(cleanPrice);
+    if (isNaN(numPrice) || numPrice < 0) return alert("Por favor, informe um preço válido (ex: 39,90).");
+    const priceCents = Math.round(numPrice * 100);
+
+    setSaving(true);
+    try {
+      await onSave({
+        id: isNew ? undefined : product.id,
+        name: name.trim(),
+        category: finalCat,
+        priceCents,
+        description: description.trim(),
+        image: image.trim() || "/smack-chicken-mark.png",
+        active,
+        featured,
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao salvar produto");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+        <div className="modal-header">
+          <div className="modal-title">{isNew ? "Adicionar Novo Produto" : `Editar: ${product.name}`}</div>
+          <button className="adm-icon-btn" onClick={onClose}><IcoClose /></button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            <div className="form-grp">
+              <label className="form-lbl">Nome do Produto *</label>
+              <input
+                className="form-ctrl"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Balde Especial Crocante"
+                required
+              />
+            </div>
+
+            <div className="form-2col">
+              <div className="form-grp">
+                <label className="form-lbl">Categoria *</label>
+                {!isCustomCat ? (
+                  <select
+                    className="form-ctrl"
+                    value={category}
+                    onChange={(e) => {
+                      if (e.target.value === "__NEW__") {
+                        setIsCustomCat(true);
+                      } else {
+                        setCategory(e.target.value);
+                      }
+                    }}
+                  >
+                    {categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__NEW__">+ Nova categoria...</option>
+                  </select>
+                ) : (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      className="form-ctrl"
+                      value={customCat}
+                      onChange={(e) => setCustomCat(e.target.value)}
+                      placeholder="Nome da categoria"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={() => setIsCustomCat(false)}
+                      title="Voltar à lista"
+                    >
+                      X
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-grp">
+                <label className="form-lbl">Preço (R$) *</label>
+                <input
+                  className="form-ctrl"
+                  value={priceStr}
+                  onChange={(e) => setPriceStr(e.target.value)}
+                  placeholder="Ex: 49,90"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="form-grp">
+              <label className="form-lbl">Descrição do Produto</label>
+              <textarea
+                className="form-ctrl form-textarea"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ingredientes, porção, detalhes do que acompanha..."
+              />
+            </div>
+
+            <div className="form-grp">
+              <label className="form-lbl">Foto do Produto</label>
+              <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 8 }}>
+                <img
+                  src={image || "/smack-chicken-mark.png"}
+                  alt="Prévia"
+                  className="img-preview"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-mark.png"; }}
+                />
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#b70922",
+                      color: "#fff",
+                      borderRadius: 7,
+                      padding: "8px 14px",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span>{imageLoading ? "Otimizando foto..." : "📁 Escolher Foto (PC / Celular)"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={handleImageUpload}
+                      disabled={imageLoading}
+                    />
+                  </label>
+                  <div style={{ fontSize: 11, color: "#9c918d" }}>
+                    Foto otimizada e gravada em alta velocidade na nuvem.
+                  </div>
+                </div>
+              </div>
+              <input
+                className="form-ctrl"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="Ou cole a URL direta da imagem (ex: /balde-tiras.jpeg ou https://...)"
+                style={{ fontSize: 12 }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 20, marginTop: 10, padding: "10px 14px", background: "#faf8f6", borderRadius: 8, border: "1px solid #e6dfd6" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={(e) => setActive(e.target.checked)}
+                  style={{ accentColor: "#17a35c", width: 16, height: 16 }}
+                />
+                <span>Disponível no cardápio online</span>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={featured}
+                  onChange={(e) => setFeatured(e.target.checked)}
+                  style={{ accentColor: "#b70922", width: 16, height: 16 }}
+                />
+                <span>Destaque</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="modal-actions" style={{ justifyContent: "space-between" }}>
+            <div>
+              {!isNew && onDelete && (
+                <button
+                  type="button"
+                  className="btn-danger"
+                  onClick={() => onDelete(product.id, product.name)}
+                >
+                  <IcoTrash /> Excluir Produto
+                </button>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" disabled={saving || imageLoading}>
+                {saving ? "Salvando..." : isNew ? "Cadastrar Produto" : "Salvar Alterações"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 /* CARDAPIO */
-function CardapioView({ notify }: { notify: (m: string) => void }) {
-  const [paused, setPaused] = useState<Set<string | number>>(new Set());
-  const toggle = (id: string | number) => {
-    setPaused((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); notify("Item liberado no cardapio."); }
-      else { next.add(id); notify("Item pausado temporariamente."); }
+function CardapioView({
+  notify,
+  onOpenDelivery,
+}: {
+  notify: (m: string) => void;
+  onOpenDelivery?: () => void;
+}) {
+  const [products, setProducts] = useState<CatalogProduct[]>(catalog);
+  const [loading, setLoading] = useState(false);
+  const [filterCat, setFilterCat] = useState("Todos");
+  const [search, setSearch] = useState("");
+  const [editingProduct, setEditingProduct] = useState<CatalogProduct | "new" | null>(null);
+
+  const loadProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api<{ products: CatalogProduct[] }>("/api/products").catch(() => ({ products: [] }));
+      if (Array.isArray(res.products) && res.products.length > 0) {
+        setProducts(res.products);
+      }
+    } catch {
+      notify("Erro ao carregar cardápio atualizado");
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  const handleToggleActive = async (id: number | string) => {
+    try {
+      const res = await api<{ product: CatalogProduct }>("/api/products", {
+        method: "PATCH",
+        body: JSON.stringify({ id, toggleActive: true }),
+      });
+      setProducts((prev) => prev.map((p) => (p.id === res.product.id ? res.product : p)));
+      notify(res.product.active !== false ? "Item liberado no cardápio!" : "Item pausado temporariamente!");
+    } catch {
+      notify("Erro ao alternar status do item");
+    }
+  };
+
+  const handleSaveProduct = async (data: SaveProductInput) => {
+    const isNew = !data.id;
+    const res = await api<{ product: CatalogProduct }>("/api/products", {
+      method: isNew ? "POST" : "PATCH",
+      body: JSON.stringify(data),
+    });
+    setProducts((prev) => {
+      if (isNew) return [...prev, res.product];
+      return prev.map((p) => (p.id === res.product.id ? res.product : p));
+    });
+    setEditingProduct(null);
+    notify(isNew ? `Produto "${res.product.name}" adicionado!` : `Produto "${res.product.name}" atualizado!`);
+  };
+
+  const handleDeleteProduct = async (id: number | string, name: string) => {
+    if (!window.confirm(`Deseja realmente excluir permanentemente "${name}" do cardápio?`)) return;
+    try {
+      await api(`/api/products?id=${id}`, { method: "DELETE" });
+      setProducts((prev) => prev.filter((p) => p.id !== Number(id)));
+      if (editingProduct && editingProduct !== "new" && editingProduct.id === Number(id)) {
+        setEditingProduct(null);
+      }
+      notify(`Produto "${name}" excluído com sucesso!`);
+    } catch {
+      notify("Erro ao excluir produto");
+    }
+  };
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => { if (p.category) set.add(p.category); });
+    return Array.from(set);
+  }, [products]);
+
+  const pausedCount = useMemo(() => products.filter((p) => p.active === false).length, [products]);
+
+  const filteredProducts = useMemo(() => {
+    let list = products;
+    if (filterCat !== "Todos") {
+      list = list.filter((p) => p.category === filterCat);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => p.name.toLowerCase().includes(q) || (p.description && p.description.toLowerCase().includes(q)));
+    }
+    return list;
+  }, [products, filterCat, search]);
+
+  return (
+    <>
+      <div className="cat-top-bar">
+        <div>
+          <div className="sec-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            Gestão do Cardápio Online
+            {loading && <span style={{ fontSize: 12, fontWeight: 500, color: "#9c918d" }}>(atualizando...)</span>}
+          </div>
+          <div style={{ fontSize: 12, color: "#9c918d", marginTop: 4 }}>
+            {products.length} itens cadastrados · {pausedCount} pausado(s) · Sincronizado em tempo real com o site de pedidos
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          {onOpenDelivery && (
+            <button className="btn-secondary" onClick={onOpenDelivery} style={{ fontSize: 12 }}>
+              <IcoTruck /> Taxas de Entrega
+            </button>
+          )}
+          <button className="btn-primary" onClick={() => setEditingProduct("new")}>
+            <IcoPlus /> Novo Produto
+          </button>
+        </div>
+      </div>
+
+      {/* Barra de Filtros e Busca */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div className="cat-pill-bar" style={{ marginBottom: 0 }}>
+          <button
+            className={`cat-pill ${filterCat === "Todos" ? "active" : ""}`}
+            onClick={() => setFilterCat("Todos")}
+          >
+            Todos ({products.length})
+          </button>
+          {categories.map((c) => {
+            const count = products.filter((p) => p.category === c).length;
+            return (
+              <button
+                key={c}
+                className={`cat-pill ${filterCat === c ? "active" : ""}`}
+                onClick={() => setFilterCat(c)}
+              >
+                {c} ({count})
+              </button>
+            );
+          })}
+        </div>
+
+        <input
+          type="text"
+          className="cat-search"
+          placeholder="Buscar produto por nome..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Grid de Produtos */}
+      <div className="catalog-grid">
+        {filteredProducts.map((product) => {
+          const off = product.active === false;
+          return (
+            <div key={product.id} className="ccard" style={{ opacity: off ? 0.65 : 1 }}>
+              <img
+                className="ccard-img"
+                src={product.image || "/smack-chicken-mark.png"}
+                alt={product.name}
+                onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-mark.png"; }}
+              />
+              <div className="ccard-info">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                  <div className="ccard-name" title={product.name}>{product.name}</div>
+                  <span style={{ fontSize: 10, background: "#f1ede8", padding: "1px 6px", borderRadius: 4, color: "#706965", fontWeight: 700 }}>
+                    {product.category}
+                  </span>
+                </div>
+                <div className="ccard-price">{formatMoney(product.priceCents)}</div>
+                {product.description && (
+                  <div className="ccard-desc" title={product.description}>{product.description}</div>
+                )}
+                <div className="ccard-actions">
+                  <div className="ccard-toggle">
+                    <button
+                      className="tpill"
+                      style={{ background: off ? "#e6dfd6" : "#17a35c" }}
+                      onClick={() => handleToggleActive(product.id)}
+                      title={off ? "Clique para ativar" : "Clique para pausar"}
+                    >
+                      <div className="tpill-thumb" style={{ left: off ? 2 : 17 }} />
+                    </button>
+                    <span style={{ color: off ? "#9b1c1c" : "#065f46" }}>
+                      {off ? "Pausado" : "Disponível"}
+                    </span>
+                  </div>
+
+                  <button
+                    className="btn-secondary btn-sm"
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => setEditingProduct(product)}
+                    title="Editar produto"
+                  >
+                    <IcoEdit /> Editar
+                  </button>
+                  <button
+                    className="btn-danger btn-sm"
+                    onClick={() => handleDeleteProduct(product.id, product.name)}
+                    title="Excluir produto"
+                  >
+                    <IcoTrash />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredProducts.length === 0 && (
+        <div className="empty-st">Nenhum produto encontrado neste filtro.</div>
+      )}
+
+      {/* Modal de Adicionar / Editar */}
+      {editingProduct && (
+        <ProductModal
+          product={editingProduct}
+          categories={categories}
+          onClose={() => setEditingProduct(null)}
+          onSave={handleSaveProduct}
+          onDelete={editingProduct !== "new" ? handleDeleteProduct : undefined}
+        />
+      )}
+    </>
+  );
+}
+
+/* DELIVERY SETTINGS */
+function DeliverySettingsView({ notify }: { notify: (m: string) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [maxRadiusKm, setMaxRadiusKm] = useState<number>(6);
+  const [tiers, setTiers] = useState<DeliveryTier[]>([]);
+
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api<{ settings: DeliverySettings }>("/api/delivery-settings");
+      if (res.settings) {
+        setMaxRadiusKm(res.settings.maxRadiusKm || 6);
+        setTiers(res.settings.tiers || []);
+      }
+    } catch {
+      notify("Erro ao carregar taxas de entrega");
+    } finally {
+      setLoading(false);
+    }
+  }, [notify]);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const handleUpdateTier = (index: number, field: keyof DeliveryTier, value: any) => {
+    setTiers((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      if (field === "feeCents") {
+        next[index].feeFormatted = `R$ ${(Number(value) / 100).toFixed(2).replace(".", ",")}`;
+      }
       return next;
     });
   };
-  const categories = Array.from(new Set(catalog.map((p) => p.category)));
+
+  const handleRemoveTier = (index: number) => {
+    if (tiers.length <= 1) return alert("Pelo menos uma faixa de entrega deve permanecer cadastrada.");
+    setTiers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddTier = () => {
+    const last = tiers[tiers.length - 1];
+    const newMaxKm = last ? Number((last.maxKm + 0.5).toFixed(1)) : 1.0;
+    const newTime = last ? last.timeMinutes + 2 : 40;
+    const newFee = last ? last.feeCents + 100 : 599;
+    const newTier: DeliveryTier = {
+      maxKm: newMaxKm,
+      timeMinutes: newTime,
+      feeCents: newFee,
+      feeFormatted: `R$ ${(newFee / 100).toFixed(2).replace(".", ",")}`,
+    };
+    setTiers((prev) => [...prev, newTier]);
+    if (newMaxKm > maxRadiusKm) {
+      setMaxRadiusKm(newMaxKm);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload: DeliverySettings = {
+        maxRadiusKm: Number(maxRadiusKm),
+        tiers: tiers.map((t) => ({
+          maxKm: Number(t.maxKm),
+          timeMinutes: Number(t.timeMinutes),
+          feeCents: Number(t.feeCents),
+          feeFormatted: `R$ ${(Number(t.feeCents) / 100).toFixed(2).replace(".", ",")}`,
+        })),
+      };
+      const res = await api<{ settings: DeliverySettings }>("/api/delivery-settings", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setMaxRadiusKm(res.settings.maxRadiusKm);
+      setTiers(res.settings.tiers);
+      notify("Taxas de entrega e raio de atendimento atualizados com sucesso!");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Erro ao salvar configurações de entrega");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <div className="sec-header">
-        <span className="sec-title">Gestao de Cardapio</span>
-        <span style={{ fontSize:12, color:"#9c918d" }}>{paused.size} item(s) pausado(s)</span>
-      </div>
-      {categories.map((cat) => (
-        <div key={cat} style={{ marginBottom:24 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:"#9c918d", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:12 }}>{cat}</div>
-          <div className="catalog-grid">
-            {catalog.filter((p) => p.category === cat).map((product) => {
-              const off = paused.has(product.id);
-              return (
-                <div key={product.id} className="ccard" style={{ opacity:off ? 0.6 : 1 }}>
-                  <img className="ccard-img" src={(product as { image?: string }).image || "/smack-chicken-mark.png"} alt={product.name}
-                    onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-mark.png"; }} />
-                  <div className="ccard-info">
-                    <div className="ccard-name">{product.name}</div>
-                    <div className="ccard-price">{formatMoney(product.priceCents)}</div>
-                    <div className="ccard-toggle">
-                      <button className="tpill" style={{ background:off ? "#e6dfd6" : "#17a35c" }} onClick={() => toggle(product.id)}>
-                        <div className="tpill-thumb" style={{ left:off ? 2 : 17 }} />
-                      </button>
-                      <span style={{ color:off ? "#9b1c1c" : "#065f46" }}>{off ? "Pausado" : "Disponivel"}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        <div>
+          <div className="sec-title">Taxas de Entrega & Raio de Atendimento</div>
+          <div style={{ fontSize: 12, color: "#9c918d", marginTop: 4 }}>
+            Calculado automaticamente pelo CEP do cliente no site de pedidos online a partir da loja no Estreito (Rua Fúlvio Aducci, 1074)
           </div>
         </div>
-      ))}
+        <button className="btn-primary" onClick={handleSave} disabled={saving || loading}>
+          {saving ? "Salvando..." : "Salvar Configurações"}
+        </button>
+      </div>
+
+      <div className="ssection">
+        <div className="ssection-title">Raio Máximo de Atendimento</div>
+        <div className="srow" style={{ alignItems: "center" }}>
+          <div>
+            <div className="slabel">Distância máxima atendida para entregas (km)</div>
+            <div className="shint">
+              Endereços além desta distância serão orientados a retirar no balcão da loja.
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="number"
+              step="0.5"
+              min="1"
+              max="50"
+              className="form-ctrl"
+              style={{ width: 90, textAlign: "center", fontWeight: 700, fontSize: 14 }}
+              value={maxRadiusKm}
+              onChange={(e) => setMaxRadiusKm(parseFloat(e.target.value) || 0)}
+            />
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#706965" }}>km</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="ssection">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div>
+            <div className="ssection-title" style={{ margin: 0, padding: 0, border: "none" }}>
+              Tabela de Faixas de Entrega (Distância, Tempo e Taxa)
+            </div>
+            <div className="shint">
+              Defina a taxa e tempo estimado para cada raio de alcance.
+            </div>
+          </div>
+          <button className="btn-secondary btn-sm" onClick={handleAddTier}>
+            <IcoPlus /> Adicionar Faixa
+          </button>
+        </div>
+
+        <table className="delivery-table">
+          <thead>
+            <tr>
+              <th style={{ width: "25%" }}>Raio Máximo (km)</th>
+              <th style={{ width: "30%" }}>Tempo Estimado (min)</th>
+              <th style={{ width: "30%" }}>Taxa de Entrega (R$)</th>
+              <th style={{ width: "15%", textAlign: "center" }}>Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tiers.map((tier, idx) => {
+              const feeVal = (tier.feeCents / 100).toFixed(2);
+              return (
+                <tr key={idx}>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>Até</span>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0.1"
+                        className="form-ctrl"
+                        style={{ width: 75, padding: "5px 8px" }}
+                        value={tier.maxKm}
+                        onChange={(e) => handleUpdateTier(idx, "maxKm", parseFloat(e.target.value) || 0)}
+                      />
+                      <span>km</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input
+                        type="number"
+                        step="1"
+                        min="5"
+                        className="form-ctrl"
+                        style={{ width: 75, padding: "5px 8px" }}
+                        value={tier.timeMinutes}
+                        onChange={(e) => handleUpdateTier(idx, "timeMinutes", parseInt(e.target.value, 10) || 0)}
+                      />
+                      <span>minutos</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-ctrl"
+                        style={{ width: 90, padding: "5px 8px", fontWeight: 700 }}
+                        value={feeVal}
+                        onChange={(e) => {
+                          const parsed = Math.round(parseFloat(e.target.value || "0") * 100);
+                          handleUpdateTier(idx, "feeCents", isNaN(parsed) ? 0 : parsed);
+                        }}
+                      />
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      className="btn-danger btn-sm"
+                      onClick={() => handleRemoveTier(idx)}
+                      title="Remover faixa"
+                    >
+                      <IcoTrash />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn-primary" onClick={handleSave} disabled={saving || loading}>
+            {saving ? "Salvando..." : "Salvar Configurações de Entrega"}
+          </button>
+        </div>
+      </div>
     </>
   );
 }

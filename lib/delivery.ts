@@ -49,26 +49,29 @@ export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lo
   return R * c;
 }
 
-/**
- * Determina a faixa de entrega (taxa e tempo) com base na distância em km.
- */
-export function getDeliveryTier(distanceKm: number): {
+export function getDeliveryTier(
+  distanceKm: number,
+  customSettings?: { maxRadiusKm?: number; tiers?: DeliveryTier[] }
+): {
   tier: DeliveryTier | null;
   isWithinRadius: boolean;
   distanceKm: number;
 } {
+  const maxRadius = customSettings?.maxRadiusKm ?? MAX_DELIVERY_RADIUS_KM;
+  const tiers = customSettings?.tiers && customSettings.tiers.length > 0 ? customSettings.tiers : DELIVERY_TIERS;
+
   // Pequena tolerância para imprecisões de arredondamento de float
-  if (distanceKm > MAX_DELIVERY_RADIUS_KM + 0.05) {
+  if (distanceKm > maxRadius + 0.05) {
     return { tier: null, isWithinRadius: false, distanceKm };
   }
 
-  for (const tier of DELIVERY_TIERS) {
+  for (const tier of tiers) {
     if (distanceKm <= tier.maxKm) {
       return { tier, isWithinRadius: true, distanceKm };
     }
   }
 
-  const lastTier = DELIVERY_TIERS[DELIVERY_TIERS.length - 1];
+  const lastTier = tiers[tiers.length - 1];
   return { tier: lastTier, isWithinRadius: true, distanceKm };
 }
 
@@ -115,7 +118,10 @@ export interface CepDeliveryResult {
 /**
  * Consulta CEP e calcula distância georreferenciada da loja física
  */
-export async function fetchCepDeliveryInfo(rawCep: string): Promise<CepDeliveryResult> {
+export async function fetchCepDeliveryInfo(
+  rawCep: string,
+  customSettings?: { maxRadiusKm?: number; tiers?: DeliveryTier[] }
+): Promise<CepDeliveryResult> {
   const cleanCep = rawCep.replace(/\D/g, "");
   if (cleanCep.length !== 8) {
     return {
@@ -249,7 +255,8 @@ export async function fetchCepDeliveryInfo(rawCep: string): Promise<CepDeliveryR
     }
   }
 
-  const { tier, isWithinRadius } = getDeliveryTier(distanceKm);
+  const { tier, isWithinRadius } = getDeliveryTier(distanceKm, customSettings);
+  const maxRadius = customSettings?.maxRadiusKm ?? MAX_DELIVERY_RADIUS_KM;
 
   return {
     success: true,
@@ -265,6 +272,6 @@ export async function fetchCepDeliveryInfo(rawCep: string): Promise<CepDeliveryR
     tier,
     error: isWithinRadius
       ? undefined
-      : `O endereço informado fica a cerca de ${distanceKm.toFixed(1)} km da loja, fora do nosso raio de entrega de ${MAX_DELIVERY_RADIUS_KM.toFixed(0)} km. Escolha "Retirar na Loja".`,
+      : `O endereço informado fica a cerca de ${distanceKm.toFixed(1)} km da loja, fora do nosso raio de entrega de ${maxRadius.toFixed(0)} km. Escolha "Retirar na Loja".`,
   };
 }
