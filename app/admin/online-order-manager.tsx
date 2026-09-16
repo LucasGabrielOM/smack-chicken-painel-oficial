@@ -1054,19 +1054,90 @@ function MotoboyDeliveryView({
   notify: (msg: string) => void;
 }) {
   const [tab, setTab] = useState<"pending" | "in_route" | "delivered" | "all">("pending");
-  const [currentMotoboy, setCurrentMotoboy] = useState<string>(() => {
+  const [motoboyList, setMotoboyList] = useState<{ id: string; name: string; phone?: string; vehicle?: string }[]>([
+    { id: "mb-lucas", name: "Lucas", phone: "", vehicle: "Moto" }
+  ]);
+  const [currentMotoboy, setCurrentMotoboy] = useState<string>("Lucas");
+  const [newDriverName, setNewDriverName] = useState("");
+  const [newDriverPhone, setNewDriverPhone] = useState("");
+  const [newDriverVehicle, setNewDriverVehicle] = useState("");
+  const [showAddBox, setShowAddBox] = useState(false);
+  const [savingDriver, setSavingDriver] = useState(false);
+
+  // Carrega lista oficial de motoboys da loja
+  const loadFleet = useCallback(async () => {
     try {
-      return localStorage.getItem("smack_current_motoboy") || "";
-    } catch {
-      return "";
-    }
-  });
+      const res = (await fetch("/api/motoboys").then((r) => r.json())) as { ok: boolean; motoboys: any[] };
+      if (res.ok && Array.isArray(res.motoboys) && res.motoboys.length > 0) {
+        setMotoboyList(res.motoboys);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadFleet();
+    try {
+      const saved = localStorage.getItem("smack_current_motoboy");
+      if (saved) setCurrentMotoboy(saved);
+    } catch {}
+  }, [loadFleet]);
 
   const handleSetMotoboy = (name: string) => {
     setCurrentMotoboy(name);
     try {
       localStorage.setItem("smack_current_motoboy", name);
     } catch {}
+  };
+
+  const handleCreateDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDriverName.trim()) {
+      notify("Digite o nome do motoboy");
+      return;
+    }
+    setSavingDriver(true);
+    try {
+      const res = (await fetch("/api/motoboys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newDriverName.trim(),
+          phone: newDriverPhone.trim(),
+          vehicle: newDriverVehicle.trim() || "Moto",
+        }),
+      }).then((r) => r.json())) as { ok: boolean };
+
+      if (res.ok) {
+        notify(`Motoboy ${newDriverName.trim()} cadastrado com sucesso!`);
+        setNewDriverName("");
+        setNewDriverPhone("");
+        setNewDriverVehicle("");
+        setShowAddBox(false);
+        await loadFleet();
+      } else {
+        notify("Falha ao cadastrar motoboy");
+      }
+    } catch {
+      notify("Erro de conexão ao cadastrar motoboy");
+    } finally {
+      setSavingDriver(false);
+    }
+  };
+
+  const handleDeleteDriver = async (id: string, name: string) => {
+    if (!window.confirm(`Deseja realmente remover o entregador ${name}?`)) return;
+    try {
+      const res = (await fetch(`/api/motoboys?id=${encodeURIComponent(id)}`, { method: "DELETE" }).then((r) => r.json())) as { ok: boolean };
+      if (res.ok) {
+        notify(`Entregador ${name} removido.`);
+        if (currentMotoboy.toLowerCase() === name.toLowerCase()) {
+          handleSetMotoboy("Lucas");
+        }
+        await loadFleet();
+      }
+    } catch {
+      notify("Falha ao remover motoboy.");
+    }
   };
 
   const deliveryOrders = useMemo(() => {
@@ -1101,7 +1172,7 @@ function MotoboyDeliveryView({
     : deliveryOrders;
 
   const handleCheckin = async (order: Order) => {
-    const motoboy = currentMotoboy.trim() || "Entregador da Casa";
+    const motoboy = currentMotoboy.trim() || "Lucas";
     const nowTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     let notes = order.notes || "";
     if (!notes.toLowerCase().includes("motoboy:")) {
@@ -1116,7 +1187,7 @@ function MotoboyDeliveryView({
 
   const handleCheckout = async (order: Order) => {
     const parsed = parseOrderDetails(order);
-    const motoboy = parsed.motoboyName || currentMotoboy.trim() || "Entregador";
+    const motoboy = parsed.motoboyName || currentMotoboy.trim() || "Lucas";
     const nowTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     let notes = order.notes || "";
     if (!notes.toLowerCase().includes("entregue às:") && !notes.toLowerCase().includes("entregue as:")) {
@@ -1134,47 +1205,200 @@ function MotoboyDeliveryView({
     }
   };
 
-  const quickNames = ["Lucas", "Rodrigo", "Gabriel", "Mateus", "Felipe"];
+  const motoboyPortalUrl = typeof window !== "undefined" ? `${window.location.origin}/motoboy` : "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/motoboy";
 
   return (
     <div>
-      <div className="motoboy-header">
-        <div>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1b1715" }}>Entregas & Motoboy</h2>
-          <p style={{ fontSize: 12, color: "#706965" }}>Check-in de saída na loja e check-out no endereço do cliente</p>
+      {/* BANNER EXCLUSIVO: LINK DO PORTAL DO MOTOBOY */}
+      <div style={{ background: "#1b1715", border: "1.5px solid #ffc814", borderRadius: 12, padding: "16px 20px", marginBottom: 20, color: "#fff" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14 }}>
+          <div style={{ flex: 1, minWidth: 280 }}>
+            <div style={{ fontSize: 16, fontWeight: 900, color: "#ffc814", display: "flex", alignItems: "center", gap: 8 }}>
+              <span>🛵 Link de Acesso Exclusivo para os Motoboys</span>
+            </div>
+            <p style={{ fontSize: 13, color: "#d1c7c2", marginTop: 4, lineHeight: 1.4 }}>
+              Os entregadores acessam este link no celular <strong>sem precisar da senha de administrador</strong>. Lá eles fazem o <strong>Check-in</strong> ao sair da loja e o <strong>Check-out</strong> com GPS e WhatsApp ao entregar no cliente.
+            </p>
+            <div style={{ marginTop: 8, background: "#120f0e", border: "1px solid #3d3532", padding: "8px 12px", borderRadius: 8, fontFamily: "monospace", fontSize: 13, color: "#38bdf8", wordBreak: "break-all" }}>
+              {motoboyPortalUrl}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                navigator.clipboard.writeText(motoboyPortalUrl);
+                notify("Link do Portal do Motoboy copiado!");
+              }}
+              style={{ background: "#2c2624", color: "#fff", borderColor: "#4a403d" }}
+            >
+              📋 Copiar Link
+            </button>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Olá! Acesse o Portal do Entregador do Smack Chicken para suas entregas: ${motoboyPortalUrl}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="whatsapp-btn"
+              style={{ padding: "8px 14px", fontSize: 12 }}
+            >
+              <IcoWhatsApp /> Enviar p/ WhatsApp
+            </a>
+
+            <a
+              href="/motoboy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary"
+              style={{ padding: "8px 14px", fontSize: 12, textDecoration: "none" }}
+            >
+              Abrir Portal ➔
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* CAIXA DE CADASTRO DE MOTOBOYS REAIS */}
+      <div style={{ background: "#fff", border: "1px solid #e6dfd6", borderRadius: 12, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 800, color: "#1b1715" }}>🛵 Equipe de Entregadores Cadastrados</h3>
+            <p style={{ fontSize: 12, color: "#706965" }}>Cadastre e gerencie os motoboys que realizam as entregas da sua loja</p>
+          </div>
+          <button
+            type="button"
+            className="btn-primary btn-sm"
+            onClick={() => setShowAddBox((v) => !v)}
+          >
+            {showAddBox ? "✕ Fechar Cadastro" : "+ Cadastrar Novo Motoboy"}
+          </button>
         </div>
 
-        {/* SELETOR DE MOTOBOY */}
+        {/* FORMULÁRIO DE NOVO MOTOBOY */}
+        {showAddBox && (
+          <form onSubmit={handleCreateDriver} style={{ background: "#faf8f6", border: "1px solid #e6dfd6", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#b70922", marginBottom: 10 }}>
+              Dados do Novo Entregador
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 12 }}>
+              <div>
+                <label className="form-lbl">Nome do Entregador *</label>
+                <input
+                  type="text"
+                  className="form-ctrl"
+                  placeholder="Ex: Lucas, Rodrigo, Marcos..."
+                  value={newDriverName}
+                  onChange={(e) => setNewDriverName(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-lbl">WhatsApp / Telefone</label>
+                <input
+                  type="text"
+                  className="form-ctrl"
+                  placeholder="(48) 99999-9999"
+                  value={newDriverPhone}
+                  onChange={(e) => setNewDriverPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="form-lbl">Veículo / Placa</label>
+                <input
+                  type="text"
+                  className="form-ctrl"
+                  placeholder="Ex: CG 160 Fan / Placa"
+                  value={newDriverVehicle}
+                  onChange={(e) => setNewDriverVehicle(e.target.value)}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setShowAddBox(false)}>Cancelar</button>
+              <button type="submit" className="btn-primary btn-sm" disabled={savingDriver}>
+                {savingDriver ? "Salvando..." : "Salvar Entregador"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* LISTA DE MOTOBOYS CADASTRADOS */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+          {motoboyList.map((mb) => (
+            <div
+              key={mb.id}
+              style={{
+                background: currentMotoboy.toLowerCase() === mb.name.toLowerCase() ? "#eff6ff" : "#faf8f6",
+                border: currentMotoboy.toLowerCase() === mb.name.toLowerCase() ? "1.5px solid #2563eb" : "1px solid #e6dfd6",
+                borderRadius: 8,
+                padding: "10px 14px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 800, color: "#1b1715" }}>🛵 {mb.name}</div>
+                <div style={{ fontSize: 11, color: "#706965", marginTop: 2 }}>
+                  {mb.vehicle || "Moto"} {mb.phone ? `· ${mb.phone}` : ""}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => handleSetMotoboy(mb.name)}
+                  style={{
+                    background: currentMotoboy.toLowerCase() === mb.name.toLowerCase() ? "#2563eb" : "#f1ede8",
+                    color: currentMotoboy.toLowerCase() === mb.name.toLowerCase() ? "#fff" : "#1b1715",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {currentMotoboy.toLowerCase() === mb.name.toLowerCase() ? "Selecionado" : "Selecionar"}
+                </button>
+                {motoboyList.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDriver(mb.id, mb.name)}
+                    className="btn-danger btn-sm"
+                    title="Excluir entregador"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CABEÇALHO DO PAINEL DE ENTREGAS */}
+      <div className="motoboy-header">
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1b1715" }}>Quadro de Entregas</h2>
+          <p style={{ fontSize: 12, color: "#706965" }}>Acompanhe em tempo real as saídas e entregas concluídas</p>
+        </div>
+
+        {/* SELETOR ATIVO PARA DISPATCH RÁPIDO PELA LOJA */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", border: "1px solid #e6dfd6", padding: "6px 12px", borderRadius: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#706965" }}>Entregador em serviço:</span>
-          <input
-            type="text"
-            placeholder="Nome do motoboy..."
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#706965" }}>Atribuir para:</span>
+          <select
             value={currentMotoboy}
             onChange={(e) => handleSetMotoboy(e.target.value)}
-            style={{ border: "1px solid #e6dfd6", borderRadius: 6, padding: "5px 8px", fontSize: 12, outline: "none", width: 140 }}
-          />
-          <div style={{ display: "flex", gap: 4 }}>
-            {quickNames.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => handleSetMotoboy(name)}
-                style={{
-                  background: currentMotoboy === name ? "#b70922" : "#f1ede8",
-                  color: currentMotoboy === name ? "#fff" : "#706965",
-                  border: "none",
-                  borderRadius: 4,
-                  padding: "4px 7px",
-                  fontSize: 11,
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-              >
-                {name}
-              </button>
+            style={{ border: "1px solid #e6dfd6", borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, color: "#1b1715", outline: "none", background: "#fff" }}
+          >
+            {motoboyList.map((m) => (
+              <option key={m.id} value={m.name}>{m.name}</option>
             ))}
-          </div>
+          </select>
         </div>
       </div>
 
