@@ -417,61 +417,74 @@ function Metric({ label, value, note, tone = "" }: { label: string; value: strin
 }
 
 export function getProductImage(product: { name: string; category?: string; image?: string }): string {
-  // Produto com foto própria enviada pela tela Cardápio: usa exatamente ela,
-  // sem tentar adivinhar por palavra-chave no nome.
-  if (product.image && product.image.startsWith("data:")) return product.image;
-
-  const name = product.name.toLowerCase().trim();
-
-  // 1. Polenta Frita
-  if (name.includes("polenta")) return "/polenta-frita.jpg";
-
-  // 2. Batata Frita
-  if (name.includes("batata")) return "/batata-frita.jpeg";
-
-  // 3. Guaraná Lata, Zero e Pureza — sempre a lata real do Guaraná, nunca foto de Coca-Cola
-  if (name.includes("guaraná lata") || name.includes("guarana lata") || name.includes("guaraná") || name.includes("guarana")) {
-    return "/guarana-lata.png";
+  // Prioridade máxima: se o produto possui foto cadastrada (seja /caminho.jpeg, URL ou data: base64), usa ela!
+  if (product.image && typeof product.image === "string" && product.image.trim() !== "") {
+    return product.image.trim();
   }
 
-  // 4. Águas
+  const name = (product.name || "").toLowerCase().trim();
+  const category = (product.category || "").toLowerCase().trim();
+
+  // 1. Lanches Smack (evita cair na batata frita por causa do 'Batata Smile' ou cair em baldes)
+  if (name.includes("fresh")) return "/lanche-fresh.jpeg";
+  if (name.includes("power")) return "/lanche-power.jpeg";
+  if (name.includes("kids")) return "/lanche-kids.jpeg";
+  if (name.includes("original")) return "/lanche-original.jpeg";
+  if (category === "lanches" || name.includes("burger") || name.includes("hambúrguer") || name.includes("lanche")) return "/lanche-original.jpeg";
+
+  // 2. Marmitas
+  if (category === "marmitas" || name.includes("marmita")) return "/marmita-smack.jpg";
+
+  // 3. Polenta Frita
+  if (name.includes("polenta")) return "/polenta-frita.jpg";
+
+  // 4. Batata Frita e Anéis de Cebola
+  if (name.includes("cebola") || name.includes("aneis") || name.includes("anéis")) return "/batata-frita.jpeg";
+  if (name.includes("batata")) return "/batata-frita.jpeg";
+
+  // 5. Guaraná Lata, Zero e Pureza
+  if (name.includes("guaraná") || name.includes("guarana") || name.includes("pureza")) return "/guarana-lata.png";
+
+  // 6. Águas
   if (name.includes("água sem gás") || name.includes("agua sem gas")) return "/agua-sem-gas.webp";
   if (name.includes("água com gás") || name.includes("agua com gas") || name.includes("com gás")) return "/agua-com-gas.jpg";
 
-  // 5. Cervejas
+  // 7. Cervejas
   if (name.includes("stella")) return "/stella.webp";
   if (name.includes("heineken")) return "/heineken.webp";
 
-  // 6. Coca 200ml
+  // 8. Coca 200ml
   if (name.includes("200 ml") || name.includes("200ml")) return "/coca-200ml.webp";
 
-  // 7. Coca 1.5L e 600ml
+  // 9. Coca 1.5L e 600ml
   if (name.includes("1,5") || name.includes("1.5") || name.includes("600 ml") || name.includes("600ml")) return "/coca-15l.jpeg";
 
-  // 8. Coca Lata Zero e Original
+  // 10. Coca Lata Zero e Original
   if (name.includes("coca") && (name.includes("zero") || name.includes("sem açúcar"))) return "/coca-zero-lata.jpeg";
   if (name.includes("coca")) return "/coca-lata.jpeg";
 
-  // 9. Sprite
+  // 11. Sprite
   if (name.includes("sprite") && name.includes("zero")) return "/sprite-zero-lata.jpeg";
   if (name.includes("sprite")) return "/sprite-lata.jpeg";
 
-  // 10. Baly
+  // 12. Baly
   if (name.includes("baly tropical")) return "/baly-tropical.jpeg";
   if (name.includes("baly tradicional")) return "/baly-tradicional.jpeg";
   if (name.includes("baly manga")) return "/baly-manga.jpeg";
+  if (name.includes("baly")) return "/baly-tradicional.jpeg";
 
-  // 11. Kapo
+  // 13. Kapo
   if (name.includes("kapo uva")) return "/kapo-uva.jpeg";
   if (name.includes("kapo morango") || name.includes("kapo laranja")) return "/kapo-morango.jpeg";
+  if (name.includes("kapo")) return "/kapo-morango.jpeg";
 
-  // 12. Baldes & Combos
+  // 14. Baldes & Combos
   if (name.includes("tiras")) return "/balde-tiras.jpeg";
   if (name.includes("coxinha")) return "/balde-coxinha.jpeg";
   if (name.includes("combo")) return "/combo-mesa.jpeg";
 
-  // 13. Molhos
-  if (name.includes("molho") || name.includes("maionese") || name.includes("barbecue") || name.includes("pimenta") || product.category === "Molhos") return "/molho.jpeg";
+  // 15. Molhos
+  if (name.includes("molho") || name.includes("maionese") || name.includes("barbecue") || name.includes("pimenta") || category === "molhos") return "/molho.jpeg";
 
   return "/combo-mesa.jpeg";
 }
@@ -500,17 +513,23 @@ function getBadgeVisual(name: string, list: Array<{ match: string; label: string
 
 function ProductVisual({ product }: { product: Product }) {
   if (product.category === "Molhos") {
+    if (product.image && product.image.startsWith("data:")) {
+      return <img src={product.image} alt={product.name} />;
+    }
     const sauce = getBadgeVisual(product.name, sauceVisuals) || { label: "MOLHO DA CASA", gradient: "linear-gradient(150deg, #d41435, #7a0016)" };
     return <div className="sauce-visual" style={{ background: sauce.gradient }}><span>{sauce.label}</span></div>;
   }
   if (product.category === "Doces") {
+    if (product.image && product.image.startsWith("data:")) {
+      return <img src={product.image} alt={product.name} />;
+    }
     const candy = getBadgeVisual(product.name, candyVisuals) || { label: "DOCE", gradient: "linear-gradient(150deg, #ff5f7a, #b3123a)" };
     return <div className="sauce-visual" style={{ background: candy.gradient }}><span>{candy.label}</span></div>;
   }
-  if (!product.image) {
+  const imgSrc = getProductImage(product);
+  if (!imgSrc) {
     return <div className="sauce-visual" style={{ background: "linear-gradient(150deg, #4a5568, #1f2530)" }}><span>{product.name}</span></div>;
   }
-  const imgSrc = getProductImage(product);
   return <img src={imgSrc} alt={product.name} />;
 }
 
