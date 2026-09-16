@@ -2938,6 +2938,10 @@ export default function OnlineOrderingSystem() {
                   const isCompleted = ord.status === "completed";
                   const isCancelled = ord.status === "cancelled";
 
+                  const motoboyMatch = ord.notes?.match(/(?:motoboy|entregador):\s*([^|]+)/i)?.[1]?.trim() || null;
+                  const departureMatch = ord.notes?.match(/(?:sa[íi]da|check-?in):\s*([^|]+)/i)?.[1]?.trim() || null;
+                  const deliveredMatch = ord.notes?.match(/(?:entregue [àa]s|check-?out):\s*([^|]+)/i)?.[1]?.trim() || null;
+
                   const createdAtMs = ord.createdAt ? new Date(ord.createdAt).getTime() : currentTime;
                   const elapsedMs = Math.max(0, currentTime - createdAtMs);
                   const elapsedMinutes = Math.floor(elapsedMs / 60000);
@@ -3136,6 +3140,36 @@ export default function OnlineOrderingSystem() {
                             <span>Previsão: {fmtEstimatedTime(ord.createdAt, 45)}</span>
                           </div>
                         </div>
+
+                        {/* STATUS DO MOTOBOY / ENTREGA */}
+                        {(motoboyMatch || departureMatch || deliveredMatch) && (
+                          <div
+                            style={{
+                              background: isCompleted ? "#F0FDF4" : "#EFF6FF",
+                              border: isCompleted ? "1px solid #BBF7D0" : "1px solid #BFDBFE",
+                              borderRadius: 12,
+                              padding: "10px 14px",
+                              margin: "12px 0 14px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ fontSize: 20 }}>
+                              {isCompleted ? "✅" : "🛵"}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: isCompleted ? "#166534" : "#1E40AF" }}>
+                                {isCompleted ? "Entrega concluída com sucesso!" : "Em rota de entrega"}
+                              </div>
+                              <div style={{ fontSize: 12, color: isCompleted ? "#15803D" : "#1D4ED8", marginTop: 2 }}>
+                                {motoboyMatch && <span>Entregador: <strong>{motoboyMatch}</strong></span>}
+                                {departureMatch && <span> · Saída: <strong>{departureMatch}</strong></span>}
+                                {deliveredMatch && <span> · Entregue às: <strong>{deliveredMatch}</strong></span>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </>
                       )}
 

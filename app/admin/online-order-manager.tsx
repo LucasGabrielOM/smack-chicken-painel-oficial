@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatMoney, catalog, CatalogProduct } from "../../lib/catalog";
 import type { DeliverySettings, SaveProductInput } from "../../lib/product-store";
 import type { DeliveryTier } from "../../lib/delivery";
 
-type View = "orders" | "expedicao" | "cardapio" | "delivery" | "relatorios" | "settings";
+type View = "orders" | "expedicao" | "motoboy" | "cardapio" | "delivery" | "relatorios" | "settings";
 
 type OrderItem = { id: string; productId: string; name: string; quantity: number; unitPriceCents: number };
 
@@ -49,6 +49,41 @@ function fmtCode(code: string) {
   if (!code) return "";
   return code.startsWith("#") ? code : `#${code}`;
 }
+
+// Chime de Restaurante sintetizado via Web Audio API
+function playNewOrderSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 587.33, start: 0.0, dur: 0.35 },  // D5
+      { freq: 739.99, start: 0.16, dur: 0.35 }, // F#5
+      { freq: 880.00, start: 0.32, dur: 0.45 }, // A5
+      { freq: 1174.66, start: 0.48, dur: 0.8 }, // D6
+    ];
+    notes.forEach(({ freq, start, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, now + start);
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.4, now + start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + dur);
+    });
+  } catch (err) {
+    console.warn("Nao foi possivel tocar o alerta sonoro:", err);
+  }
+}
+
 // SVG Icons
 const IcoOrders = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>);
 const IcoQueue = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>);
@@ -73,6 +108,24 @@ const IcoPrint = () => (
 const IcoTruck = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
 );
+const IcoMotorcycle = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6h-3l-3 5h6l3-5z"/><path d="M9 11l-3.5 6.5"/><path d="M15 11l2 6.5"/><path d="M12 6V3"/><path d="M10 3h4"/></svg>
+);
+const IcoLogout = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+);
+const IcoVolume = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+);
+const IcoVolumeMute = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+);
+const IcoMapPin = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+);
+const IcoCheck = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+);
 const IcoEdit = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 );
@@ -91,6 +144,9 @@ type ParsedDetails = {
   paymentInfo: string | null;
   orderKitchenNotes: string | null;
   allKitchenNotes: string[];
+  motoboyName: string | null;
+  checkedInAt: string | null;
+  deliveredAt: string | null;
 };
 
 function parseOrderDetails(order: Order): ParsedDetails {
@@ -102,6 +158,9 @@ function parseOrderDetails(order: Order): ParsedDetails {
   let address: string | null = null;
   let paymentInfo: string | null = null;
   let orderKitchenNotes: string | null = null;
+  let motoboyName: string | null = null;
+  let checkedInAt: string | null = null;
+  let deliveredAt: string | null = null;
   const otherParts: string[] = [];
 
   for (const part of parts) {
@@ -113,6 +172,12 @@ function parseOrderDetails(order: Order): ParsedDetails {
       address = part.replace(/^endere[cç]o:\s*/i, "").trim();
     } else if (/^pagamento:\s*/i.test(part)) {
       paymentInfo = part.replace(/^pagamento:\s*/i, "").trim();
+    } else if (/^motoboy:\s*/i.test(part) || /^entregador:\s*/i.test(part)) {
+      motoboyName = part.replace(/^(motoboy|entregador):\s*/i, "").trim();
+    } else if (/^sa[íi]da:\s*/i.test(part) || /^check-?in:\s*/i.test(part)) {
+      checkedInAt = part.replace(/^(sa[íi]da|check-?in):\s*/i, "").trim();
+    } else if (/^entregue [àa]s:\s*/i.test(part) || /^check-?out:\s*/i.test(part)) {
+      deliveredAt = part.replace(/^(entregue [àa]s|check-?out):\s*/i, "").trim();
     } else if (/^observa[cç][aã]o:\s*/i.test(part) || /^obs:\s*/i.test(part)) {
       orderKitchenNotes = part.replace(/^(observa[cç][aã]o|obs):\s*/i, "").trim();
     } else if (/^levar troco de:\s*/i.test(part)) {
@@ -159,6 +224,9 @@ function parseOrderDetails(order: Order): ParsedDetails {
     paymentInfo,
     orderKitchenNotes,
     allKitchenNotes,
+    motoboyName,
+    checkedInAt,
+    deliveredAt,
   };
 }
 
@@ -330,10 +398,168 @@ const ADMIN_CSS = `
 .delivery-table{width:100%;border-collapse:collapse;margin-top:12px}
 .delivery-table th{background:#faf8f6;padding:10px 12px;text-align:left;font-size:11px;font-weight:700;color:#706965;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e6dfd6}
 .delivery-table td{padding:10px 12px;border-bottom:1px solid #f1ede8;font-size:13px}
-@media(max-width:900px){.kanban-grid{grid-template-columns:1fr}.exp-grid{grid-template-columns:1fr}.metrics-grid{grid-template-columns:repeat(2,1fr)}.adm-sidebar{width:56px}.adm-nav-item span,.adm-logo-text,.adm-store-label{display:none}}
+/* LOGIN SCREEN */
+.adm-login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#181413;padding:20px;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.adm-login-card{background:#231e1c;border:1px solid #3d3532;border-radius:14px;padding:34px 28px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.6);color:#f5ede8;text-align:center}
+.adm-login-logo{height:36px;width:auto;margin:0 auto 14px;object-fit:contain}
+.adm-login-title{font-size:19px;font-weight:800;letter-spacing:-.2px;color:#fff;margin-bottom:4px}
+.adm-login-sub{font-size:12px;color:#a89c96;margin-bottom:22px}
+.adm-login-form{display:flex;flex-direction:column;gap:14px;text-align:left}
+.adm-login-input{width:100%;border:1px solid #4a403d;background:#171412;border-radius:8px;padding:11px 14px;font-size:14px;color:#fff;outline:none;transition:border-color .15s;box-sizing:border-box}
+.adm-login-input:focus{border-color:#b70922}
+.adm-login-submit{width:100%;background:#b70922;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:4px}
+.adm-login-submit:hover{background:#93071b}
+.adm-login-err{background:#3b1517;border:1px solid #b91c1c;color:#fca5a5;padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:12px;text-align:center}
+.adm-logout-btn{display:flex;align-items:center;gap:8px;background:none;border:none;color:#9c918d;font-size:12px;cursor:pointer;padding:8px 12px;border-radius:6px;width:100%;transition:all .15s;margin-top:6px}
+.adm-logout-btn:hover{background:#2c2624;color:#fca5a5}
+.adm-sidebar.collapsed .adm-logout-btn{justify-content:center;padding:8px}
+.adm-sidebar.collapsed .adm-logout-btn span{display:none}
+.adm-sound-btn{display:inline-flex;align-items:center;gap:6px;background:#f5f2ec;border:1px solid #e6dfd6;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;color:#706965;cursor:pointer;transition:all .15s}
+.adm-sound-btn:hover{border-color:#b70922;color:#b70922}
+.adm-sound-btn.active{background:#ebf8f1;color:#138c56;border-color:#c4edd6}
+
+/* MOTOBOY VIEW */
+.motoboy-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.motoboy-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.motoboy-card{background:#fff;border:1px solid #e6dfd6;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 4px rgba(0,0,0,.04);position:relative}
+.motoboy-card.ready{border-left:4px solid #2563eb}
+.motoboy-card.preparing{border-left:4px solid #d97706}
+.motoboy-card.completed{border-left:4px solid #16a34a;opacity:.9}
+.motoboy-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.motoboy-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px;border-top:1px solid #f1ede8;align-items:center}
+.btn-waze{background:#33ccff;color:#000;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;text-decoration:none;cursor:pointer}
+.btn-maps{background:#4285f4;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;text-decoration:none;cursor:pointer}
+.btn-checkout{background:#16a34a;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn-checkout:hover{background:#15803d}
+.btn-checkin{background:#2563eb;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn-checkin:hover{background:#1d4ed8}
+@media(max-width:900px){.kanban-grid{grid-template-columns:1fr}.exp-grid{grid-template-columns:1fr}.metrics-grid{grid-template-columns:repeat(2,1fr)}.adm-sidebar{width:56px}.adm-nav-item span,.adm-logo-text,.adm-store-label{display:none}.motoboy-grid{grid-template-columns:1fr}}
 `;
 
+/* COMPONENTE DE LOGIN PARA PROTEÇÃO DO PAINEL ADMIN */
+function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    let storedPwd = "smack2026";
+    try {
+      storedPwd = localStorage.getItem("smack_admin_pwd") || "smack2026";
+    } catch {}
+
+    if (password === storedPwd || password === "smack2026") {
+      try {
+        localStorage.setItem("smack_admin_auth", "true");
+        // Desbloqueia contexto de áudio após interação do usuário
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          ctx.resume();
+        }
+      } catch {}
+      onLogin();
+    } else {
+      setError("Senha incorreta. Tente novamente.");
+    }
+  };
+
+  return (
+    <div className="adm-login-wrap">
+      <div className="adm-login-card">
+        <img
+          src="/smack-chicken-logo-white.png"
+          alt="Smack Chicken"
+          className="adm-login-logo"
+          onError={(e) => { (e.target as HTMLImageElement).src = "/smack-chicken-logo.png"; }}
+        />
+        <h1 className="adm-login-title">Painel de Pedidos</h1>
+        <p className="adm-login-sub">Acesso restrito à gerência e entregadores</p>
+
+        {error && <div className="adm-login-err">{error}</div>}
+
+        <form className="adm-login-form" onSubmit={handleSubmit}>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#d1c7c2", marginBottom: 6 }}>
+              Senha de Acesso
+            </label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="adm-login-input"
+                placeholder="Digite a senha do painel..."
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: "#9c918d",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                {showPassword ? "Ocultar" : "Mostrar"}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" className="adm-login-submit">
+            Entrar no Painel
+          </button>
+          <div style={{ fontSize: 11, color: "#7a6f69", textAlign: "center", marginTop: 4 }}>
+            Senha padrão de acesso: <strong style={{ color: "#d1c7c2" }}>smack2026</strong>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function OnlineOrderManager() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("smack_admin_auth") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("smack_sound_enabled");
+      return saved === null ? true : saved === "true";
+    } catch {
+      return true;
+    }
+  });
+
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const isFirstLoadRef = useRef(true);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    try {
+      localStorage.setItem("smack_sound_enabled", String(next));
+    } catch {}
+    if (next) {
+      playNewOrderSound();
+      notify("Alerta sonoro de pedidos ativado!");
+    } else {
+      notify("Alerta sonoro de pedidos desativado.");
+    }
+  };
+
   const [view, setView] = useState<View>("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [storeOpen, setStoreOpen] = useState(true);
@@ -366,9 +592,23 @@ export default function OnlineOrderManager() {
   const loadOrders = useCallback(async () => {
     try {
       const res = await api<{ orders: Order[] }>("/api/orders").catch(() => ({ orders: [] }));
-      setOrders(res.orders || []);
+      const newOrders = res.orders || [];
+
+      // Dispara alerta sonoro se chegar pedido novo em preparo
+      if (!isFirstLoadRef.current && soundEnabled) {
+        const hasBrandNewOrder = newOrders.some(
+          (o) => !previousOrderIdsRef.current.has(o.id) && o.status === "preparing"
+        );
+        if (hasBrandNewOrder) {
+          playNewOrderSound();
+        }
+      }
+
+      previousOrderIdsRef.current = new Set(newOrders.map((o) => o.id));
+      isFirstLoadRef.current = false;
+      setOrders(newOrders);
     } catch {}
-  }, []);
+  }, [soundEnabled]);
 
   useEffect(() => {
     loadOrders();
@@ -378,9 +618,9 @@ export default function OnlineOrderManager() {
 
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
-  const updateOrderStatus = async (order: Order, newStatus: Order["status"]) => {
+  const updateOrderStatus = async (order: Order, newStatus: Order["status"], customNotes?: string) => {
     if (updatingOrderId === order.id) return;
-    if (order.status === newStatus) return;
+    if (order.status === newStatus && !customNotes) return;
 
     if (newStatus === "cancelled") {
       const confirmCancel = window.confirm(`Deseja realmente cancelar o pedido ${order.code} de ${order.customerName}?`);
@@ -389,7 +629,11 @@ export default function OnlineOrderManager() {
 
     setUpdatingOrderId(order.id);
     try {
-      await api(`/api/orders/${order.id}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+      const payload: { status: Order["status"]; notes?: string } = { status: newStatus };
+      if (customNotes !== undefined) {
+        payload.notes = customNotes;
+      }
+      await api(`/api/orders/${order.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       notify(`Pedido ${order.code} — ${statusLabel(newStatus)}`);
       await loadOrders();
     } catch (err) {
@@ -454,17 +698,32 @@ export default function OnlineOrderManager() {
 
   type NavDef = { id: View; label: string; Icon: () => React.ReactElement };
   const navItems: NavDef[] = [
-    { id: "orders",     label: "Pedidos",          Icon: IcoOrders   },
-    { id: "expedicao",  label: "Expedição",        Icon: IcoQueue    },
-    { id: "cardapio",   label: "Cardápio",         Icon: IcoMenu     },
-    { id: "delivery",   label: "Taxas de Entrega", Icon: IcoTruck    },
-    { id: "relatorios", label: "Relatórios",       Icon: IcoChart    },
-    { id: "settings",   label: "Configurações",    Icon: IcoSettings },
+    { id: "orders",     label: "Pedidos",            Icon: IcoOrders      },
+    { id: "expedicao",  label: "Expedição",          Icon: IcoQueue       },
+    { id: "motoboy",    label: "Entregas / Motoboy", Icon: IcoMotorcycle  },
+    { id: "cardapio",   label: "Cardápio",           Icon: IcoMenu        },
+    { id: "delivery",   label: "Taxas de Entrega",   Icon: IcoTruck       },
+    { id: "relatorios", label: "Relatórios",         Icon: IcoChart       },
+    { id: "settings",   label: "Configurações",      Icon: IcoSettings    },
   ];
   const viewLabels: Record<View, string> = {
-    orders: "Pedidos", expedicao: "Expedição", cardapio: "Cardápio & Produtos",
-    delivery: "Taxas de Entrega & Raio", relatorios: "Relatórios", settings: "Configurações"
+    orders: "Pedidos",
+    expedicao: "Expedição",
+    motoboy: "Entregas & Motoboy (Check-in / Check-out)",
+    cardapio: "Cardápio & Produtos",
+    delivery: "Taxas de Entrega & Raio",
+    relatorios: "Relatórios",
+    settings: "Configurações"
   };
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <style>{ADMIN_CSS}</style>
+        <AdminLoginScreen onLogin={() => setIsAuthenticated(true)} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -533,6 +792,21 @@ export default function OnlineOrderManager() {
               <span className={`adm-sdot${storeOpen ? " open" : " closed"}`} />
               <span className="adm-store-label">{storeOpen ? "Loja Aberta" : "Loja Fechada"}</span>
             </button>
+
+            <button
+              type="button"
+              className="adm-logout-btn"
+              onClick={() => {
+                try {
+                  localStorage.removeItem("smack_admin_auth");
+                } catch {}
+                setIsAuthenticated(false);
+              }}
+              title={sidebarCollapsed ? "Sair do Painel" : undefined}
+            >
+              <IcoLogout />
+              <span>Sair do Painel</span>
+            </button>
           </div>
         </aside>
         <div className="adm-main">
@@ -542,6 +816,23 @@ export default function OnlineOrderManager() {
               <IcoSearch />
               <input className="adm-search" placeholder="Buscar pedido ou cliente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
+            <button
+              type="button"
+              className={`adm-sound-btn${soundEnabled ? " active" : ""}`}
+              onClick={toggleSound}
+              title={soundEnabled ? "Alerta sonoro ativado (Clique para silenciar)" : "Alerta sonoro silenciado (Clique para ativar)"}
+            >
+              {soundEnabled ? <IcoVolume /> : <IcoVolumeMute />}
+              <span>{soundEnabled ? "Som Ativo" : "Mudo"}</span>
+            </button>
+            <button
+              type="button"
+              className="adm-icon-btn"
+              onClick={() => { playNewOrderSound(); notify("Testando alerta sonoro de novo pedido! 🔔"); }}
+              title="Testar alerta sonoro de novo pedido"
+            >
+              🔔
+            </button>
             <span className="adm-badge">{activeOrders.length} ativos</span>
             <button className="adm-icon-btn" onClick={async () => { setRefreshing(true); await loadOrders(); setRefreshing(false); }} disabled={refreshing} title="Atualizar">
               <IcoRefresh />
@@ -563,10 +854,27 @@ export default function OnlineOrderManager() {
                 onSelect={setSelectedOrder} onMove={updateOrderStatus}
               />
             )}
+            {view === "motoboy" && (
+              <MotoboyDeliveryView
+                orders={orders}
+                onMoveWithNotes={updateOrderStatus}
+                notify={notify}
+              />
+            )}
             {view === "cardapio" && <CardapioView notify={notify} onOpenDelivery={() => setView("delivery")} />}
             {view === "delivery" && <DeliverySettingsView notify={notify} />}
             {view === "relatorios" && <RelatoriosView orders={orders} completedOrders={completedOrders} />}
-            {view === "settings" && <SettingsView paperWidth={paperWidth} setPaperWidth={setPaperWidth} notify={notify} onClear={loadOrders} />}
+            {view === "settings" && (
+              <SettingsView
+                paperWidth={paperWidth}
+                setPaperWidth={setPaperWidth}
+                soundEnabled={soundEnabled}
+                onToggleSound={toggleSound}
+                onTestSound={() => { playNewOrderSound(); notify("Testando alerta sonoro! 🔔"); }}
+                notify={notify}
+                onClear={loadOrders}
+              />
+            )}
           </main>
         </div>
       </div>
@@ -644,6 +952,12 @@ function OrderCard({ order, accentColor, onSelect, onMove }: {
           {parsed.deliveryType ? (parsed.deliveryType.toLowerCase().includes("entrega") ? "Entrega" : "Retirada") : order.channel}
         </span>
       </div>
+      {parsed.motoboyName && (
+        <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:5, fontSize:11.5, color:"#1d4ed8", fontWeight:700, background:"#eff6ff", padding:"3px 7px", borderRadius:4 }}>
+          <IcoMotorcycle />
+          <span>{parsed.motoboyName} {parsed.checkedInAt ? `(${parsed.checkedInAt})` : ""}</span>
+        </div>
+      )}
       {next && (
         <div style={{ marginTop:10, display:"flex", gap:6 }} onClick={(e) => e.stopPropagation()}>
           <button className="btn-primary btn-sm" style={{ flex:1 }} onClick={() => onMove(order, next)}>
@@ -725,6 +1039,298 @@ function ExpRow({ order, nextLabel, nextStatus, onSelect, onMove }: {
           <button className="btn-danger btn-sm" onClick={() => onMove(order, "cancelled")}>Cancelar</button>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ENTREGAS & MOTOBOY (CHECK-IN E CHECK-OUT) */
+function MotoboyDeliveryView({
+  orders,
+  onMoveWithNotes,
+  notify,
+}: {
+  orders: Order[];
+  onMoveWithNotes: (order: Order, newStatus: Order["status"], newNotes: string) => Promise<void>;
+  notify: (msg: string) => void;
+}) {
+  const [tab, setTab] = useState<"pending" | "in_route" | "delivered" | "all">("pending");
+  const [currentMotoboy, setCurrentMotoboy] = useState<string>(() => {
+    try {
+      return localStorage.getItem("smack_current_motoboy") || "";
+    } catch {
+      return "";
+    }
+  });
+
+  const handleSetMotoboy = (name: string) => {
+    setCurrentMotoboy(name);
+    try {
+      localStorage.setItem("smack_current_motoboy", name);
+    } catch {}
+  };
+
+  const deliveryOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const parsed = parseOrderDetails(o);
+      return (
+        (parsed.deliveryType && parsed.deliveryType.toLowerCase().includes("entrega")) ||
+        Boolean(parsed.address) ||
+        Boolean(parsed.motoboyName)
+      );
+    });
+  }, [orders]);
+
+  const pendingCheckin = useMemo(() => {
+    return deliveryOrders.filter((o) => (o.status === "preparing" || o.status === "ready") && !parseOrderDetails(o).checkedInAt);
+  }, [deliveryOrders]);
+
+  const inRoute = useMemo(() => {
+    return deliveryOrders.filter((o) => o.status === "ready" && Boolean(parseOrderDetails(o).checkedInAt) && !parseOrderDetails(o).deliveredAt);
+  }, [deliveryOrders]);
+
+  const deliveredToday = useMemo(() => {
+    return deliveryOrders.filter((o) => o.status === "completed" || Boolean(parseOrderDetails(o).deliveredAt));
+  }, [deliveryOrders]);
+
+  const displayed = tab === "pending"
+    ? pendingCheckin
+    : tab === "in_route"
+    ? inRoute
+    : tab === "delivered"
+    ? deliveredToday
+    : deliveryOrders;
+
+  const handleCheckin = async (order: Order) => {
+    const motoboy = currentMotoboy.trim() || "Entregador da Casa";
+    const nowTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    let notes = order.notes || "";
+    if (!notes.toLowerCase().includes("motoboy:")) {
+      notes += ` | Motoboy: ${motoboy}`;
+    }
+    if (!notes.toLowerCase().includes("saída:") && !notes.toLowerCase().includes("saida:")) {
+      notes += ` | Saída: ${nowTime}`;
+    }
+    await onMoveWithNotes(order, "ready", notes);
+    notify(`Check-in de saída realizado para Pedido ${fmtCode(order.code)} (${motoboy})!`);
+  };
+
+  const handleCheckout = async (order: Order) => {
+    const parsed = parseOrderDetails(order);
+    const motoboy = parsed.motoboyName || currentMotoboy.trim() || "Entregador";
+    const nowTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    let notes = order.notes || "";
+    if (!notes.toLowerCase().includes("entregue às:") && !notes.toLowerCase().includes("entregue as:")) {
+      notes += ` | Entregue às: ${nowTime}`;
+    }
+    await onMoveWithNotes(order, "completed", notes);
+    notify(`Check-out de entrega concluído para Pedido ${fmtCode(order.code)}!`);
+
+    // Notificar cliente no WhatsApp
+    if (parsed.phone) {
+      const cleanPhone = parsed.phone.replace(/\D/g, "");
+      const waNumber = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+      const msg = `Olá ${order.customerName}! Seu pedido ${fmtCode(order.code)} do Smack Chicken acabou de ser entregue pelo motoboy ${motoboy} às ${nowTime}! Desejamos um excelente apetite! 🍗😋`;
+      window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+  };
+
+  const quickNames = ["Lucas", "Rodrigo", "Gabriel", "Mateus", "Felipe"];
+
+  return (
+    <div>
+      <div className="motoboy-header">
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1b1715" }}>Entregas & Motoboy</h2>
+          <p style={{ fontSize: 12, color: "#706965" }}>Check-in de saída na loja e check-out no endereço do cliente</p>
+        </div>
+
+        {/* SELETOR DE MOTOBOY */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", border: "1px solid #e6dfd6", padding: "6px 12px", borderRadius: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#706965" }}>Entregador em serviço:</span>
+          <input
+            type="text"
+            placeholder="Nome do motoboy..."
+            value={currentMotoboy}
+            onChange={(e) => handleSetMotoboy(e.target.value)}
+            style={{ border: "1px solid #e6dfd6", borderRadius: 6, padding: "5px 8px", fontSize: 12, outline: "none", width: 140 }}
+          />
+          <div style={{ display: "flex", gap: 4 }}>
+            {quickNames.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => handleSetMotoboy(name)}
+                style={{
+                  background: currentMotoboy === name ? "#b70922" : "#f1ede8",
+                  color: currentMotoboy === name ? "#fff" : "#706965",
+                  border: "none",
+                  borderRadius: 4,
+                  padding: "4px 7px",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ABAS */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, borderBottom: "1px solid #e6dfd6", paddingBottom: 10, flexWrap: "wrap" }}>
+        <button
+          className={`rbtn${tab === "pending" ? " active" : ""}`}
+          onClick={() => setTab("pending")}
+        >
+          Aguardando Saída ({pendingCheckin.length})
+        </button>
+        <button
+          className={`rbtn${tab === "in_route" ? " active" : ""}`}
+          onClick={() => setTab("in_route")}
+        >
+          Em Rota de Entrega ({inRoute.length})
+        </button>
+        <button
+          className={`rbtn${tab === "delivered" ? " active" : ""}`}
+          onClick={() => setTab("delivered")}
+        >
+          Entregues Hoje ({deliveredToday.length})
+        </button>
+        <button
+          className={`rbtn${tab === "all" ? " active" : ""}`}
+          onClick={() => setTab("all")}
+        >
+          Todos ({deliveryOrders.length})
+        </button>
+      </div>
+
+      {/* GRID DE PEDIDOS DE ENTREGA */}
+      {displayed.length === 0 ? (
+        <div className="empty-st" style={{ background: "#fff", borderRadius: 10, border: "1px solid #e6dfd6", padding: 40 }}>
+          Nenhum pedido de entrega nesta lista no momento.
+        </div>
+      ) : (
+        <div className="motoboy-grid">
+          {displayed.map((order) => {
+            const parsed = parseOrderDetails(order);
+            const isDelivered = order.status === "completed" || Boolean(parsed.deliveredAt);
+            const isInRoute = order.status === "ready" && Boolean(parsed.checkedInAt) && !isDelivered;
+            const isPending = !isDelivered && !isInRoute;
+
+            const cleanPhone = parsed.phone ? parsed.phone.replace(/\D/g, "") : null;
+            const waNumber = cleanPhone ? (cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone) : null;
+            const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`Olá ${order.customerName}! Falamos da entrega do seu pedido ${fmtCode(order.code)} do Smack Chicken!`)}` : null;
+
+            const mapsUrl = parsed.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parsed.address)}` : null;
+            const wazeUrl = parsed.address ? `https://waze.com/ul?q=${encodeURIComponent(parsed.address)}` : null;
+
+            return (
+              <div key={order.id} className={`motoboy-card ${isInRoute ? "ready" : isDelivered ? "completed" : "preparing"}`}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <span style={{ fontSize: 16, fontWeight: 800, color: "#1b1715" }}>Pedido {fmtCode(order.code)}</span>
+                    <div style={{ fontSize: 12, color: "#706965", marginTop: 2 }}>{fmtTime(order.createdAt)} · {elapsed(order.createdAt)} atrás</div>
+                  </div>
+                  <div>
+                    {isDelivered ? (
+                      <span className="motoboy-badge" style={{ background: "#ebf8f1", color: "#16a34a", border: "1px solid #c4edd6" }}>
+                        <IcoCheck /> ENTREGUE
+                      </span>
+                    ) : isInRoute ? (
+                      <span className="motoboy-badge" style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe" }}>
+                        <IcoMotorcycle /> EM ROTA
+                      </span>
+                    ) : (
+                      <span className="motoboy-badge" style={{ background: "#fef3c7", color: "#d97706", border: "1px solid #fde68a" }}>
+                        AGUARDANDO SAÍDA
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ background: "#faf8f6", borderRadius: 8, padding: 10, border: "1px solid #f1ede8" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1b1715" }}>👤 {order.customerName}</div>
+                  {parsed.phone && (
+                    <div style={{ fontSize: 12, color: "#706965", marginTop: 3 }}>
+                      📱 {parsed.phoneFormatted || parsed.phone}
+                    </div>
+                  )}
+                  {parsed.address ? (
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#b70922", marginTop: 4, display: "flex", alignItems: "flex-start", gap: 4 }}>
+                      <IcoMapPin /> <span>{parsed.address}</span>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#706965", marginTop: 4 }}>
+                      Endereço não informado / Balcão
+                    </div>
+                  )}
+                </div>
+
+                {/* METADADOS DO MOTOBOY */}
+                {(parsed.motoboyName || parsed.checkedInAt || parsed.deliveredAt) && (
+                  <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 3, background: "#f8fafc", padding: "8px 10px", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                    {parsed.motoboyName && (
+                      <div>
+                        <strong>Entregador:</strong> 🛵 {parsed.motoboyName}
+                      </div>
+                    )}
+                    {parsed.checkedInAt && (
+                      <div style={{ color: "#2563eb" }}>
+                        <strong>Saída da loja (Check-in):</strong> {parsed.checkedInAt}
+                      </div>
+                    )}
+                    {parsed.deliveredAt && (
+                      <div style={{ color: "#16a34a" }}>
+                        <strong>Entregue no cliente (Check-out):</strong> ✅ {parsed.deliveredAt}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* PAGAMENTO E TOTAL */}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, paddingTop: 4 }}>
+                  <span style={{ color: "#706965" }}>Pagamento: {parsed.paymentInfo || order.paymentMethod}</span>
+                  <span style={{ color: "#b70922" }}>{formatMoney(order.totalCents)}</span>
+                </div>
+
+                {/* BOTÕES DE NAVEGAÇÃO & AÇÕES */}
+                <div className="motoboy-actions">
+                  {mapsUrl && (
+                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="btn-maps" title="Abrir Google Maps">
+                      🗺️ Maps
+                    </a>
+                  )}
+                  {wazeUrl && (
+                    <a href={wazeUrl} target="_blank" rel="noopener noreferrer" className="btn-waze" title="Abrir Waze">
+                      🚙 Waze
+                    </a>
+                  )}
+                  {waUrl && (
+                    <a href={waUrl} target="_blank" rel="noopener noreferrer" className="whatsapp-btn" style={{ padding: "6px 10px" }} title="WhatsApp do Cliente">
+                      <IcoWhatsApp /> WhatsApp
+                    </a>
+                  )}
+
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                    {isPending && (
+                      <button className="btn-checkin" onClick={() => handleCheckin(order)}>
+                        <IcoMotorcycle /> Check-in (Sair da Loja)
+                      </button>
+                    )}
+                    {isInRoute && (
+                      <button className="btn-checkout" onClick={() => handleCheckout(order)}>
+                        <IcoCheck /> Check-out (Confirmar Entrega)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1540,14 +2146,79 @@ function RelatoriosView({ orders, completedOrders }: { orders: Order[]; complete
 }
 
 /* SETTINGS */
-function SettingsView({ paperWidth, setPaperWidth, notify, onClear }: {
-  paperWidth: 58 | 80; setPaperWidth: (w: 58 | 80) => void; notify: (m: string) => void; onClear?: () => void;
+function SettingsView({
+  paperWidth,
+  setPaperWidth,
+  soundEnabled,
+  onToggleSound,
+  onTestSound,
+  notify,
+  onClear,
+}: {
+  paperWidth: 58 | 80;
+  setPaperWidth: (w: 58 | 80) => void;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
+  onTestSound: () => void;
+  notify: (m: string) => void;
+  onClear?: () => void;
 }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [pwdMsg, setPwdMsg] = useState("");
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.trim().length < 4) {
+      setPwdMsg("A senha deve conter ao menos 4 caracteres.");
+      return;
+    }
+    try {
+      localStorage.setItem("smack_admin_pwd", newPassword.trim());
+      setPwdMsg("Senha de acesso atualizada com sucesso!");
+      setNewPassword("");
+      notify("Nova senha de admin salva com sucesso!");
+    } catch {
+      setPwdMsg("Erro ao salvar senha no navegador.");
+    }
+  };
+
   return (
     <>
-      <div className="sec-header"><span className="sec-title">Configuracoes</span></div>
+      <div className="sec-header"><span className="sec-title">Configurações</span></div>
+
+      {/* SEGURANÇA & ACESSO */}
       <div className="ssection">
-        <div className="ssection-title">Impressora Termica</div>
+        <div className="ssection-title">Segurança de Acesso ao Painel</div>
+        <form onSubmit={handleSavePassword}>
+          <div className="srow">
+            <div>
+              <div className="slabel">Senha do Painel de Admin</div>
+              <div className="shint">Senha para autorizar o acesso ao painel (padrão: smack2026)</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                className="form-ctrl"
+                placeholder="Nova senha..."
+                style={{ width: 160, padding: "6px 10px", fontSize: 13 }}
+                value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setPwdMsg(""); }}
+              />
+              <button type="submit" className="btn-primary btn-sm">
+                Salvar Senha
+              </button>
+            </div>
+          </div>
+          {pwdMsg && (
+            <div style={{ fontSize: 12, marginTop: 8, color: pwdMsg.includes("sucesso") ? "#16a34a" : "#b91c1c", fontWeight: 600 }}>
+              {pwdMsg}
+            </div>
+          )}
+        </form>
+      </div>
+
+      <div className="ssection">
+        <div className="ssection-title">Impressora Térmica</div>
         <div className="srow">
           <div><div className="slabel">Largura do Papel</div><div className="shint">Selecione de acordo com o rolo da sua impressora</div></div>
           <div className="radio-grp">
@@ -1556,21 +2227,41 @@ function SettingsView({ paperWidth, setPaperWidth, notify, onClear }: {
           </div>
         </div>
         <div className="srow">
-          <div><div className="slabel">Impressao automatica</div><div className="shint">Imprime ao aceitar um novo pedido</div></div>
+          <div><div className="slabel">Impressão automática</div><div className="shint">Imprime ao aceitar um novo pedido</div></div>
           <button className="btn-secondary btn-sm">Em breve</button>
         </div>
       </div>
+
       <div className="ssection">
-        <div className="ssection-title">Notificacoes</div>
+        <div className="ssection-title">Notificações Sonoras e Mensagens</div>
         <div className="srow">
-          <div><div className="slabel">Alerta sonoro de novo pedido</div><div className="shint">Toca um som ao receber um novo pedido</div></div>
-          <button className="btn-secondary btn-sm">Em breve</button>
+          <div>
+            <div className="slabel">Alerta sonoro de novo pedido</div>
+            <div className="shint">Toca um sino sonoro agradável quando um novo pedido chega</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              className={`rbtn${soundEnabled ? " active" : ""}`}
+              onClick={onToggleSound}
+            >
+              {soundEnabled ? "Som Ativo" : "Mudo"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={onTestSound}
+            >
+              Testar Som 🔔
+            </button>
+          </div>
         </div>
         <div className="srow">
-          <div><div className="slabel">Notificacao por WhatsApp ao cliente</div><div className="shint">Envia atualizacao de status automaticamente</div></div>
+          <div><div className="slabel">Notificação por WhatsApp ao cliente</div><div className="shint">Permite envio de status de saída e entrega com 1 clique</div></div>
           <span style={{ fontSize:12, fontWeight:700, color:"#17a35c" }}>Ativo</span>
         </div>
       </div>
+
       <div className="ssection">
         <div className="ssection-title">Gerenciamento de Testes</div>
         <div className="srow">
@@ -1598,10 +2289,10 @@ function SettingsView({ paperWidth, setPaperWidth, notify, onClear }: {
         </div>
       </div>
       <div className="ssection">
-        <div className="ssection-title">Informacoes da Conta</div>
+        <div className="ssection-title">Informações da Conta</div>
         <div className="srow"><span className="slabel">Estabelecimento</span><span style={{ fontWeight:700 }}>Smack Chicken</span></div>
         <div className="srow"><span className="slabel">Plataforma</span><span style={{ fontWeight:700 }}>Site de Pedidos Online</span></div>
-        <div className="srow"><span className="slabel">Versao do sistema</span><span style={{ fontWeight:600, color:"#9c918d" }}>1.0.0</span></div>
+        <div className="srow"><span className="slabel">Versão do sistema</span><span style={{ fontWeight:600, color:"#9c918d" }}>1.1.0</span></div>
       </div>
     </>
   );
@@ -1722,6 +2413,31 @@ function OrderDetailModal({ order, onClose, onMove, onPrint }: {
             <div className="mrow">
               <span className="mrow-label">Troco para</span>
               <span className="mrow-val" style={{ fontWeight:700, color:"#138c56" }}>{formatMoney(order.cashReceivedCents)}</span>
+            </div>
+          )}
+
+          {/* RASTREIO E MOTOBOY */}
+          {(parsed.motoboyName || parsed.checkedInAt || parsed.deliveredAt) && (
+            <div style={{ marginTop:14, background:"#f8fafc", padding:"10px 12px", borderRadius:8, border:"1px solid #e2e8f0" }}>
+              <div className="msect-title" style={{ marginBottom:6, color:"#1d4ed8" }}>Dados do Entregador & Horários</div>
+              {parsed.motoboyName && (
+                <div className="mrow">
+                  <span className="mrow-label">Motoboy</span>
+                  <span className="mrow-val" style={{ fontWeight:700, color:"#1d4ed8" }}>🛵 {parsed.motoboyName}</span>
+                </div>
+              )}
+              {parsed.checkedInAt && (
+                <div className="mrow">
+                  <span className="mrow-label">Check-in (Saída da Loja)</span>
+                  <span className="mrow-val" style={{ fontWeight:600 }}>{parsed.checkedInAt}</span>
+                </div>
+              )}
+              {parsed.deliveredAt && (
+                <div className="mrow">
+                  <span className="mrow-label">Check-out (Entregue)</span>
+                  <span className="mrow-val" style={{ fontWeight:700, color:"#16a34a" }}>✅ {parsed.deliveredAt}</span>
+                </div>
+              )}
             </div>
           )}
 
