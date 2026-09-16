@@ -778,7 +778,7 @@ export default function OnlineOrderingSystem() {
           gap: 32px;
           align-items: center;
         }
-        .sc-hero-tag {
+        .sc-hero-eyebrow {
           display: inline-block;
           font-size: 11px;
           font-weight: 900;
@@ -786,6 +786,11 @@ export default function OnlineOrderingSystem() {
           letter-spacing: 1.5px;
           text-transform: uppercase;
           margin-bottom: 8px;
+          position: static;
+          transform: none;
+          background: transparent;
+          box-shadow: none;
+          padding: 0;
         }
         .sc-hero-title {
           font-size: clamp(28px, 4vw, 42px);
@@ -1753,7 +1758,7 @@ export default function OnlineOrderingSystem() {
         <section className="sc-hero-banner" id="inicio">
           <div className="sc-hero-inner">
             <div>
-              <span className="sc-hero-tag">CARDÁPIO OFICIAL DE PEDIDOS ONLINE</span>
+              <span className="sc-hero-eyebrow">CARDÁPIO OFICIAL DE PEDIDOS ONLINE</span>
               <h1 className="sc-hero-title">
                 Frango de verdade.
                 <br />
@@ -2718,12 +2723,26 @@ export default function OnlineOrderingSystem() {
 
                   {/* SELEÇÃO DE TROCO QUANDO DINHEIRO FOR ESCOLHIDO */}
                   {paymentMethod === "DINHEIRO" && (
-                    <div style={{ background: "#FAF7F2", border: "1px solid #E6DFD6", borderRadius: 12, padding: 14, marginBottom: 18 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Precisa de troco?</div>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <div style={{ background: "#FAF7F2", border: "1px solid #E6DFD6", borderRadius: 12, padding: 14, marginBottom: 18, boxSizing: "border-box" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, color: "#1B1715" }}>Precisa de troco?</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
                         <button
                           type="button"
                           className={`sc-cat-btn ${!needsChange ? "active" : ""}`}
+                          style={{
+                            padding: "10px 6px",
+                            fontSize: 12.5,
+                            fontWeight: 800,
+                            textAlign: "center",
+                            whiteSpace: "normal",
+                            lineHeight: 1.25,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 10,
+                            width: "100%",
+                            boxSizing: "border-box",
+                          }}
                           onClick={() => { setNeedsChange(false); setChangeForAmount(""); }}
                         >
                           Não preciso de troco
@@ -2731,6 +2750,20 @@ export default function OnlineOrderingSystem() {
                         <button
                           type="button"
                           className={`sc-cat-btn ${needsChange ? "active" : ""}`}
+                          style={{
+                            padding: "10px 6px",
+                            fontSize: 12.5,
+                            fontWeight: 800,
+                            textAlign: "center",
+                            whiteSpace: "normal",
+                            lineHeight: 1.25,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 10,
+                            width: "100%",
+                            boxSizing: "border-box",
+                          }}
                           onClick={() => setNeedsChange(true)}
                         >
                           Sim, preciso de troco
@@ -2739,15 +2772,20 @@ export default function OnlineOrderingSystem() {
 
                       {needsChange && (
                         <div>
-                          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 10 }}>
                             {["50", "100", "150", "200"].map((val) => (
                               <button
                                 key={val}
                                 type="button"
                                 className="sc-cat-btn"
                                 style={{
-                                  padding: "6px 12px",
+                                  padding: "8px 2px",
                                   fontSize: 12,
+                                  fontWeight: 800,
+                                  textAlign: "center",
+                                  borderRadius: 8,
+                                  width: "100%",
+                                  boxSizing: "border-box",
                                   background: changeForAmount === val ? "#B70922" : "#FFFFFF",
                                   color: changeForAmount === val ? "#FFFFFF" : "#1B1715",
                                   borderColor: changeForAmount === val ? "#B70922" : "#E6DFD6",
@@ -2767,6 +2805,7 @@ export default function OnlineOrderingSystem() {
                               placeholder="Ex: 50 ou 100"
                               value={changeForAmount}
                               onChange={(e) => setChangeForAmount(e.target.value)}
+                              style={{ width: "100%", boxSizing: "border-box" }}
                             />
                           </div>
 
