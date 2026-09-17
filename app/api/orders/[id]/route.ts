@@ -16,6 +16,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     customerName?: string;
     notes?: string;
     paymentMethod?: string;
+    cashSettled?: boolean;
+    cashSettledAt?: string | null;
   };
 
   if (body.customerName !== undefined && !body.customerName.trim()) {
@@ -31,6 +33,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     customerName: body.customerName,
     notes: body.notes,
     paymentMethod: body.paymentMethod,
+    cashSettled: body.cashSettled,
+    cashSettledAt: body.cashSettledAt,
   });
 
   if (!updated) {

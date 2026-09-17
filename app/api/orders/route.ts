@@ -69,4 +69,32 @@ export async function DELETE(request: NextRequest) {
   return NextResponse.json({ ok: true, message: "Todos os pedidos foram limpos com sucesso" });
 }
 
+export async function PATCH(request: NextRequest) {
+  const auth = await requireUser(request);
+  if (auth.response) return auth.response;
+
+  try {
+    const body = (await request.json()) as {
+      orderIds?: string[];
+      motoboyName?: string;
+      settled?: boolean;
+    };
+
+    const { settleOrdersCash } = await import("../../../lib/order-store");
+    const result = await settleOrdersCash({
+      orderIds: Array.isArray(body.orderIds) ? body.orderIds : undefined,
+      motoboyName: body.motoboyName?.trim() || undefined,
+      settled: body.settled !== false,
+    });
+
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Falha ao registrar acerto de caixa" },
+      { status: 400 }
+    );
+  }
+}
+
+
 

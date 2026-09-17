@@ -17,6 +17,8 @@ type Order = {
   discountCents?: number; deliveryFeeCents?: number; splitCount?: number; channel: string;
   notes?: string; createdAt: string; readyAt?: string; completedAt?: string;
   items: OrderItem[];
+  cashSettled?: boolean;
+  cashSettledAt?: string | null;
 };
 
 const api = async <T,>(url: string, options?: RequestInit): Promise<T> => {
@@ -158,6 +160,8 @@ type ParsedDetails = {
   checkedInAt: string | null;
   deliveredAt: string | null;
   deliveryFeeCents: number | null;
+  isCashSettled: boolean;
+  cashSettledAt: string | null;
 };
 
 function parseOrderDetails(order: Order): ParsedDetails {
@@ -173,6 +177,8 @@ function parseOrderDetails(order: Order): ParsedDetails {
   let checkedInAt: string | null = null;
   let deliveredAt: string | null = null;
   let deliveryFeeCents: number | null = order.deliveryFeeCents ?? null;
+  let isCashSettled: boolean = Boolean(order.cashSettled);
+  let cashSettledAt: string | null = order.cashSettledAt || null;
   const otherParts: string[] = [];
 
   for (const part of parts) {
@@ -196,6 +202,12 @@ function parseOrderDetails(order: Order): ParsedDetails {
       checkedInAt = part.replace(/^(sa[íi]da|check-?in):\s*/i, "").trim();
     } else if (/^entregue [àa]s:\s*/i.test(part) || /^check-?out:\s*/i.test(part)) {
       deliveredAt = part.replace(/^(entregue [àa]s|check-?out):\s*/i, "").trim();
+    } else if (/^dinheiro repassado:\s*/i.test(part) || /^repasse loja:\s*/i.test(part) || /^caixa repassado:\s*/i.test(part)) {
+      isCashSettled = true;
+      const timeMatch = part.match(/às\s*([\d:]+)/i);
+      if (timeMatch && !cashSettledAt) {
+        cashSettledAt = timeMatch[1];
+      }
     } else if (/^observa[cç][aã]o:\s*/i.test(part) || /^obs:\s*/i.test(part)) {
       orderKitchenNotes = part.replace(/^(observa[cç][aã]o|obs):\s*/i, "").trim();
     } else if (/^levar troco de:\s*/i.test(part)) {
@@ -246,6 +258,8 @@ function parseOrderDetails(order: Order): ParsedDetails {
     checkedInAt,
     deliveredAt,
     deliveryFeeCents,
+    isCashSettled,
+    cashSettledAt,
   };
 }
 
@@ -929,6 +943,7 @@ export default function OnlineOrderManager() {
               <MotoboyDeliveryView
                 orders={orders}
                 onMoveWithNotes={updateOrderStatus}
+                onReloadOrders={loadOrders}
                 notify={notify}
               />
             )}
@@ -1118,10 +1133,12 @@ function ExpRow({ order, nextLabel, nextStatus, onSelect, onMove }: {
 function MotoboyDeliveryView({
   orders,
   onMoveWithNotes,
+  onReloadOrders,
   notify,
 }: {
   orders: Order[];
   onMoveWithNotes: (order: Order, newStatus: Order["status"], newNotes: string) => Promise<void>;
+  onReloadOrders?: () => Promise<void> | void;
   notify: (msg: string) => void;
 }) {
   const [tab, setTab] = useState<"pending" | "in_route" | "delivered" | "all">("pending");
@@ -1146,6 +1163,7 @@ function MotoboyDeliveryView({
   const [adminDailyStr, setAdminDailyStr] = useState("0,00");
   const [savingRates, setSavingRates] = useState(false);
   const [statementDriver, setStatementDriver] = useState<Motoboy | null>(null);
+  const [settlingCash, setSettlingCash] = useState(false);
 
   // Carrega lista oficial de motoboys da loja
   const loadFleet = useCallback(async () => {
@@ -1321,6 +1339,8 @@ function MotoboyDeliveryView({
 
       let totalFees = 0;
       let cashCollected = 0;
+      let cashSettled = 0;
+      let cashPending = 0;
       let cardCollected = 0;
       let pixCollected = 0;
 
@@ -1333,11 +1353,17 @@ function MotoboyDeliveryView({
         const payType = getOrderPaymentCategory(order, parsed.paymentInfo);
 
         totalFees += fee;
-        if (payType === "dinheiro") cashCollected += order.totalCents;
-        else if (payType === "cartao") cardCollected += order.totalCents;
-        else pixCollected += order.totalCents;
+        if (payType === "dinheiro") {
+          cashCollected += order.totalCents;
+          if (parsed.isCashSettled) cashSettled += order.totalCents;
+          else cashPending += order.totalCents;
+        } else if (payType === "cartao") {
+          cardCollected += order.totalCents;
+        } else {
+          pixCollected += order.totalCents;
+        }
 
-        return { order, parsed, fee, payType };
+        return { order, parsed, fee, payType, isSettled: parsed.isCashSettled, settledAt: parsed.cashSettledAt };
       });
 
       const dailyAllowance = mb.dailyAllowanceCents ?? 0;
@@ -1352,6 +1378,8 @@ function MotoboyDeliveryView({
         dailyAllowance,
         totalEarnings,
         cashCollected,
+        cashSettled,
+        cashPending,
         cardCollected,
         pixCollected,
         netBalance,
@@ -1365,11 +1393,13 @@ function MotoboyDeliveryView({
         count: acc.count + curr.count,
         earnings: acc.earnings + curr.totalEarnings,
         cash: acc.cash + curr.cashCollected,
+        cashSettled: acc.cashSettled + curr.cashSettled,
+        cashPending: acc.cashPending + curr.cashPending,
         card: acc.card + curr.cardCollected,
         pix: acc.pix + curr.pixCollected,
         balance: acc.balance + curr.netBalance,
       }),
-      { count: 0, earnings: 0, cash: 0, card: 0, pix: 0, balance: 0 }
+      { count: 0, earnings: 0, cash: 0, cashSettled: 0, cashPending: 0, card: 0, pix: 0, balance: 0 }
     );
   }, [fleetSettlement]);
 
@@ -1397,13 +1427,59 @@ function MotoboyDeliveryView({
     }
     await onMoveWithNotes(order, "completed", notes);
     notify(`Check-out de entrega concluído para Pedido ${fmtCode(order.code)}!`);
+  };
 
-    // Notificar cliente no WhatsApp
-    if (parsed.phone) {
-      const cleanPhone = parsed.phone.replace(/\D/g, "");
-      const waNumber = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-      const msg = `Olá ${order.customerName}! Seu pedido ${fmtCode(order.code)} do Smack Chicken acabou de ser entregue pelo motoboy ${motoboy} às ${nowTime}! Desejamos um excelente apetite! 🍗😋`;
-      window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, "_blank");
+  const handleSettleDriverCash = async (mbName: string, orderIds: string[], settled: boolean) => {
+    if (settlingCash) return;
+    const actionDesc = settled
+      ? `Confirmar que o entregador ${mbName} já repassou todo o dinheiro das entregas à loja?`
+      : `Deseja reverter a confirmação de repasse do dinheiro de ${mbName}?`;
+    if (!window.confirm(actionDesc)) return;
+
+    setSettlingCash(true);
+    try {
+      const res = await api<{ ok: boolean; updatedCount?: number }>("/api/orders", {
+        method: "PATCH",
+        body: JSON.stringify({
+          orderIds: orderIds.length > 0 ? orderIds : undefined,
+          motoboyName: orderIds.length > 0 ? undefined : mbName,
+          settled,
+        }),
+      });
+      if (res.ok) {
+        notify(settled ? `Dinheiro de ${mbName} recebido com sucesso! Portal do motoboy atualizado.` : `Acerto de ${mbName} revertido.`);
+        if (onReloadOrders) await onReloadOrders();
+      } else {
+        notify("Falha ao salvar recebimento de dinheiro.");
+      }
+    } catch {
+      notify("Erro de conexão ao salvar recebimento.");
+    } finally {
+      setSettlingCash(false);
+    }
+  };
+
+  const handleToggleOrderCash = async (order: Order, settled: boolean) => {
+    try {
+      const nowTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      let notes = order.notes || "";
+      notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*sim(\s*\([^)]*\))?/gi, "").trim();
+      notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*n[ãa]o/gi, "").trim();
+      if (settled) {
+        notes += ` | Dinheiro Repassado: Sim (às ${nowTime})`;
+      }
+      await api(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          cashSettled: settled,
+          cashSettledAt: settled ? new Date().toISOString() : null,
+          notes,
+        }),
+      });
+      notify(settled ? `Dinheiro do pedido ${fmtCode(order.code)} confirmado como recebido!` : `Repasse do pedido ${fmtCode(order.code)} revertido.`);
+      if (onReloadOrders) await onReloadOrders();
+    } catch {
+      notify("Falha ao atualizar repasse do pedido.");
     }
   };
 
@@ -1724,8 +1800,18 @@ function MotoboyDeliveryView({
                     <td style={{ padding: "12px", fontWeight: 800, color: "#16a34a" }}>
                       {formatMoney(item.totalEarnings)}
                     </td>
-                    <td style={{ padding: "12px", fontWeight: 800, color: "#d97706" }}>
-                      {formatMoney(item.cashCollected)}
+                    <td style={{ padding: "12px", fontWeight: 800 }}>
+                      <div style={{ color: "#d97706" }}>{formatMoney(item.cashCollected)}</div>
+                      {item.cashSettled > 0 && (
+                        <div style={{ fontSize: 10, color: "#16a34a", fontWeight: 700 }}>
+                          ✓ {formatMoney(item.cashSettled)} repassado
+                        </div>
+                      )}
+                      {item.cashPending > 0 && (
+                        <div style={{ fontSize: 10, color: "#d97706", fontWeight: 700 }}>
+                          ⏳ {formatMoney(item.cashPending)} pendente
+                        </div>
+                      )}
                       {item.cardCollected > 0 && (
                         <div style={{ fontSize: 10, color: "#706965", fontWeight: 500 }}>
                           + {formatMoney(item.cardCollected)} (cartão)
@@ -1733,22 +1819,58 @@ function MotoboyDeliveryView({
                       )}
                     </td>
                     <td style={{ padding: "12px" }}>
-                      {item.netBalance > 0 ? (
+                      {item.cashPending > 0 ? (
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                          🛵 Repassa {formatMoney(item.netBalance)} ao caixa
+                          ⏳ {formatMoney(item.cashPending)} em mãos
                         </span>
-                      ) : item.netBalance < 0 ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                          💵 Loja paga {formatMoney(Math.abs(item.netBalance))}
+                      ) : item.cashSettled > 0 ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                          ✅ Repassado à Loja ({formatMoney(item.cashSettled)})
                         </span>
                       ) : (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                          ✅ Caixa Acertado (R$ 0,00)
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                          💳 100% Cartão / Pix
                         </span>
                       )}
                     </td>
                     <td style={{ padding: "12px", textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 6 }}>
+                      <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                        {item.cashPending > 0 ? (
+                          <button
+                            type="button"
+                            className="btn-primary btn-sm"
+                            onClick={() =>
+                              handleSettleDriverCash(
+                                mb.name,
+                                item.deliveredOrders.filter((o) => o.payType === "dinheiro" && !o.isSettled).map((o) => o.order.id),
+                                true
+                              )
+                            }
+                            disabled={settlingCash}
+                            style={{ background: "#16a34a", borderColor: "#15803d", color: "#fff", fontWeight: 800, fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap" }}
+                            title="Clique quando o motoboy entregar o dinheiro no balcão"
+                          >
+                            💵 Confirmar Recebimento ({formatMoney(item.cashPending)})
+                          </button>
+                        ) : item.cashSettled > 0 ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() =>
+                              handleSettleDriverCash(
+                                mb.name,
+                                item.deliveredOrders.filter((o) => o.payType === "dinheiro" && o.isSettled).map((o) => o.order.id),
+                                false
+                              )
+                            }
+                            disabled={settlingCash}
+                            style={{ fontSize: 10, padding: "3px 6px", color: "#706965" }}
+                            title="Desfazer baixa se marcou errado"
+                          >
+                            Desfazer
+                          </button>
+                        ) : null}
+
                         <button
                           type="button"
                           className="btn-secondary btn-sm"
@@ -1911,8 +2033,27 @@ function MotoboyDeliveryView({
                 )}
 
                 {/* PAGAMENTO E TOTAL */}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700, paddingTop: 4 }}>
-                  <span style={{ color: "#706965" }}>Pagamento: {parsed.paymentInfo || order.paymentMethod}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, fontWeight: 700, paddingTop: 4, flexWrap: "wrap", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ color: "#706965" }}>Pagamento: {parsed.paymentInfo || order.paymentMethod}</span>
+                    {isDelivered && getOrderPaymentCategory(order, parsed.paymentInfo) === "dinheiro" && (
+                      parsed.isCashSettled ? (
+                        <span style={{ fontSize: 10.5, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", padding: "2px 6px", borderRadius: 4, fontWeight: 800 }}>
+                          ✅ Repassado à Loja
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-sm"
+                          onClick={() => handleToggleOrderCash(order, true)}
+                          style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", fontWeight: 800, fontSize: 10.5, padding: "2px 6px", cursor: "pointer", borderRadius: 4 }}
+                          title="Clique quando o motoboy entregar o dinheiro desta entrega no balcão"
+                        >
+                          💵 Confirmar Dinheiro Recebido
+                        </button>
+                      )
+                    )}
+                  </div>
                   <span style={{ color: "#b70922" }}>{formatMoney(order.totalCents)}</span>
                 </div>
 
@@ -2072,21 +2213,44 @@ function MotoboyDeliveryView({
 
               {/* MODAL RECAP */}
               {found && (
-                <div style={{ background: "#faf8f6", padding: "12px 20px", borderBottom: "1px solid #e6dfd6", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, fontSize: 12 }}>
+                <div style={{ background: "#faf8f6", padding: "12px 20px", borderBottom: "1px solid #e6dfd6", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, fontSize: 12 }}>
                   <div>
-                    <span style={{ color: "#706965" }}>Comissão + Diária: </span>
+                    <span style={{ color: "#706965" }}>Ganhos: </span>
                     <strong style={{ color: "#16a34a" }}>{formatMoney(found.totalEarnings)}</strong>
                   </div>
                   <div>
-                    <span style={{ color: "#706965" }}>Dinheiro c/ Motoboy: </span>
+                    <span style={{ color: "#706965" }}>Dinheiro Total: </span>
                     <strong style={{ color: "#d97706" }}>{formatMoney(found.cashCollected)}</strong>
                   </div>
-                  <div>
-                    <span style={{ color: "#706965" }}>Acerto: </span>
-                    <strong style={{ color: found.netBalance >= 0 ? "#d97706" : "#2563eb" }}>
-                      {found.netBalance > 0 ? `Motoboy repassa ${formatMoney(found.netBalance)}` : found.netBalance < 0 ? `Loja paga ${formatMoney(Math.abs(found.netBalance))}` : "Zerado"}
-                    </strong>
-                  </div>
+                  {found.cashSettled > 0 && (
+                    <div>
+                      <span style={{ color: "#706965" }}>Repassado: </span>
+                      <strong style={{ color: "#16a34a" }}>{formatMoney(found.cashSettled)}</strong>
+                    </div>
+                  )}
+                  {found.cashPending > 0 && (
+                    <div>
+                      <span style={{ color: "#706965" }}>Pendente: </span>
+                      <strong style={{ color: "#dc2626" }}>{formatMoney(found.cashPending)}</strong>
+                    </div>
+                  )}
+                  {found.cashPending > 0 && (
+                    <button
+                      type="button"
+                      className="btn-primary btn-sm"
+                      onClick={() =>
+                        handleSettleDriverCash(
+                          statementDriver.name,
+                          orderList.filter((o) => o.payType === "dinheiro" && !o.isSettled).map((o) => o.order.id),
+                          true
+                        )
+                      }
+                      disabled={settlingCash}
+                      style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 800, fontSize: 11, padding: "4px 10px" }}
+                    >
+                      💵 Confirmar Recebimento ({formatMoney(found.cashPending)})
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2097,7 +2261,7 @@ function MotoboyDeliveryView({
                     Nenhuma entrega finalizada encontrada para este entregador neste período.
                   </div>
                 ) : (
-                  orderList.map(({ order, parsed, fee, payType }) => {
+                  orderList.map(({ order, parsed, fee, payType, isSettled, settledAt }) => {
                     const payColor = payType === "dinheiro" ? "#d97706" : payType === "cartao" ? "#2563eb" : "#7c3aed";
                     const payLabel = payType === "dinheiro" ? "Dinheiro (em mãos)" : payType === "cartao" ? "Cartão (maquininha loja)" : "Pix / Online";
 
@@ -2117,10 +2281,39 @@ function MotoboyDeliveryView({
                           </div>
                         </div>
 
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                          <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
                             Comissão: +{formatMoney(fee)}
                           </span>
+                          {payType === "dinheiro" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                              {isSettled ? (
+                                <>
+                                  <span style={{ background: "#dcfce7", color: "#15803d", border: "1px solid #86efac", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+                                    ✅ Repassado à Loja {settledAt ? `(${settledAt})` : ""}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleOrderCash(order, false)}
+                                    style={{ background: "none", border: "none", color: "#9c918d", fontSize: 10, cursor: "pointer", textDecoration: "underline" }}
+                                    title="Desfazer se marcou errado"
+                                  >
+                                    desfazer
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn-sm"
+                                  onClick={() => handleToggleOrderCash(order, true)}
+                                  style={{ background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", fontWeight: 800, fontSize: 10.5, padding: "2px 6px", cursor: "pointer", borderRadius: 4 }}
+                                  title="Marcar que o dinheiro deste pedido já foi repassado ao caixa"
+                                >
+                                  💵 Confirmar Recebimento
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

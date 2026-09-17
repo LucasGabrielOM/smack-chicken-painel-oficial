@@ -25,6 +25,9 @@ export type StoredOrder = {
   readyAt?: string | null;
   completedAt?: string | null;
   items: StoredOrderItem[];
+  cashSettled?: boolean;
+  cashSettledAt?: string | null;
+  cashSettledBy?: string | null;
 };
 
 declare global {
@@ -335,6 +338,8 @@ export async function updateOrderStatus(
     customerName?: string;
     notes?: string;
     paymentMethod?: string;
+    cashSettled?: boolean;
+    cashSettledAt?: string | null;
   }
 ): Promise<StoredOrder | null> {
   const store = await loadOrdersStore();
@@ -360,6 +365,20 @@ export async function updateOrderStatus(
   }
   if (patch.paymentMethod) {
     order.paymentMethod = patch.paymentMethod;
+  }
+  if (patch.cashSettled !== undefined) {
+    order.cashSettled = patch.cashSettled;
+    order.cashSettledAt = patch.cashSettled
+      ? (patch.cashSettledAt || new Date().toISOString())
+      : null;
+    let notes = order.notes || "";
+    notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*sim(\s*\([^)]*\))?/gi, "").trim();
+    notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*n[ãa]o/gi, "").trim();
+    if (patch.cashSettled) {
+      const timeStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      notes += ` | Dinheiro Repassado: Sim (às ${timeStr})`;
+    }
+    order.notes = notes;
   }
   if (patch.status) {
     order.status = patch.status;
@@ -451,3 +470,60 @@ export async function deleteOrder(idOrCode: string): Promise<boolean> {
 
   return true;
 }
+
+export async function settleOrdersCash(params: {
+  orderIds?: string[];
+  motoboyName?: string;
+  settled?: boolean;
+}): Promise<{ updatedCount: number; orders: StoredOrder[] }> {
+  const store = await loadOrdersStore();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const isSettled = params.settled !== false;
+  let updatedCount = 0;
+  const updatedOrders: StoredOrder[] = [];
+
+  for (const order of store) {
+    let match = false;
+    if (params.orderIds && params.orderIds.length > 0) {
+      if (
+        params.orderIds.includes(order.id) ||
+        params.orderIds.includes(order.code) ||
+        params.orderIds.includes(order.code.replace("#", ""))
+      ) {
+        match = true;
+      }
+    } else if (params.motoboyName) {
+      const notes = (order.notes || "").toLowerCase();
+      const mbLower = params.motoboyName.toLowerCase();
+      if (
+        notes.includes(`motoboy: ${mbLower}`) ||
+        notes.includes(`entregador: ${mbLower}`) ||
+        notes.includes(mbLower)
+      ) {
+        match = true;
+      }
+    }
+
+    if (match) {
+      order.cashSettled = isSettled;
+      order.cashSettledAt = isSettled ? now.toISOString() : null;
+      let notes = order.notes || "";
+      notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*sim(\s*\([^)]*\))?/gi, "").trim();
+      notes = notes.replace(/\s*\|\s*dinheiro repassado:\s*n[ãa]o/gi, "").trim();
+      if (isSettled) {
+        notes += ` | Dinheiro Repassado: Sim (às ${timeStr})`;
+      }
+      order.notes = notes;
+      updatedCount++;
+      updatedOrders.push(order);
+    }
+  }
+
+  if (updatedCount > 0) {
+    await persistOrders(store);
+  }
+
+  return { updatedCount, orders: updatedOrders };
+}
+

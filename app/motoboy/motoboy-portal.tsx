@@ -20,6 +20,8 @@ type Order = {
   createdAt: string;
   items: OrderItem[];
   notes: string | null;
+  cashSettled?: boolean;
+  cashSettledAt?: string | null;
 };
 
 function fmtCode(code: string) {
@@ -45,6 +47,8 @@ function parseOrderDetails(order: Order) {
   let checkedInAt: string | null = null;
   let deliveredAt: string | null = null;
   let deliveryFeeCents: number | null = order.deliveryFeeCents ?? null;
+  let isCashSettled: boolean = Boolean(order.cashSettled);
+  let cashSettledAt: string | null = order.cashSettledAt || null;
 
   for (const part of parts) {
     if (/^whatsapp:\s*/i.test(part) || /^tel:\s*/i.test(part) || /^telefone:\s*/i.test(part)) {
@@ -67,6 +71,12 @@ function parseOrderDetails(order: Order) {
       checkedInAt = part.replace(/^(sa[íi]da|check-?in):\s*/i, "").trim();
     } else if (/^entregue [àa]s:\s*/i.test(part) || /^check-?out:\s*/i.test(part)) {
       deliveredAt = part.replace(/^(entregue [àa]s|check-?out):\s*/i, "").trim();
+    } else if (/^dinheiro repassado:\s*/i.test(part) || /^repasse loja:\s*/i.test(part) || /^caixa repassado:\s*/i.test(part)) {
+      isCashSettled = true;
+      const timeMatch = part.match(/às\s*([\d:]+)/i);
+      if (timeMatch && !cashSettledAt) {
+        cashSettledAt = timeMatch[1];
+      }
     } else if (/^levar troco de:\s*/i.test(part)) {
       paymentInfo = paymentInfo ? `${paymentInfo} (${part})` : part;
     }
@@ -81,6 +91,8 @@ function parseOrderDetails(order: Order) {
     checkedInAt,
     deliveredAt,
     deliveryFeeCents,
+    isCashSettled,
+    cashSettledAt,
   };
 }
 
@@ -324,6 +336,8 @@ export default function MotoboyPortal() {
         dailyAllowance: 0,
         totalEarnings: 0,
         cashCollected: 0,
+        cashSettled: 0,
+        cashPending: 0,
         cardCollected: 0,
         pixCollected: 0,
         netSettlement: 0,
@@ -334,6 +348,8 @@ export default function MotoboyPortal() {
 
     let totalFees = 0;
     let cashCollected = 0;
+    let cashSettled = 0;
+    let cashPending = 0;
     let cardCollected = 0;
     let pixCollected = 0;
 
@@ -343,21 +359,33 @@ export default function MotoboyPortal() {
       const payType = getPaymentType(order, parsed.paymentInfo);
 
       totalFees += fee;
-      if (payType === "dinheiro") cashCollected += order.totalCents;
-      else if (payType === "cartao") cardCollected += order.totalCents;
-      else pixCollected += order.totalCents;
+      if (payType === "dinheiro") {
+        cashCollected += order.totalCents;
+        if (parsed.isCashSettled) {
+          cashSettled += order.totalCents;
+        } else {
+          cashPending += order.totalCents;
+        }
+      } else if (payType === "cartao") {
+        cardCollected += order.totalCents;
+      } else {
+        pixCollected += order.totalCents;
+      }
 
       return {
         order,
         parsed,
         fee,
         payType,
+        isSettled: parsed.isCashSettled,
+        settledAt: parsed.cashSettledAt,
       };
     });
 
     const dailyAllowance = selectedDriver.dailyAllowanceCents ?? 0;
     const totalEarnings = totalFees + dailyAllowance;
-    const netSettlement = cashCollected - totalEarnings;
+    // Se o motoboy tem dinheiro pendente, ele deve repassar o pendente menos seus ganhos (ou o pendente total)
+    const netSettlement = cashPending - totalEarnings;
 
     return {
       ordersList: list,
@@ -366,6 +394,8 @@ export default function MotoboyPortal() {
       dailyAllowance,
       totalEarnings,
       cashCollected,
+      cashSettled,
+      cashPending,
       cardCollected,
       pixCollected,
       netSettlement,
@@ -374,17 +404,23 @@ export default function MotoboyPortal() {
 
   // Resumo rápido de HOJE para a barra superior fixa
   const todayEarningsSummary = useMemo(() => {
-    if (!selectedDriver) return { count: 0, earnings: 0, netSettlement: 0 };
+    if (!selectedDriver) return { count: 0, earnings: 0, cashCollected: 0, cashSettled: 0, cashPending: 0, netSettlement: 0 };
     let fees = 0;
-    let cash = 0;
+    let cashCollected = 0;
+    let cashSettled = 0;
+    let cashPending = 0;
     for (const o of completedToday) {
       const p = parseOrderDetails(o);
       fees += getOrderDriverFee(o, selectedDriver, p.deliveryFeeCents);
-      if (getPaymentType(o, p.paymentInfo) === "dinheiro") cash += o.totalCents;
+      if (getPaymentType(o, p.paymentInfo) === "dinheiro") {
+        cashCollected += o.totalCents;
+        if (p.isCashSettled) cashSettled += o.totalCents;
+        else cashPending += o.totalCents;
+      }
     }
     const earnings = fees + (selectedDriver.dailyAllowanceCents ?? 0);
-    const net = cash - earnings;
-    return { count: completedToday.length, earnings, netSettlement: net };
+    const net = cashPending - earnings;
+    return { count: completedToday.length, earnings, cashCollected, cashSettled, cashPending, netSettlement: net };
   }, [selectedDriver, completedToday]);
 
   // Ação: Check-in na Loja (Sair para entrega)
@@ -442,15 +478,6 @@ export default function MotoboyPortal() {
       if (res.ok) {
         notify(`Entrega concluída! Pedido ${fmtCode(order.code)}.`);
         await loadOrders();
-
-        // Notificação no WhatsApp do Cliente
-        if (parsed.phone) {
-          const cleanPhone = parsed.phone.replace(/\D/g, "");
-          const waNumber = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-          const msg = `Olá ${order.customerName}! Seu pedido ${fmtCode(order.code)} do Smack Chicken acabou de ser entregue por mim (${selectedDriver.name}) às ${nowTime}! Desejamos um excelente apetite! 🍗😋`;
-          const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`;
-          window.open(waUrl, "_blank");
-        }
       } else {
         notify("Falha ao registrar entrega.");
       }
@@ -603,8 +630,10 @@ export default function MotoboyPortal() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 700, fontSize: 11.5 }}>
           <span style={{ color: "#A89C96" }}>Caixa:</span>
-          {todayEarningsSummary.netSettlement > 0 ? (
-            <span style={{ color: "#F59E0B" }}>Repassar {formatMoney(todayEarningsSummary.netSettlement)}</span>
+          {todayEarningsSummary.cashPending > 0 ? (
+            <span style={{ color: "#F59E0B" }}>Repassar {formatMoney(todayEarningsSummary.cashPending)}</span>
+          ) : todayEarningsSummary.cashSettled > 0 ? (
+            <span style={{ color: "#4ADE80" }}>Repassado à Loja ✅</span>
           ) : todayEarningsSummary.netSettlement < 0 ? (
             <span style={{ color: "#38BDF8" }}>Receber {formatMoney(Math.abs(todayEarningsSummary.netSettlement))}</span>
           ) : (
@@ -1362,7 +1391,7 @@ export default function MotoboyPortal() {
               </div>
 
               {/* BANNER DE RESULTADO DO ACERTO */}
-              {earningsData.netSettlement > 0 ? (
+              {earningsData.cashPending > 0 ? (
                 <div
                   style={{
                     background: "linear-gradient(135deg, #332616 0%, #291C0E 100%)",
@@ -1373,13 +1402,37 @@ export default function MotoboyPortal() {
                   }}
                 >
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                    ⚠️ Você deve repassar ao Caixa da Loja:
+                    ⚠️ Dinheiro a Repassar ao Caixa da Loja:
                   </div>
                   <div style={{ fontSize: 26, fontWeight: 900, color: "#FFFFFF", marginTop: 2 }}>
-                    {formatMoney(earningsData.netSettlement)}
+                    {formatMoney(earningsData.cashPending)}
                   </div>
                   <div style={{ fontSize: 11.5, color: "#D1C7C2", marginTop: 6, lineHeight: 1.4 }}>
-                    Você recolheu <strong>{formatMoney(earningsData.cashCollected)}</strong> em dinheiro vivo dos clientes. Descontando seus ganhos de <strong>{formatMoney(earningsData.totalEarnings)}</strong>, entregue essa diferença ao caixa no fim do plantão.
+                    Você recolheu <strong>{formatMoney(earningsData.cashCollected)}</strong> dos clientes em dinheiro vivo.
+                    {earningsData.cashSettled > 0 && (
+                      <span> Já repassou <strong>{formatMoney(earningsData.cashSettled)}</strong> ao caixa. </span>
+                    )}
+                    Entregue os <strong>{formatMoney(earningsData.cashPending)}</strong> restantes ao chefe no balcão para fechar seu caixa.
+                  </div>
+                </div>
+              ) : earningsData.cashSettled > 0 ? (
+                <div
+                  style={{
+                    background: "linear-gradient(135deg, #15271D 0%, #0F1E16 100%)",
+                    border: "1.5px solid #16A34A",
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#4ADE80", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    ✅ Dinheiro das Entregas Já Repassado à Loja!
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: "#FFFFFF", marginTop: 2 }}>
+                    {formatMoney(earningsData.cashSettled)} Confirmados
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "#D1C7C2", marginTop: 4 }}>
+                    O chefe/caixa da loja já confirmou o recebimento de todo o dinheiro físico que você recolheu!
                   </div>
                 </div>
               ) : earningsData.netSettlement < 0 ? (
@@ -1427,9 +1480,23 @@ export default function MotoboyPortal() {
               {/* DISCRIMINAÇÃO DETALHADA */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#171312", borderRadius: 8 }}>
-                  <span style={{ color: "#D1C7C2" }}>💵 Dinheiro Vivo Recebido dos Clientes:</span>
+                  <span style={{ color: "#D1C7C2" }}>💵 Dinheiro Total Recolhido dos Clientes:</span>
                   <strong style={{ color: "#F59E0B" }}>{formatMoney(earningsData.cashCollected)}</strong>
                 </div>
+
+                {earningsData.cashSettled > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#15271D", borderRadius: 8, borderLeft: "3px solid #16A34A" }}>
+                    <span style={{ color: "#4ADE80", fontWeight: 700 }}>✅ Dinheiro Já Repassado à Loja:</span>
+                    <strong style={{ color: "#4ADE80" }}>{formatMoney(earningsData.cashSettled)}</strong>
+                  </div>
+                )}
+
+                {earningsData.cashPending > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#261C14", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
+                    <span style={{ color: "#F59E0B", fontWeight: 700 }}>⏳ Dinheiro Ainda em Mãos (Pendente):</span>
+                    <strong style={{ color: "#F59E0B" }}>{formatMoney(earningsData.cashPending)}</strong>
+                  </div>
+                )}
 
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#171312", borderRadius: 8 }}>
                   <span style={{ color: "#A89C96" }}>💳 Cartão na Maquininha da Loja:</span>
@@ -1442,8 +1509,8 @@ export default function MotoboyPortal() {
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 10px", background: "#171312", borderRadius: 8, borderLeft: "3px solid #4ADE80" }}>
-                  <span style={{ color: "#4ADE80", fontWeight: 700 }}>(-) Seus Ganhos Totais Retidos:</span>
-                  <strong style={{ color: "#4ADE80" }}>- {formatMoney(earningsData.totalEarnings)}</strong>
+                  <span style={{ color: "#4ADE80", fontWeight: 700 }}>🏆 Seus Ganhos Totais (Comissões + Diária):</span>
+                  <strong style={{ color: "#4ADE80" }}>+{formatMoney(earningsData.totalEarnings)}</strong>
                 </div>
               </div>
             </div>
@@ -1469,7 +1536,7 @@ export default function MotoboyPortal() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {earningsData.ordersList.map(({ order, parsed, fee, payType }) => {
+                  {earningsData.ordersList.map(({ order, parsed, fee, payType, isSettled, settledAt }) => {
                     const payBadgeColor = payType === "dinheiro" ? "#F59E0B" : payType === "cartao" ? "#38BDF8" : "#A855F7";
                     const payLabel = payType === "dinheiro" ? "Dinheiro (em mãos)" : payType === "cartao" ? "Cartão Maquininha" : "Pix Online";
 
@@ -1500,10 +1567,25 @@ export default function MotoboyPortal() {
                           <div style={{ fontSize: 11.5, color: "#8E837E", marginTop: 3 }}>📍 {parsed.address}</div>
                         )}
 
-                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2B2320", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5 }}>
-                          <span style={{ color: payBadgeColor, fontWeight: 700 }}>
-                            {payType === "dinheiro" ? "💵" : payType === "cartao" ? "💳" : "⚡"} {payLabel}
-                          </span>
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2B2320", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, flexWrap: "wrap", gap: 6 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ color: payBadgeColor, fontWeight: 700 }}>
+                              {payType === "dinheiro" ? "💵" : payType === "cartao" ? "💳" : "⚡"} {payLabel}
+                            </span>
+                            {payType === "dinheiro" && (
+                              <span>
+                                {isSettled ? (
+                                  <span style={{ background: "#15271D", border: "1px solid #16A34A", color: "#4ADE80", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+                                    ✅ Repassado à Loja {settledAt ? `(${settledAt})` : ""}
+                                  </span>
+                                ) : (
+                                  <span style={{ background: "#332616", border: "1px solid #F59E0B", color: "#F59E0B", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+                                    ⏳ Dinheiro em mãos
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
                           <span style={{ color: "#FFFFFF", fontWeight: 800 }}>
                             Total Pedido: {formatMoney(order.totalCents)}
                           </span>
