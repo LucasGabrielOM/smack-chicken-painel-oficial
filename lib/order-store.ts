@@ -322,32 +322,20 @@ export async function createOrder(input: NewOrderInput): Promise<StoredOrder> {
 
       if (isPickup) {
         // FLUXO DE RETIRADA NA LOJA:
-        // Mensagem ÚNICA com agradecimento, previsão, endereço físico da loja, link do Google Maps, link de acompanhamento e cupom VOLTA10.
+        // Mensagem única, objetiva e profissional
         const msg =
-`🍗 *Smack Chicken* — Pedido Confirmado para Retirada!
+`*Smack Chicken*: Olá, ${newOrder.customerName}! Seu pedido *${newOrder.code}* foi recebido para retirada no balcão.
 
-Olá, *${newOrder.customerName}*! Muito obrigado por comprar com a Smack Chicken! O seu pedido *${newOrder.code}* foi registrado e nossa equipe já está cuidando do preparo. 👨‍🍳🔥
+Previsão de preparo: 20 a 30 minutos.
+Local para retirada: Rua Fúlvio Aducci, 1074 — Estreito.
+Localização no mapa: https://maps.google.com/?q=Rua+F%C3%BAlvio+Aducci,+1074+-+Estreito,+Florian%C3%B3polis+-+SC
 
-⏱️ *Previsão de Preparo:* 20 a 30 minutos
-🛍️ *Modalidade:* Retirada no Balcão
-
-📍 *Local de Retirada (Nossa Loja):*
-Rua Fúlvio Aducci, 1074 — Estreito, Florianópolis - SC (CEP 88075-000)
-🗺️ *Ver no Google Maps:*
-https://maps.google.com/?q=Rua+F%C3%BAlvio+Aducci,+1074+-+Estreito,+Florian%C3%B3polis+-+SC
-
-📱 *Acompanhe o status do preparo:*
+Acompanhe o status do pedido:
 ${trackUrl}
 
-🎁 *PRESENTE ESPECIAL PARA VOCÊ:*
-Na sua próxima compra pelo nosso site, use o cupom exclusivo:
-🎟️ Cupom: *VOLTA10*
-🏷️ Desconto: *10% OFF* em todo o cardápio!
-_(Válido para até 2 pedidos vinculados ao seu WhatsApp)_
+Ganhe 10% de desconto no seu próximo pedido pelo site com o cupom *VOLTA10* (válido para até 2 pedidos vinculados ao seu WhatsApp).`;
 
-Te esperamos aqui no balcão da loja! Até logo! 🍗✨`;
-
-        await sendEvolutionText(phone, msg).catch(() => {});
+        await sendEvolutionText(phone, msg, undefined, false).catch(() => {});
 
         // Bloqueia envios posteriores para pedidos de retirada (ready / completed)
         const history = globalThis.__smackNotificationHistory!;
@@ -356,22 +344,16 @@ Te esperamos aqui no balcão da loja! Até logo! 🍗✨`;
         history.set(`${newOrder.code}:completed`, now);
       } else {
         // FLUXO DE DELIVERY (ENTREGA EM DOMICÍLIO):
-        // Mensagem 1: Confirmação imediata com estimativa de entrega e link de rastreio em tempo real
+        // Mensagem 1: Confirmação curta e profissional com estimativa e link
         const deliveryEstimate = extractDeliveryEstimate(newOrder.notes);
         const msg =
-`🍗 *Smack Chicken* — Pedido Confirmado!
+`*Smack Chicken*: Olá, ${newOrder.customerName}! Seu pedido *${newOrder.code}* foi confirmado e já está em preparo.
 
-Olá, *${newOrder.customerName}*! Muito obrigado pela sua escolha! Já recebemos o seu pedido *${newOrder.code}* e nossa cozinha já começou os preparativos com todo carinho e crocância. 👨‍🍳🔥
+Previsão de entrega: ${deliveryEstimate}.
+Acompanhe seu pedido pelo link:
+${trackUrl}`;
 
-⏱️ *Previsão de Entrega:* ${deliveryEstimate}
-📍 *Modalidade:* Entrega em Domicílio
-
-🛵 *Acompanhe seu pedido em tempo real pelo link:*
-${trackUrl}
-
-Assim que o lanche sair com o nosso entregador, avisamos você imediatamente por aqui! Tenha uma excelente experiência. ✨`;
-
-        await sendEvolutionText(phone, msg).catch(() => {});
+        await sendEvolutionText(phone, msg, undefined, false).catch(() => {});
       }
     }
   } catch (e) {
@@ -525,45 +507,33 @@ export async function updateOrderStatus(
               let msg = "";
 
               if (patch.status === "ready") {
-                // Mensagem 2 de Delivery: Lanche pronto e entregador a caminho
+                // Mensagem 2 de Delivery: Curta e profissional
                 const motoboyName = order.notes?.match(/(?:motoboy|entregador):\s*([^|]+)/i)?.[1]?.trim();
                 const motoboyText = motoboyName
-                  ? `O nosso entregador *${motoboyName}* já saiu`
-                  : `O nosso entregador já saiu`;
+                  ? `com o entregador ${motoboyName}`
+                  : `com o nosso entregador`;
 
                 msg =
-`🛵💨 *Smack Chicken* — Saiu para Entrega!
+`*Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* saiu para entrega ${motoboyText}.
 
-Olá, *${order.customerName}*! O seu pedido *${order.code}* ficou pronto, quentinho e crocante! 🍗✨
-
-${motoboyText} da loja e está a caminho do seu endereço. Por favor, fique atento à campainha, interfone ou portão!
-
-📱 *Acompanhe o trajeto em tempo real:*
-${trackUrl}
-
-Já estamos quase aí! Bom apetite! 😋`;
+Por favor, fique atento à chegada no seu endereço.
+Acompanhe o trajeto:
+${trackUrl}`;
               } else if (patch.status === "completed") {
-                // Mensagem 3 de Delivery: Conclusão, agradecimento e Cupom de 10% de volta
+                // Mensagem 3 de Delivery: Conclusão, agradecimento e Cupom VOLTA10
                 msg =
-`🎉 *Smack Chicken* — Pedido Entregue!
+`*Smack Chicken*: Seu pedido *${order.code}* foi entregue. Agradecemos a preferência e bom apetite!
 
-Olá, *${order.customerName}*! O seu pedido *${order.code}* foi entregue com sucesso! Esperamos que você curta muito cada pedaço do nosso frango frito super crocante e saboroso! 🍗✨ Muito obrigado por sua preferência e confiança!
+Como agradecimento, ganhe 10% de desconto no seu próximo pedido pelo site.
+Cupom: *VOLTA10* (válido para até 2 pedidos).
 
-🎁 *PRESENTE ESPECIAL DE RETORNO:*
-Para o seu próximo pedido no nosso site, use o cupom exclusivo:
-🎟️ Cupom: *VOLTA10*
-🏷️ Desconto: *10% OFF* em todo o cardápio!
-_(Válido para até 2 pedidos vinculados ao seu WhatsApp)_
-
-Faça seu próximo pedido direto pelo nosso site:
-👉 https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev
-
-Desejamos uma ótima refeição e bom apetite! 💛`;
+Peça novamente em:
+https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev`;
               } else if (patch.status === "cancelled") {
-                msg = `⚠️ *Smack Chicken*: Olá, ${order.customerName}. Informamos que o seu pedido *${order.code}* foi cancelado. Se tiver qualquer dúvida, estamos à disposição por aqui.`;
+                msg = `*Smack Chicken*: Olá, ${order.customerName}. Seu pedido *${order.code}* foi cancelado. Se tiver dúvidas, fale conosco por aqui.`;
               }
 
-              if (msg) await sendEvolutionText(phone, msg).catch(() => {});
+              if (msg) await sendEvolutionText(phone, msg, undefined, false).catch(() => {});
             }
           } catch (e) {
             console.warn("Falha ao enviar WhatsApp:", e);

@@ -115,15 +115,18 @@ export function formatPhoneNumber(phone: string): string {
 export async function sendEvolutionText(
   number: string,
   text: string,
-  instanceName: string = INSTANCE_NAME
+  instanceName: string = INSTANCE_NAME,
+  linkPreview: boolean = false
 ) {
   const formattedNumber = formatPhoneNumber(number);
   return callEvolutionAPI(`/message/sendText/${instanceName}`, "POST", {
     number: formattedNumber,
     options: {
-      delay: 1200,
+      delay: 1000,
       presence: "composing",
+      linkPreview,
     },
+    linkPreview,
     text,
   });
 }

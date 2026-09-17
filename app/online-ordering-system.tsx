@@ -1421,6 +1421,8 @@ export default function OnlineOrderingSystem() {
           align-items: center;
           justify-content: center;
           padding: 20px;
+          padding-top: max(20px, env(safe-area-inset-top));
+          padding-bottom: max(20px, env(safe-area-inset-bottom));
           overscroll-behavior: contain;
           touch-action: none;
         }
@@ -1429,7 +1431,7 @@ export default function OnlineOrderingSystem() {
           border-radius: 20px;
           width: 100%;
           max-width: 540px;
-          max-height: 90vh;
+          max-height: calc(100dvh - 40px);
           overflow-y: auto;
           overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
@@ -1440,6 +1442,43 @@ export default function OnlineOrderingSystem() {
           position: relative;
           scrollbar-width: thin;
           scrollbar-color: #D3C9BC transparent;
+        }
+        .sc-modal-header {
+          position: sticky;
+          top: 0;
+          background: #FFFFFF;
+          z-index: 30;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 20px;
+          border-bottom: 1px solid #E6DFD6;
+          border-radius: 20px 20px 0 0;
+          flex-shrink: 0;
+        }
+        .sc-modal-close-btn {
+          background: #F5F2EC;
+          border: 1px solid #E6DFD6;
+          border-radius: 50%;
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          font-weight: 800;
+          cursor: pointer;
+          color: #1B1715;
+          transition: background 0.15s, transform 0.15s;
+          flex-shrink: 0;
+        }
+        .sc-modal-close-btn:hover, .sc-modal-close-btn:active {
+          background: #E6DFD6;
+          transform: scale(0.95);
+        }
+        .sc-modal-body {
+          padding: 20px;
+          flex: 1;
         }
         .sc-modal-card::-webkit-scrollbar {
           width: 6px;
@@ -1816,11 +1855,23 @@ export default function OnlineOrderingSystem() {
 
           /* Modais em celular */
           .sc-modal-backdrop {
-            padding: 12px;
+            padding: 0;
+            align-items: flex-end;
+            padding-top: max(32px, env(safe-area-inset-top));
           }
           .sc-modal-card {
-            max-height: 92vh;
-            border-radius: 18px;
+            max-height: calc(100dvh - max(32px, env(safe-area-inset-top)));
+            border-radius: 22px 22px 0 0;
+            width: 100%;
+            margin-top: auto;
+          }
+          .sc-modal-header {
+            border-radius: 22px 22px 0 0;
+            padding: 14px 18px;
+          }
+          .sc-modal-body {
+            padding: 16px;
+            padding-bottom: max(28px, env(safe-area-inset-bottom));
           }
           .sc-prod-modal-img {
             height: 180px;
@@ -2383,16 +2434,20 @@ export default function OnlineOrderingSystem() {
               if (e.target === e.currentTarget) e.preventDefault();
             }}
           >
-            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
-                <h3 style={{ fontSize: 20, fontWeight: 900 }}>Finalizar Pedido</h3>
+            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="sc-modal-header">
+                <h3 style={{ fontSize: 19, fontWeight: 900, margin: 0, color: "#1B1715" }}>Finalizar Pedido</h3>
                 <button
+                  type="button"
+                  className="sc-modal-close-btn"
                   onClick={() => setShowCartModal(false)}
-                  style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#706965" }}
+                  aria-label="Fechar"
                 >
                   ✕
                 </button>
               </div>
+
+              <div className="sc-modal-body">
 
               {latestOrderCode ? (
                 <div style={{ textAlign: "center", padding: "20px 0" }}>
@@ -3157,6 +3212,7 @@ export default function OnlineOrderingSystem() {
                   </div>
                 </form>
               )}
+              </div>
             </div>
           </div>
         )}
@@ -3170,18 +3226,21 @@ export default function OnlineOrderingSystem() {
               if (e.target === e.currentTarget) e.preventDefault();
             }}
           >
-            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()} style={{ padding: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, borderBottom: "1px solid #E6DFD6", paddingBottom: 14 }}>
-                <h3 style={{ fontSize: 20, fontWeight: 900 }}>Acompanhar Pedido</h3>
+            <div className="sc-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="sc-modal-header">
+                <h3 style={{ fontSize: 19, fontWeight: 900, margin: 0, color: "#1B1715" }}>Acompanhar Pedido</h3>
                 <button
+                  type="button"
+                  className="sc-modal-close-btn"
                   onClick={() => setShowTrackingModal(false)}
-                  style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#706965" }}
+                  aria-label="Fechar"
                 >
                   ✕
                 </button>
               </div>
 
-              <div style={{ marginBottom: 20 }}>
+              <div className="sc-modal-body">
+                <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#706965", marginBottom: 6 }}>
                   Digite o código do pedido (ex: #1042) ou seu telefone:
                 </label>
@@ -3496,6 +3555,7 @@ export default function OnlineOrderingSystem() {
                   );
                 })
               )}
+              </div>
             </div>
           </div>
         )}
