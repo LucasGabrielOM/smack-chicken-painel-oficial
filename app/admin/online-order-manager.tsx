@@ -512,12 +512,18 @@ function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    let storedPwd = "smack2026";
+    let storedPwd = "B@squete123";
     try {
-      storedPwd = localStorage.getItem("smack_admin_pwd") || "smack2026";
+      const saved = localStorage.getItem("smack_admin_pwd");
+      if (saved && saved !== "smack2026") {
+        storedPwd = saved;
+      } else {
+        localStorage.setItem("smack_admin_pwd", "B@squete123");
+        storedPwd = "B@squete123";
+      }
     } catch {}
 
-    if (password === storedPwd || password === "smack2026") {
+    if (password === storedPwd || password === "B@squete123") {
       try {
         localStorage.setItem("smack_admin_auth", "true");
         // Desbloqueia contexto de áudio após interação do usuário
@@ -584,9 +590,6 @@ function AdminLoginScreen({ onLogin }: { onLogin: () => void }) {
           <button type="submit" className="adm-login-submit">
             Entrar no Painel
           </button>
-          <div style={{ fontSize: 11, color: "#7a6f69", textAlign: "center", marginTop: 4 }}>
-            Senha padrão de acesso: <strong style={{ color: "#d1c7c2" }}>smack2026</strong>
-          </div>
         </form>
       </div>
     </div>
@@ -2997,7 +3000,7 @@ function SettingsView({
           <div className="srow">
             <div>
               <div className="slabel">Senha do Painel de Admin</div>
-              <div className="shint">Senha para autorizar o acesso ao painel (padrão: smack2026)</div>
+              <div className="shint">Altere a senha de autorização de acesso ao painel de pedidos</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
