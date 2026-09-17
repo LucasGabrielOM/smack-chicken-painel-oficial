@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { formatMoney, catalog, CatalogProduct } from "../../lib/catalog";
 import type { DeliverySettings, SaveProductInput } from "../../lib/product-store";
 import type { DeliveryTier } from "../../lib/delivery";
+import type { Motoboy } from "../../lib/motoboy-store";
 
 type View = "orders" | "expedicao" | "motoboy" | "cardapio" | "delivery" | "relatorios" | "settings";
 
@@ -13,7 +14,7 @@ type Order = {
   id: string; code: string; customerName: string;
   status: "preparing" | "ready" | "completed" | "cancelled";
   paymentMethod: string; cashReceivedCents?: number; totalCents: number;
-  discountCents?: number; splitCount?: number; channel: string;
+  discountCents?: number; deliveryFeeCents?: number; splitCount?: number; channel: string;
   notes?: string; createdAt: string; readyAt?: string; completedAt?: string;
   items: OrderItem[];
 };
@@ -127,13 +128,22 @@ const IcoCheck = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
 );
 const IcoEdit = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 );
 const IcoTrash = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
 );
 const IcoPlus = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+);
+const IcoFire = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+);
+const IcoDownload = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+);
+const IcoFilter = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
 );
 
 type ParsedDetails = {
@@ -147,6 +157,7 @@ type ParsedDetails = {
   motoboyName: string | null;
   checkedInAt: string | null;
   deliveredAt: string | null;
+  deliveryFeeCents: number | null;
 };
 
 function parseOrderDetails(order: Order): ParsedDetails {
@@ -161,6 +172,7 @@ function parseOrderDetails(order: Order): ParsedDetails {
   let motoboyName: string | null = null;
   let checkedInAt: string | null = null;
   let deliveredAt: string | null = null;
+  let deliveryFeeCents: number | null = order.deliveryFeeCents ?? null;
   const otherParts: string[] = [];
 
   for (const part of parts) {
@@ -168,6 +180,12 @@ function parseOrderDetails(order: Order): ParsedDetails {
       phone = part.replace(/^whatsapp:\s*/i, "").trim();
     } else if (/^modalidade:\s*/i.test(part)) {
       deliveryType = part.replace(/^modalidade:\s*/i, "").trim();
+    } else if (/^taxa de entrega:\s*/i.test(part)) {
+      const match = part.match(/R\$\s*([\d,]+)/i);
+      if (match && deliveryFeeCents === null) {
+        const val = parseFloat(match[1].replace(",", "."));
+        if (!isNaN(val)) deliveryFeeCents = Math.round(val * 100);
+      }
     } else if (/^endereço:\s*/i.test(part) || /^endereco:\s*/i.test(part)) {
       address = part.replace(/^endere[cç]o:\s*/i, "").trim();
     } else if (/^pagamento:\s*/i.test(part)) {
@@ -227,7 +245,57 @@ function parseOrderDetails(order: Order): ParsedDetails {
     motoboyName,
     checkedInAt,
     deliveredAt,
+    deliveryFeeCents,
   };
+}
+
+function getOrderPaymentCategory(order: Order, paymentInfo?: string | null): "dinheiro" | "cartao" | "pix" {
+  const combined = `${order.paymentMethod || ""} ${paymentInfo || ""}`.toLowerCase();
+  if (combined.includes("dinheiro")) return "dinheiro";
+  if (
+    combined.includes("cartão") ||
+    combined.includes("cartao") ||
+    combined.includes("crédito") ||
+    combined.includes("credito") ||
+    combined.includes("débito") ||
+    combined.includes("debito")
+  ) {
+    return "cartao";
+  }
+  return "pix";
+}
+
+function isOrderInPeriod(iso: string, period: "hoje" | "ontem" | "semana" | "todos"): boolean {
+  if (period === "todos") return true;
+  try {
+    const orderDate = new Date(iso);
+    const now = new Date();
+
+    if (period === "hoje") {
+      return (
+        orderDate.getFullYear() === now.getFullYear() &&
+        orderDate.getMonth() === now.getMonth() &&
+        orderDate.getDate() === now.getDate()
+      );
+    }
+
+    if (period === "ontem") {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return (
+        orderDate.getFullYear() === yesterday.getFullYear() &&
+        orderDate.getMonth() === yesterday.getMonth() &&
+        orderDate.getDate() === yesterday.getDate()
+      );
+    }
+
+    if (period === "semana") {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return orderDate >= weekAgo;
+    }
+  } catch {}
+  return true;
 }
 
 function parseItemName(fullName: string) {
@@ -1054,15 +1122,27 @@ function MotoboyDeliveryView({
   notify: (msg: string) => void;
 }) {
   const [tab, setTab] = useState<"pending" | "in_route" | "delivered" | "all">("pending");
-  const [motoboyList, setMotoboyList] = useState<{ id: string; name: string; phone?: string; vehicle?: string }[]>([
-    { id: "mb-lucas", name: "Lucas", phone: "", vehicle: "Moto" }
+  const [motoboyList, setMotoboyList] = useState<Motoboy[]>([
+    { id: "mb-lucas", name: "Lucas", phone: "", vehicle: "Moto", active: true, rateType: "fixed", rateFeeCents: 700, dailyAllowanceCents: 0, createdAt: new Date().toISOString() }
   ]);
   const [currentMotoboy, setCurrentMotoboy] = useState<string>("Lucas");
   const [newDriverName, setNewDriverName] = useState("");
   const [newDriverPhone, setNewDriverPhone] = useState("");
   const [newDriverVehicle, setNewDriverVehicle] = useState("");
+  const [newDriverRateType, setNewDriverRateType] = useState<"fixed" | "order_fee">("fixed");
+  const [newDriverRateFeeStr, setNewDriverRateFeeStr] = useState("7,00");
+  const [newDriverDailyStr, setNewDriverDailyStr] = useState("0,00");
   const [showAddBox, setShowAddBox] = useState(false);
   const [savingDriver, setSavingDriver] = useState(false);
+
+  // Estados de Fechamento de Caixa & Extrato do Plantão
+  const [settlementPeriod, setSettlementPeriod] = useState<"hoje" | "ontem" | "semana" | "todos">("hoje");
+  const [editingRatesDriver, setEditingRatesDriver] = useState<Motoboy | null>(null);
+  const [adminRateType, setAdminRateType] = useState<"fixed" | "order_fee">("fixed");
+  const [adminRateFeeStr, setAdminRateFeeStr] = useState("7,00");
+  const [adminDailyStr, setAdminDailyStr] = useState("0,00");
+  const [savingRates, setSavingRates] = useState(false);
+  const [statementDriver, setStatementDriver] = useState<Motoboy | null>(null);
 
   // Carrega lista oficial de motoboys da loja
   const loadFleet = useCallback(async () => {
@@ -1097,6 +1177,9 @@ function MotoboyDeliveryView({
     }
     setSavingDriver(true);
     try {
+      const parsedFee = Math.round(parseFloat(newDriverRateFeeStr.replace(",", ".")) * 100);
+      const parsedDaily = Math.round(parseFloat(newDriverDailyStr.replace(",", ".")) * 100);
+
       const res = (await fetch("/api/motoboys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1104,6 +1187,9 @@ function MotoboyDeliveryView({
           name: newDriverName.trim(),
           phone: newDriverPhone.trim(),
           vehicle: newDriverVehicle.trim() || "Moto",
+          rateType: newDriverRateType,
+          rateFeeCents: isNaN(parsedFee) ? 700 : parsedFee,
+          dailyAllowanceCents: isNaN(parsedDaily) ? 0 : parsedDaily,
         }),
       }).then((r) => r.json())) as { ok: boolean };
 
@@ -1112,6 +1198,8 @@ function MotoboyDeliveryView({
         setNewDriverName("");
         setNewDriverPhone("");
         setNewDriverVehicle("");
+        setNewDriverRateFeeStr("7,00");
+        setNewDriverDailyStr("0,00");
         setShowAddBox(false);
         await loadFleet();
       } else {
@@ -1137,6 +1225,48 @@ function MotoboyDeliveryView({
       }
     } catch {
       notify("Falha ao remover motoboy.");
+    }
+  };
+
+  const handleOpenEditRates = (mb: Motoboy) => {
+    setEditingRatesDriver(mb);
+    setAdminRateType(mb.rateType || "fixed");
+    setAdminRateFeeStr(((mb.rateFeeCents ?? 700) / 100).toFixed(2).replace(".", ","));
+    setAdminDailyStr(((mb.dailyAllowanceCents ?? 0) / 100).toFixed(2).replace(".", ","));
+  };
+
+  const handleSaveDriverRates = async () => {
+    if (!editingRatesDriver) return;
+    setSavingRates(true);
+    try {
+      const parsedFee = Math.round(parseFloat(adminRateFeeStr.replace(",", ".")) * 100);
+      const parsedDaily = Math.round(parseFloat(adminDailyStr.replace(",", ".")) * 100);
+
+      const res = (await fetch("/api/motoboys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingRatesDriver.id,
+          name: editingRatesDriver.name,
+          phone: editingRatesDriver.phone,
+          vehicle: editingRatesDriver.vehicle,
+          rateType: adminRateType,
+          rateFeeCents: isNaN(parsedFee) ? 700 : parsedFee,
+          dailyAllowanceCents: isNaN(parsedDaily) ? 0 : parsedDaily,
+        }),
+      }).then((r) => r.json())) as { ok: boolean };
+
+      if (res.ok) {
+        notify(`Remuneração de ${editingRatesDriver.name} atualizada!`);
+        setEditingRatesDriver(null);
+        await loadFleet();
+      } else {
+        notify("Falha ao salvar remuneração");
+      }
+    } catch {
+      notify("Erro ao atualizar remuneração");
+    } finally {
+      setSavingRates(false);
     }
   };
 
@@ -1170,6 +1300,75 @@ function MotoboyDeliveryView({
     : tab === "delivered"
     ? deliveredToday
     : deliveryOrders;
+
+  // Cálculos financeiros do Fechamento de Caixa de cada entregador
+  const fleetSettlement = useMemo(() => {
+    return motoboyList.map((mb) => {
+      const delivered = orders.filter((o) => {
+        const parsed = parseOrderDetails(o);
+        const isMyOrder =
+          parsed.motoboyName?.toLowerCase() === mb.name.toLowerCase() ||
+          parsed.motoboyName?.toLowerCase().includes(mb.name.toLowerCase());
+        return (
+          (o.status === "completed" || Boolean(parsed.deliveredAt)) &&
+          isMyOrder &&
+          isOrderInPeriod(o.createdAt, settlementPeriod)
+        );
+      });
+
+      let totalFees = 0;
+      let cashCollected = 0;
+      let cardCollected = 0;
+      let pixCollected = 0;
+
+      const orderList = delivered.map((order) => {
+        const parsed = parseOrderDetails(order);
+        const fee =
+          mb.rateType === "order_fee"
+            ? (order.deliveryFeeCents || parsed.deliveryFeeCents || mb.rateFeeCents || 700)
+            : (mb.rateFeeCents ?? 700);
+        const payType = getOrderPaymentCategory(order, parsed.paymentInfo);
+
+        totalFees += fee;
+        if (payType === "dinheiro") cashCollected += order.totalCents;
+        else if (payType === "cartao") cardCollected += order.totalCents;
+        else pixCollected += order.totalCents;
+
+        return { order, parsed, fee, payType };
+      });
+
+      const dailyAllowance = mb.dailyAllowanceCents ?? 0;
+      const totalEarnings = totalFees + dailyAllowance;
+      const netBalance = cashCollected - totalEarnings;
+
+      return {
+        motoboy: mb,
+        deliveredOrders: orderList,
+        count: orderList.length,
+        totalFees,
+        dailyAllowance,
+        totalEarnings,
+        cashCollected,
+        cardCollected,
+        pixCollected,
+        netBalance,
+      };
+    });
+  }, [motoboyList, orders, settlementPeriod]);
+
+  const totalFleetMetrics = useMemo(() => {
+    return fleetSettlement.reduce(
+      (acc, curr) => ({
+        count: acc.count + curr.count,
+        earnings: acc.earnings + curr.totalEarnings,
+        cash: acc.cash + curr.cashCollected,
+        card: acc.card + curr.cardCollected,
+        pix: acc.pix + curr.pixCollected,
+        balance: acc.balance + curr.netBalance,
+      }),
+      { count: 0, earnings: 0, cash: 0, card: 0, pix: 0, balance: 0 }
+    );
+  }, [fleetSettlement]);
 
   const handleCheckin = async (order: Order) => {
     const motoboy = currentMotoboy.trim() || "Lucas";
@@ -1327,7 +1526,7 @@ function MotoboyDeliveryView({
         )}
 
         {/* LISTA DE MOTOBOYS CADASTRADOS */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
           {motoboyList.map((mb) => (
             <div
               key={mb.id}
@@ -1339,15 +1538,37 @@ function MotoboyDeliveryView({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: 8,
               }}
             >
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 800, color: "#1b1715" }}>🛵 {mb.name}</div>
-                <div style={{ fontSize: 11, color: "#706965", marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: "#706965", marginTop: 1 }}>
                   {mb.vehicle || "Moto"} {mb.phone ? `· ${mb.phone}` : ""}
                 </div>
+                <div style={{ fontSize: 10.5, color: "#15803d", fontWeight: 700, marginTop: 3 }}>
+                  {mb.rateType === "order_fee" ? "100% Taxa Pedido" : `Taxa Fixa: ${formatMoney(mb.rateFeeCents ?? 700)}`}
+                  {mb.dailyAllowanceCents ? ` + Diária: ${formatMoney(mb.dailyAllowanceCents)}` : ""}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditRates(mb)}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #d6ceca",
+                    color: "#453a36",
+                    borderRadius: 4,
+                    padding: "4px 7px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                  title="Configurar valor por corrida ou diária"
+                >
+                  ⚙️ Taxa
+                </button>
                 <button
                   type="button"
                   onClick={() => handleSetMotoboy(mb.name)}
@@ -1377,6 +1598,179 @@ function MotoboyDeliveryView({
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* SEÇÃO: FECHAMENTO DE CAIXA & ACERTO DE CONTAS DOS ENTREGADORES */}
+      <div style={{ background: "#fff", border: "1.5px solid #e6dfd6", borderRadius: 12, padding: "20px", marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: "#1b1715", display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+              <span>💼 Fechamento de Caixa dos Motoboys</span>
+              <span style={{ fontSize: 11, background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: 6, fontWeight: 800 }}>
+                Controle de Repasses
+              </span>
+            </h3>
+            <p style={{ fontSize: 12.5, color: "#706965", marginTop: 4, margin: 0 }}>
+              Dinheiro vivo recolhido dos clientes vs Comissões e diárias a pagar aos entregadores.
+            </p>
+          </div>
+
+          {/* FILTRO DE PERÍODO */}
+          <div style={{ display: "flex", gap: 4, background: "#faf8f6", padding: 4, borderRadius: 8, border: "1px solid #e6dfd6" }}>
+            {(
+              [
+                { key: "hoje", label: "Hoje" },
+                { key: "ontem", label: "Ontem" },
+                { key: "semana", label: "7 Dias" },
+                { key: "todos", label: "Todos" },
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setSettlementPeriod(p.key)}
+                style={{
+                  border: "none",
+                  background: settlementPeriod === p.key ? "#b70922" : "transparent",
+                  color: settlementPeriod === p.key ? "#fff" : "#706965",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* METRICS HERO BANNER */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 18 }}>
+          <div style={{ background: "#faf8f6", border: "1px solid #e6dfd6", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#706965", textTransform: "uppercase" }}>🛵 Corridas Concluídas</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#1b1715", marginTop: 4 }}>{totalFleetMetrics.count} entregas</div>
+            <div style={{ fontSize: 11, color: "#a89c96", marginTop: 2 }}>no período ({settlementPeriod})</div>
+          </div>
+
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#16a34a", textTransform: "uppercase" }}>💰 Ganhos da Equipe</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#166534", marginTop: 4 }}>{formatMoney(totalFleetMetrics.earnings)}</div>
+            <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>taxas de entrega + diárias</div>
+          </div>
+
+          <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#d97706", textTransform: "uppercase" }}>💵 Dinheiro com os Motoboys</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#92400e", marginTop: 4 }}>{formatMoney(totalFleetMetrics.cash)}</div>
+            <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>recolhido em mãos dos clientes</div>
+          </div>
+
+          <div style={{ background: totalFleetMetrics.balance >= 0 ? "#eff6ff" : "#fef2f2", border: `1px solid ${totalFleetMetrics.balance >= 0 ? "#bfdbfe" : "#fecaca"}`, borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: totalFleetMetrics.balance >= 0 ? "#2563eb" : "#dc2626", textTransform: "uppercase" }}>
+              {totalFleetMetrics.balance >= 0 ? "📥 Total a Receber dos Motoboys" : "📤 Total a Pagar aos Motoboys"}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: totalFleetMetrics.balance >= 0 ? "#1e40af" : "#991b1b", marginTop: 4 }}>
+              {formatMoney(Math.abs(totalFleetMetrics.balance))}
+            </div>
+            <div style={{ fontSize: 11, color: totalFleetMetrics.balance >= 0 ? "#1d4ed8" : "#b91c1c", marginTop: 2 }}>
+              {totalFleetMetrics.balance >= 0 ? "motoboys entregam ao caixa da loja" : "loja deve repassar aos motoboys"}
+            </div>
+          </div>
+        </div>
+
+        {/* TABELA DISCRIMINADA POR MOTOBOY */}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
+            <thead>
+              <tr style={{ background: "#faf8f6", borderBottom: "1.5px solid #e6dfd6", color: "#706965", fontSize: 11.5, textTransform: "uppercase" }}>
+                <th style={{ padding: "10px 12px" }}>Entregador</th>
+                <th style={{ padding: "10px 12px" }}>Remuneração</th>
+                <th style={{ padding: "10px 12px", textAlign: "center" }}>Entregas</th>
+                <th style={{ padding: "10px 12px" }}>Ganhos</th>
+                <th style={{ padding: "10px 12px" }}>Dinheiro em Mãos</th>
+                <th style={{ padding: "10px 12px" }}>Situação de Acerto</th>
+                <th style={{ padding: "10px 12px", textAlign: "right" }}>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fleetSettlement.map((item) => {
+                const mb = item.motoboy;
+                return (
+                  <tr key={mb.id} style={{ borderBottom: "1px solid #f1ede8" }}>
+                    <td style={{ padding: "12px" }}>
+                      <div style={{ fontWeight: 800, color: "#1b1715" }}>🛵 {mb.name}</div>
+                      <div style={{ fontSize: 11, color: "#8E837E" }}>{mb.vehicle || "Moto"}{mb.phone ? ` · ${mb.phone}` : ""}</div>
+                    </td>
+                    <td style={{ padding: "12px" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#453A36" }}>
+                        {mb.rateType === "order_fee" ? "100% Taxa Pedido" : `Taxa Fixa ${formatMoney(mb.rateFeeCents ?? 700)}`}
+                      </div>
+                      {mb.dailyAllowanceCents ? (
+                        <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600 }}>
+                          Diária: +{formatMoney(mb.dailyAllowanceCents)}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td style={{ padding: "12px", textAlign: "center", fontWeight: 800 }}>
+                      <span style={{ background: "#f1ede8", padding: "4px 8px", borderRadius: 6 }}>
+                        {item.count}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px", fontWeight: 800, color: "#16a34a" }}>
+                      {formatMoney(item.totalEarnings)}
+                    </td>
+                    <td style={{ padding: "12px", fontWeight: 800, color: "#d97706" }}>
+                      {formatMoney(item.cashCollected)}
+                      {item.cardCollected > 0 && (
+                        <div style={{ fontSize: 10, color: "#706965", fontWeight: 500 }}>
+                          + {formatMoney(item.cardCollected)} (cartão)
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px" }}>
+                      {item.netBalance > 0 ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#b45309", border: "1px solid #fde68a", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                          🛵 Repassa {formatMoney(item.netBalance)} ao caixa
+                        </span>
+                      ) : item.netBalance < 0 ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                          💵 Loja paga {formatMoney(Math.abs(item.netBalance))}
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                          ✅ Caixa Acertado (R$ 0,00)
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px", textAlign: "right" }}>
+                      <div style={{ display: "inline-flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => handleOpenEditRates(mb)}
+                          title="Ajustar taxa ou diária"
+                          style={{ fontSize: 11, padding: "4px 8px" }}
+                        >
+                          ⚙️ Taxa
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-primary btn-sm"
+                          onClick={() => setStatementDriver(mb)}
+                          title="Ver corridas deste motoboy"
+                          style={{ fontSize: 11, padding: "4px 8px" }}
+                        >
+                          📋 Extrato ({item.count})
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1555,6 +1949,192 @@ function MotoboyDeliveryView({
           })}
         </div>
       )}
+
+      {/* MODAL: CONFIGURAR REMUNERAÇÃO DO MOTOBOY */}
+      {editingRatesDriver && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 14, maxWidth: 440, width: "100%", padding: 22, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 900, color: "#1b1715", margin: 0 }}>
+                ⚙️ Remuneração de {editingRatesDriver.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingRatesDriver(null)}
+                style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#706965" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="adminRateType"
+                  checked={adminRateType === "fixed"}
+                  onChange={() => setAdminRateType("fixed")}
+                />
+                <span>Taxa Fixa por Corrida</span>
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="adminRateType"
+                  checked={adminRateType === "order_fee"}
+                  onChange={() => setAdminRateType("order_fee")}
+                />
+                <span>100% da Taxa de Entrega do Pedido</span>
+              </label>
+            </div>
+
+            {adminRateType === "fixed" && (
+              <div style={{ marginBottom: 12 }}>
+                <label className="form-lbl">Valor Fixo por Entrega (R$)</label>
+                <input
+                  type="text"
+                  className="form-ctrl"
+                  value={adminRateFeeStr}
+                  onChange={(e) => setAdminRateFeeStr(e.target.value)}
+                  placeholder="7,00"
+                />
+                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                  {["6,00", "7,00", "8,00", "10,00"].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAdminRateFeeStr(v)}
+                      style={{ background: "#f1ede8", border: "1px solid #e6dfd6", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      R$ {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 18 }}>
+              <label className="form-lbl">Diária Fixa do Plantão (R$)</label>
+              <input
+                type="text"
+                className="form-ctrl"
+                value={adminDailyStr}
+                onChange={(e) => setAdminDailyStr(e.target.value)}
+                placeholder="0,00"
+              />
+              <div style={{ fontSize: 11, color: "#706965", marginTop: 4 }}>
+                Valor garantido por dia trabalhado (se houver). Se não houver, mantenha 0,00.
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn-secondary" onClick={() => setEditingRatesDriver(null)}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-primary" onClick={handleSaveDriverRates} disabled={savingRates}>
+                {savingRates ? "Salvando..." : "Salvar Alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EXTRATO CORRIDA A CORRIDA DO MOTOBOY */}
+      {statementDriver && (() => {
+        const found = fleetSettlement.find((f) => f.motoboy.id === statementDriver.id);
+        const orderList = found?.deliveredOrders || [];
+
+        return (
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 16 }}>
+            <div style={{ background: "#fff", borderRadius: 14, maxWidth: 640, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}>
+              {/* MODAL HEADER */}
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid #e6dfd6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 900, color: "#1b1715", margin: 0 }}>
+                    📋 Extrato de Entregas: {statementDriver.name}
+                  </h3>
+                  <p style={{ fontSize: 12, color: "#706965", margin: "2px 0 0 0" }}>
+                    Período: <strong>{settlementPeriod === "hoje" ? "Hoje" : settlementPeriod === "ontem" ? "Ontem" : settlementPeriod === "semana" ? "Últimos 7 dias" : "Todos"}</strong> · {orderList.length} entregas
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStatementDriver(null)}
+                  style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#706965" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* MODAL RECAP */}
+              {found && (
+                <div style={{ background: "#faf8f6", padding: "12px 20px", borderBottom: "1px solid #e6dfd6", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10, fontSize: 12 }}>
+                  <div>
+                    <span style={{ color: "#706965" }}>Comissão + Diária: </span>
+                    <strong style={{ color: "#16a34a" }}>{formatMoney(found.totalEarnings)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#706965" }}>Dinheiro c/ Motoboy: </span>
+                    <strong style={{ color: "#d97706" }}>{formatMoney(found.cashCollected)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#706965" }}>Acerto: </span>
+                    <strong style={{ color: found.netBalance >= 0 ? "#d97706" : "#2563eb" }}>
+                      {found.netBalance > 0 ? `Motoboy repassa ${formatMoney(found.netBalance)}` : found.netBalance < 0 ? `Loja paga ${formatMoney(Math.abs(found.netBalance))}` : "Zerado"}
+                    </strong>
+                  </div>
+                </div>
+              )}
+
+              {/* MODAL BODY (LIST) */}
+              <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                {orderList.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px 10px", color: "#706965", fontSize: 13 }}>
+                    Nenhuma entrega finalizada encontrada para este entregador neste período.
+                  </div>
+                ) : (
+                  orderList.map(({ order, parsed, fee, payType }) => {
+                    const payColor = payType === "dinheiro" ? "#d97706" : payType === "cartao" ? "#2563eb" : "#7c3aed";
+                    const payLabel = payType === "dinheiro" ? "Dinheiro (em mãos)" : payType === "cartao" ? "Cartão (maquininha loja)" : "Pix / Online";
+
+                    return (
+                      <div key={order.id} style={{ background: "#faf8f6", border: "1px solid #e6dfd6", borderLeft: `4px solid ${payColor}`, borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <strong style={{ fontSize: 14, color: "#1b1715" }}>{fmtCode(order.code)}</strong>
+                            <span style={{ fontSize: 11.5, color: "#706965" }}>{fmtTime(order.createdAt)}</span>
+                          </div>
+                          <div style={{ fontSize: 12.5, color: "#1b1715", marginTop: 2 }}>👤 {order.customerName}</div>
+                          {parsed.address && (
+                            <div style={{ fontSize: 11, color: "#706965" }}>📍 {parsed.address}</div>
+                          )}
+                          <div style={{ fontSize: 11.5, color: payColor, fontWeight: 700, marginTop: 4 }}>
+                            {payLabel} · Total: {formatMoney(order.totalCents)}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: "right" }}>
+                          <span style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                            Comissão: +{formatMoney(fee)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* MODAL FOOTER */}
+              <div style={{ padding: "12px 20px", borderTop: "1px solid #e6dfd6", display: "flex", justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setStatementDriver(null)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

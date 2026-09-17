@@ -14,7 +14,16 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { id?: string; name?: string; phone?: string; vehicle?: string; active?: boolean };
+    const body = (await request.json()) as {
+      id?: string;
+      name?: string;
+      phone?: string;
+      vehicle?: string;
+      active?: boolean;
+      rateType?: "fixed" | "order_fee";
+      rateFeeCents?: number;
+      dailyAllowanceCents?: number;
+    };
     if (!body.name || !body.name.trim()) {
       return NextResponse.json({ ok: false, error: "Nome do motoboy é obrigatório" }, { status: 400 });
     }
@@ -24,6 +33,9 @@ export async function POST(request: NextRequest) {
       phone: body.phone,
       vehicle: body.vehicle,
       active: body.active,
+      rateType: body.rateType,
+      rateFeeCents: body.rateFeeCents,
+      dailyAllowanceCents: body.dailyAllowanceCents,
     });
     return NextResponse.json({ ok: true, motoboy });
   } catch (err) {

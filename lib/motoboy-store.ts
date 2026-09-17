@@ -1,9 +1,12 @@
-﻿export type Motoboy = {
+export type Motoboy = {
   id: string;
   name: string;
   phone?: string;
   vehicle?: string;
   active: boolean;
+  rateType?: "fixed" | "order_fee";
+  rateFeeCents?: number; // Valor fixo por entrega em centavos (ex: 700 = R$ 7,00)
+  dailyAllowanceCents?: number; // Diária fixa em centavos (ex: 5000 = R$ 50,00)
   createdAt: string;
 };
 
@@ -18,6 +21,9 @@ const DEFAULT_MOTOBOYS: Motoboy[] = [
     phone: "",
     vehicle: "Moto",
     active: true,
+    rateType: "fixed",
+    rateFeeCents: 700,
+    dailyAllowanceCents: 0,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -45,8 +51,14 @@ export async function getMotoboys(): Promise<Motoboy[]> {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          globalThis.__smackMotoboys = parsed;
-          return parsed;
+          const normalized: Motoboy[] = parsed.map((m: any) => ({
+            ...m,
+            rateType: m.rateType || "fixed",
+            rateFeeCents: typeof m.rateFeeCents === "number" ? m.rateFeeCents : 700,
+            dailyAllowanceCents: typeof m.dailyAllowanceCents === "number" ? m.dailyAllowanceCents : 0,
+          }));
+          globalThis.__smackMotoboys = normalized;
+          return normalized;
         }
       }
     } catch (e) {
@@ -73,6 +85,9 @@ export async function saveMotoboy(input: {
   phone?: string;
   vehicle?: string;
   active?: boolean;
+  rateType?: "fixed" | "order_fee";
+  rateFeeCents?: number;
+  dailyAllowanceCents?: number;
 }): Promise<Motoboy> {
   const current = await getMotoboys();
   let updated: Motoboy;
@@ -86,6 +101,9 @@ export async function saveMotoboy(input: {
         phone: input.phone?.trim() || "",
         vehicle: input.vehicle?.trim() || "Moto",
         active: input.active !== undefined ? input.active : current[idx].active,
+        rateType: input.rateType !== undefined ? input.rateType : current[idx].rateType || "fixed",
+        rateFeeCents: input.rateFeeCents !== undefined ? input.rateFeeCents : current[idx].rateFeeCents ?? 700,
+        dailyAllowanceCents: input.dailyAllowanceCents !== undefined ? input.dailyAllowanceCents : current[idx].dailyAllowanceCents ?? 0,
       };
       current[idx] = updated;
     } else {
@@ -95,6 +113,9 @@ export async function saveMotoboy(input: {
         phone: input.phone?.trim() || "",
         vehicle: input.vehicle?.trim() || "Moto",
         active: input.active !== undefined ? input.active : true,
+        rateType: input.rateType || "fixed",
+        rateFeeCents: input.rateFeeCents ?? 700,
+        dailyAllowanceCents: input.dailyAllowanceCents ?? 0,
         createdAt: new Date().toISOString(),
       };
       current.push(updated);
@@ -106,6 +127,9 @@ export async function saveMotoboy(input: {
       phone: input.phone?.trim() || "",
       vehicle: input.vehicle?.trim() || "Moto",
       active: true,
+      rateType: input.rateType || "fixed",
+      rateFeeCents: input.rateFeeCents ?? 700,
+      dailyAllowanceCents: input.dailyAllowanceCents ?? 0,
       createdAt: new Date().toISOString(),
     };
     current.push(updated);
