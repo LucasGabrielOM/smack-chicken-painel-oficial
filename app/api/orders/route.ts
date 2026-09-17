@@ -38,6 +38,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Cliente, pagamento e itens são obrigatórios" }, { status: 400 });
     }
 
+    if (body.discountCents && body.discountCents > 0) {
+      const couponCode = body.couponCode || (/VOLTA10/i.test(body.notes || "") ? "VOLTA10" : null);
+      if (couponCode) {
+        const { extractCustomerPhone } = await import("../../../lib/order-store");
+        const phone = extractCustomerPhone(body.notes);
+        if (phone) {
+          const { validateCoupon } = await import("../../../lib/coupon-store");
+          const validation = await validateCoupon(couponCode, phone);
+          if (!validation.valid) {
+            return NextResponse.json(
+              { error: validation.error || "Cupom inválido ou limite de usos excedido para este WhatsApp." },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
+
     const order = await createOrder({
       customerName: body.customerName,
       paymentMethod: body.paymentMethod,
@@ -45,6 +63,7 @@ export async function POST(request: NextRequest) {
       channel: body.channel || "SITE_ONLINE",
       notes: body.notes,
       discountCents: body.discountCents,
+      couponCode: body.couponCode,
       deliveryFeeCents: body.deliveryFeeCents,
       splitCount: body.splitCount,
       items: body.items,

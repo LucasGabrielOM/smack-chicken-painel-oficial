@@ -188,6 +188,19 @@ export default function OnlineOrderingSystem() {
   const [trackedOrders, setTrackedOrders] = useState<TrackedOrder[]>([]);
   const [trackingLoading, setTrackingLoading] = useState(false);
 
+  // Cupom de Desconto
+  const [couponInput, setCouponInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountPercent: number;
+    discountCents: number;
+    message: string;
+    remainingUses: number;
+    validatedPhone: string;
+  } | null>(null);
+
   // Verifica se o produto atual tem direito a molhos grátis
   const productHasFreeSauces = useMemo(() => {
     if (!activeProduct) return false;
@@ -384,7 +397,12 @@ export default function OnlineOrderingSystem() {
     }
     return 499;
   }, [deliveryType, deliveryInfo, deliverySettings]);
-  const totalCents = subtotalCents + deliveryFeeCents;
+  const discountCents = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    return Math.round(subtotalCents * (appliedCoupon.discountPercent / 100));
+  }, [appliedCoupon, subtotalCents]);
+
+  const totalCents = Math.max(0, subtotalCents + deliveryFeeCents - discountCents);
 
   // Troco calculado
   const changeValueCents = useMemo(() => {
@@ -393,6 +411,105 @@ export default function OnlineOrderingSystem() {
     const givenCents = Number(clean) * 100;
     return givenCents > totalCents ? givenCents - totalCents : 0;
   }, [paymentMethod, needsChange, changeForAmount, totalCents]);
+
+  // Aplicação do Cupom de Desconto com validação por WhatsApp (matrícula)
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      setCouponError("Por favor, digite o código do cupom.");
+      return;
+    }
+
+    const cleanPhone = customerPhone.replace(/\D/g, "");
+    if (cleanPhone.length < 10) {
+      setCouponError("Por favor, preencha o seu WhatsApp acima para validar o cupom.");
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          phone: cleanPhone,
+          subtotalCents,
+        }),
+      });
+      const data = (await res.json()) as {
+        valid?: boolean;
+        code?: string;
+        discountPercent?: number;
+        message?: string;
+        remainingUses?: number;
+        error?: string;
+      };
+
+      if (!res.ok || !data.valid) {
+        setCouponError(data.error || "Cupom inválido ou limite de utilizações atingido.");
+        setAppliedCoupon(null);
+      } else {
+        setAppliedCoupon({
+          code: data.code || code,
+          discountPercent: data.discountPercent || 10,
+          discountCents: Math.round(subtotalCents * ((data.discountPercent || 10) / 100)),
+          message: data.message || `Cupom ${code} aplicado com sucesso!`,
+          remainingUses: data.remainingUses ?? 1,
+          validatedPhone: cleanPhone,
+        });
+        setCouponError(null);
+      }
+    } catch {
+      setCouponError("Falha ao validar cupom. Verifique sua conexão.");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
+
+  // Revalida automaticamente se o cliente alterar o telefone após aplicar o cupom
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const cleanCurrent = customerPhone.replace(/\D/g, "");
+    if (cleanCurrent && cleanCurrent.length >= 10 && cleanCurrent !== appliedCoupon.validatedPhone) {
+      fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: appliedCoupon.code,
+          phone: cleanCurrent,
+          subtotalCents,
+        }),
+      })
+        .then((r) => r.json())
+        .then((data: any) => {
+          if (!data.valid) {
+            setAppliedCoupon(null);
+            setCouponError(data.error || "Cupom indisponível para este novo número de WhatsApp.");
+          } else {
+            setAppliedCoupon((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    validatedPhone: cleanCurrent,
+                    remainingUses: data.remainingUses ?? 1,
+                    message: data.message || prev.message,
+                  }
+                : null
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [customerPhone, appliedCoupon, subtotalCents]);
 
   // Consulta e cálculo dinâmico de taxa e tempo por CEP
   const handleFetchCep = async (inputCep: string) => {
@@ -464,12 +581,17 @@ export default function OnlineOrderingSystem() {
         ? `Taxa de Entrega: ${deliveryInfo.tier.feeFormatted} (~${deliveryInfo.distanceKm?.toFixed(1)} km · ${deliveryInfo.tier.timeMinutes} min)`
         : null;
 
+    const couponNote = appliedCoupon && discountCents > 0
+      ? `Cupom: ${appliedCoupon.code} (-${appliedCoupon.discountPercent}% · ${formatMoney(discountCents)})`
+      : null;
+
     const orderNotes = [
       `WhatsApp: ${customerPhone.trim()}`,
       `Modalidade: ${deliveryType === "ENTREGA" ? "Entrega em Domicílio" : "Retirada na Loja"}`,
       ...(deliveryNote ? [deliveryNote] : []),
       `Endereço: ${fullAddressText}`,
       `Pagamento: ${paymentDescription}`,
+      ...(couponNote ? [couponNote] : []),
       ...(needsChange && changeValueCents > 0 ? [`Levar troco de: ${formatMoney(changeValueCents)}`] : []),
       ...(orderCustomerNotes.trim() ? [`Observação: ${orderCustomerNotes.trim()}`] : []),
     ].join(" | ");
@@ -484,6 +606,8 @@ export default function OnlineOrderingSystem() {
           paymentMethod: paymentDescription,
           channel: "SITE_ONLINE",
           deliveryFeeCents: deliveryType === "ENTREGA" ? deliveryFeeCents : 0,
+          discountCents: discountCents > 0 ? discountCents : 0,
+          couponCode: appliedCoupon?.code || undefined,
           notes: orderNotes,
           items: cart.map((item) => {
             const customParts = [
@@ -513,6 +637,9 @@ export default function OnlineOrderingSystem() {
       const newCode = data.order?.code || "#1042";
       setLatestOrderCode(newCode);
       setCart([]);
+      setAppliedCoupon(null);
+      setCouponInput("");
+      setCouponError(null);
       setOrderCustomerNotes("");
       setShowCartModal(false);
       setTrackQuery(newCode);
@@ -554,9 +681,21 @@ export default function OnlineOrderingSystem() {
     return () => clearInterval(interval);
   }, [showTrackingModal, trackQuery]);
 
-  // Carrega último código salvo para facilitar acompanhamento
+  // Carrega acompanhamento a partir de parâmetros da URL (?track=1042) ou do último código salvo
   useEffect(() => {
     try {
+      if (typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlTrack = urlParams.get("track") || urlParams.get("tracking") || urlParams.get("pedido") || urlParams.get("codigo");
+        if (urlTrack) {
+          const formattedCode = urlTrack.trim().startsWith("#") ? urlTrack.trim() : `#${urlTrack.trim()}`;
+          setTrackQuery(formattedCode);
+          setShowTrackingModal(true);
+          fetchOrderStatus(formattedCode);
+          return;
+        }
+      }
+
       const saved = localStorage.getItem("smack_latest_order");
       if (saved && !trackQuery) {
         setTrackQuery(saved);
@@ -2831,12 +2970,151 @@ export default function OnlineOrderingSystem() {
                     />
                   </div>
 
+                  {/* CUPOM DE DESCONTO COM VINCULAÇÃO AO WHATSAPP */}
+                  <div
+                    style={{
+                      background: "#FAF7F2",
+                      border: "1px solid #E6DFD6",
+                      borderRadius: 12,
+                      padding: 14,
+                      marginTop: 18,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "#1B1715", display: "flex", alignItems: "center", gap: 6 }}>
+                        🎟️ Cupom de Desconto
+                      </span>
+                      {appliedCoupon && (
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#138C56", background: "#EBF8F1", padding: "2px 8px", borderRadius: 6 }}>
+                          ATIVO
+                        </span>
+                      )}
+                    </div>
+
+                    {!appliedCoupon ? (
+                      <div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            type="text"
+                            className="sc-input"
+                            placeholder="Ex: VOLTA10"
+                            value={couponInput}
+                            onChange={(e) => {
+                              setCouponInput(e.target.value.toUpperCase());
+                              setCouponError(null);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleApplyCoupon();
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              textTransform: "uppercase",
+                              fontWeight: 700,
+                              fontSize: 13,
+                              padding: "8px 12px",
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            disabled={couponLoading || !couponInput.trim()}
+                            className="sc-btn-primary"
+                            style={{
+                              padding: "8px 16px",
+                              fontSize: 13,
+                              fontWeight: 800,
+                              whiteSpace: "nowrap",
+                              opacity: !couponInput.trim() || couponLoading ? 0.6 : 1,
+                              cursor: !couponInput.trim() || couponLoading ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {couponLoading ? "Validando..." : "Aplicar"}
+                          </button>
+                        </div>
+
+                        {couponError && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#B70922",
+                              marginTop: 6,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            ⚠️ {couponError}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 11, color: "#706965", marginTop: 6, lineHeight: 1.25 }}>
+                          * O cupom é vinculado ao seu número de WhatsApp informado acima (máximo de 2 usos por número).
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ background: "#FFFFFF", border: "1.5px solid #138C56", borderRadius: 10, padding: "10px 12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 14, fontWeight: 900, color: "#138C56" }}>
+                                {appliedCoupon.code}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 800, color: "#138C56", background: "#EBF8F1", padding: "1px 6px", borderRadius: 4 }}>
+                                -{appliedCoupon.discountPercent}%
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, color: "#524A45", marginTop: 3 }}>
+                              {appliedCoupon.message}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "#B70922",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              textDecoration: "underline",
+                              padding: "4px 8px",
+                            }}
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* RESUMO DE VALORES */}
                   <div style={{ borderTop: "1px solid #E6DFD6", paddingTop: 16, marginTop: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#706965", marginBottom: 6 }}>
                       <span>Subtotal dos itens:</span>
                       <span>{formatMoney(subtotalCents)}</span>
                     </div>
+
+                    {appliedCoupon && discountCents > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          fontSize: 13,
+                          color: "#138C56",
+                          fontWeight: 700,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          Desconto cupom ({appliedCoupon.code} -{appliedCoupon.discountPercent}%):
+                        </span>
+                        <span>− {formatMoney(discountCents)}</span>
+                      </div>
+                    )}
+
                     {deliveryType === "ENTREGA" && (
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#706965", marginBottom: 6 }}>
                         <span>

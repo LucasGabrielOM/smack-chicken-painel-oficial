@@ -7,11 +7,11 @@ const EVOLUTION_API_KEY =
 const INSTANCE_NAME =
   process.env.EVOLUTION_INSTANCE || "smack-chicken";
 
-function siteUrl() {
+export function siteUrl() {
   return (
     process.env.SITE_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
-    "https://smack-chicken.vercel.app"
+    "https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev"
   );
 }
 
