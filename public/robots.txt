@@ -1,0 +1,51 @@
+# ==========================================
+# SMACK CHICKEN — Frango Crocante & Burgers
+# robots.txt otimizado para Google & IAs
+# ==========================================
+
+User-agent: *
+Allow: /
+Allow: /smack-favicon.png
+Allow: /smack-chicken-logo.png
+Allow: /og.jpg
+Allow: /balde-*.jpeg
+Allow: /lanche-*.jpeg
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /motoboy
+Disallow: /motoboy/
+
+# Permissão explícita para Crawlers de IA (ChatGPT, Claude, Perplexity, Gemini)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+# Sitemap oficial
+Sitemap: https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/sitemap.xml
+
+# Padrão llms.txt para Inteligências Artificiais
+# LLMs.txt: https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev/llms.txt
