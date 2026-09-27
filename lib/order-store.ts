@@ -344,16 +344,22 @@ Ganhe 10% de desconto no seu próximo pedido pelo site com o cupom *VOLTA10* (v�
         history.set(`${newOrder.code}:completed`, now);
       } else {
         // FLUXO DE DELIVERY (ENTREGA EM DOMICÍLIO):
-        // Mensagem 1: Confirmação curta e profissional com estimativa e link
+        // Mensagem 1: Confirmação longa com estimativa e link
         const deliveryEstimate = extractDeliveryEstimate(newOrder.notes);
         const msg =
-`*Smack Chicken*: Olá, ${newOrder.customerName}! Seu pedido *${newOrder.code}* foi confirmado e já está em preparo.
+`🍗 *Smack Chicken* — Pedido Confirmado!
 
-Previsão de entrega: ${deliveryEstimate}.
-Acompanhe seu pedido pelo link:
-${trackUrl}`;
+Olá, *${newOrder.customerName}*! Muito obrigado pela sua escolha! Já recebemos o seu pedido *${newOrder.code}* e nossa cozinha já começou os preparativos com todo carinho e crocância. 👨‍🍳
 
-        await sendEvolutionText(phone, msg, undefined, false).catch(() => {});
+⏱️ *Previsão de Entrega:* ${deliveryEstimate}
+📍 *Modalidade:* Entrega em Domicílio
+
+🛵 *Acompanhe seu pedido pelo link:*
+${trackUrl}
+
+Assim que o lanche sair com o nosso entregador, avisamos você imediatamente por aqui! Tenha uma excelente experiência.`;
+
+        await sendEvolutionText(phone, msg, undefined, true).catch(() => {});
       }
     }
   } catch (e) {
@@ -507,14 +513,9 @@ export async function updateOrderStatus(
               let msg = "";
 
               if (patch.status === "ready") {
-                // Mensagem 2 de Delivery: Curta e profissional
-                const motoboyName = order.notes?.match(/(?:motoboy|entregador):\s*([^|]+)/i)?.[1]?.trim();
-                const motoboyText = motoboyName
-                  ? `com o entregador ${motoboyName}`
-                  : `com o nosso entregador`;
-
+                // Mensagem 2 de Delivery: Curta e sem fotos/preview
                 msg =
-`*Smack Chicken*: Olá, ${order.customerName}! Seu pedido *${order.code}* saiu para entrega ${motoboyText}.
+`*Smack Chicken*: Seu pedido *${order.code}* saiu para entrega com o nosso entregador.
 
 Por favor, fique atento à chegada no seu endereço.
 Acompanhe o trajeto:
@@ -522,13 +523,23 @@ ${trackUrl}`;
               } else if (patch.status === "completed") {
                 // Mensagem 3 de Delivery: Conclusão, agradecimento e Cupom VOLTA10
                 msg =
-`*Smack Chicken*: Seu pedido *${order.code}* foi entregue. Agradecemos a preferência e bom apetite!
+`🎉 *Smack Chicken* — Pedido Entregue!
 
-Como agradecimento, ganhe 10% de desconto no seu próximo pedido pelo site.
-Cupom: *VOLTA10* (válido para até 2 pedidos).
+Olá, *${order.customerName}*! O seu pedido *${order.code}* foi entregue com sucesso! Esperamos que você curta muito cada pedaço do nosso frango frito super crocante e saboroso! ✨
 
-Peça novamente em:
-https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev`;
+Muito obrigado por sua preferência e confiança! 
+
+🎁 *PRESENTE ESPECIAL DE RETORNO:*
+Para o seu próximo pedido no nosso site, use o cupom exclusivo:
+
+🎟️ Cupom: *VOLTA10*
+🏷️ Desconto: *10% OFF* em todo o cardápio!
+_(Válido para até 2 pedidos vinculados ao seu WhatsApp)_
+
+Faça seu próximo pedido direto pelo nosso site:
+👉 https://smack-chicken-pedidos.lucasgabrielwww2218.workers.dev
+
+Desejamos uma ótima refeição e bom apetite! 💛`;
               } else if (patch.status === "cancelled") {
                 msg = `*Smack Chicken*: Olá, ${order.customerName}. Seu pedido *${order.code}* foi cancelado. Se tiver dúvidas, fale conosco por aqui.`;
               }

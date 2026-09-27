@@ -791,16 +791,20 @@ export default function OnlineOrderingSystem() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         
         body {
-          background-color: #FAF7F2;
-          color: #1B1715;
+          background-color: #F8F5F0;
+          background-image: radial-gradient(circle at 50% 0%, #FFFFFF 0%, #F5F1EB 100%);
+          background-attachment: fixed;
+          color: #111111;
           font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           -webkit-font-smoothing: antialiased;
         }
 
         /* Top Header */
         .sc-topbar {
-          background: #FFFFFF;
-          border-bottom: 1px solid #E6DFD6;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border-bottom: 1px solid rgba(0,0,0,0.05);
           position: sticky;
           top: 0;
           z-index: 100;
@@ -958,16 +962,19 @@ export default function OnlineOrderingSystem() {
           gap: 10px;
         }
         .sc-badge-item {
-          background: #FFFFFF;
-          border: 1px solid #E6DFD6;
+          background: rgba(255, 255, 255, 0.45);
+          backdrop-filter: blur(24px) saturate(150%);
+          -webkit-backdrop-filter: blur(24px) saturate(150%);
+          border: 1px solid rgba(255, 255, 255, 0.6);
           padding: 6px 14px;
           border-radius: 99px;
           font-size: 12px;
-          font-weight: 700;
-          color: #1B1715;
+          font-weight: 600;
+          color: #111111;
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), inset 0 1px 1px rgba(255, 255, 255, 0.8);
         }
         .sc-hero-img-wrap {
           display: flex;
@@ -1030,18 +1037,21 @@ export default function OnlineOrderingSystem() {
         }
         .sc-search-input {
           width: 100%;
-          background: #FFFFFF;
-          border: 1px solid #E6DFD6;
+          background: rgba(255, 255, 255, 0.5);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.7);
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 2px 8px rgba(0, 0, 0, 0.02);
           border-radius: 99px;
           padding: 12px 20px 12px 46px;
           font-size: 14px;
-          color: #1B1715;
+          color: #111111;
           outline: none;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
         .sc-search-input:focus {
           border-color: #B70922;
-          box-shadow: 0 0 0 3px rgba(183,9,34,0.08);
+          box-shadow: 0 0 0 3px rgba(183,9,34,0.08), inset 0 2px 4px rgba(0, 0, 0, 0.02);
         }
         .sc-category-list {
           display: flex;
@@ -1051,25 +1061,33 @@ export default function OnlineOrderingSystem() {
           scrollbar-width: thin;
         }
         .sc-cat-btn {
-          background: #FFFFFF;
-          border: 1px solid #E6DFD6;
-          color: #706965;
+          background: rgba(255, 255, 255, 0.45);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.6);
+          color: #666666;
           padding: 8px 18px;
           border-radius: 99px;
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 600;
           cursor: pointer;
           white-space: nowrap;
-          transition: all 0.15s;
+          transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.15s ease, background 0.15s, color 0.15s, border-color 0.15s;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02), inset 0 1px 1px rgba(255, 255, 255, 0.8);
         }
         .sc-cat-btn:hover {
-          color: #1B1715;
-          border-color: #D3C9BC;
+          color: #111111;
+          border-color: rgba(255, 255, 255, 0.8);
+          background: rgba(255, 255, 255, 0.65);
+        }
+        .sc-cat-btn:active {
+          transform: scale(0.95);
         }
         .sc-cat-btn.active {
-          background: #B70922;
-          border-color: #B70922;
+          background: rgba(183, 9, 34, 0.95);
+          border-color: rgba(255, 255, 255, 0.2);
           color: #FFFFFF;
+          box-shadow: 0 6px 16px rgba(183, 9, 34, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.3);
         }
 
         /* Carrossel de Destaques / Mais Pedidos */
@@ -1282,19 +1300,25 @@ export default function OnlineOrderingSystem() {
           gap: 20px;
         }
         .sc-card {
-          background: #FFFFFF;
-          border: 1px solid #E6DFD6;
-          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.65);
+          backdrop-filter: blur(20px) saturate(180%);
+          -webkit-backdrop-filter: blur(20px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          border-radius: 20px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
           cursor: pointer;
-          transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, border-color 0.2s ease;
         }
         .sc-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 24px rgba(0,0,0,0.05);
-          border-color: #D3C9BC;
+          transform: translateY(-2px);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08), inset 0 1px 1px rgba(255, 255, 255, 1);
+          border-color: rgba(255, 255, 255, 1);
+        }
+        .sc-card:active {
+          transform: scale(0.97);
         }
         .sc-card-img-wrap {
           height: 180px;
@@ -1319,6 +1343,7 @@ export default function OnlineOrderingSystem() {
           font-weight: 800;
           color: #1B1715;
           line-height: 1.25;
+          letter-spacing: -0.02em;
           margin-bottom: 6px;
         }
         .sc-card-desc {
@@ -1345,19 +1370,18 @@ export default function OnlineOrderingSystem() {
           color: #B70922;
         }
         .sc-card-add-btn {
-          background: #F5F2EC;
-          border: 1px solid #E6DFD6;
-          color: #1B1715;
+          background: #FDF4F5;
+          border: 1px solid transparent;
+          color: #B70922;
           border-radius: 99px;
-          padding: 6px 14px;
-          font-size: 12px;
-          font-weight: 700;
+          padding: 6px 16px;
+          font-size: 12.5px;
+          font-weight: 800;
           cursor: pointer;
-          transition: all 0.15s;
+          transition: all 0.2s;
         }
         .sc-card:hover .sc-card-add-btn {
           background: #B70922;
-          border-color: #B70922;
           color: #FFFFFF;
         }
 
@@ -1413,9 +1437,9 @@ export default function OnlineOrderingSystem() {
         .sc-modal-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(27, 23, 21, 0.7);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
+          background: rgba(20, 16, 14, 0.6);
+          backdrop-filter: blur(12px) saturate(120%);
+          -webkit-backdrop-filter: blur(12px) saturate(120%);
           z-index: 1000;
           display: flex;
           align-items: center;
@@ -1424,7 +1448,6 @@ export default function OnlineOrderingSystem() {
           padding-top: max(20px, env(safe-area-inset-top));
           padding-bottom: max(20px, env(safe-area-inset-bottom));
           overscroll-behavior: contain;
-          touch-action: none;
         }
         .sc-modal-card {
           background: #FFFFFF;
@@ -1435,7 +1458,6 @@ export default function OnlineOrderingSystem() {
           overflow-y: auto;
           overscroll-behavior: contain;
           -webkit-overflow-scrolling: touch;
-          touch-action: pan-y;
           box-shadow: 0 20px 50px rgba(0,0,0,0.2);
           display: flex;
           flex-direction: column;
@@ -1605,7 +1627,7 @@ export default function OnlineOrderingSystem() {
           border: 1px solid #E6DFD6;
           border-radius: 12px;
           padding: 12px;
-          font-size: 13px;
+          font-size: 16px;
           color: #1B1715;
           outline: none;
           resize: vertical;
@@ -1661,7 +1683,7 @@ export default function OnlineOrderingSystem() {
           font-size: 14px;
           font-weight: 900;
           cursor: pointer;
-          transition: background 0.15s;
+          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1669,6 +1691,9 @@ export default function OnlineOrderingSystem() {
         }
         .sc-btn-primary:hover {
           background: #820516;
+        }
+        .sc-btn-primary:active {
+          transform: scale(0.97);
         }
         .sc-btn-primary:disabled {
           opacity: 0.6;
@@ -1698,7 +1723,7 @@ export default function OnlineOrderingSystem() {
           border: 1px solid #E6DFD6;
           border-radius: 10px;
           padding: 11px 14px;
-          font-size: 14px;
+          font-size: 16px;
           color: #1B1715;
           outline: none;
         }
@@ -3018,7 +3043,7 @@ export default function OnlineOrderingSystem() {
                     <label>Observações do Pedido (Opcional)</label>
                     <textarea
                       className="sc-input"
-                      style={{ height: 68, resize: "none", paddingTop: 8, fontSize: 13 }}
+                      style={{ height: 68, resize: "none", paddingTop: 8, fontSize: 16 }}
                       placeholder="Ex: Não colocar cebola / Campainha não funciona / Chamar no portão..."
                       value={orderCustomerNotes}
                       onChange={(e) => setOrderCustomerNotes(e.target.value)}
